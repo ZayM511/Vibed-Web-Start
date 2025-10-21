@@ -97,7 +97,7 @@ export default function TodoDashboard() {
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:opacity-80 transition-opacity"
+                  className="px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md active:scale-95"
                 >
                   Add Task
                 </button>
@@ -107,7 +107,7 @@ export default function TodoDashboard() {
                     setNewTodoTitle("");
                     setNewTodoDescription("");
                   }}
-                  className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+                  className="px-3 py-1.5 text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground"
                 >
                   Cancel
                 </button>
@@ -120,51 +120,51 @@ export default function TodoDashboard() {
       <div className="flex gap-1 mb-6 border-b border-border">
         <button
           onClick={() => setActiveTab("all")}
-          className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+          className={`px-4 py-2 text-sm font-medium transition-all duration-200 ease-in-out relative ${
             activeTab === "all"
               ? "text-foreground"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground hover:text-foreground hover:scale-105"
           }`}
         >
           All
           {activeTab === "all" && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary animate-in fade-in slide-in-from-bottom-1 duration-200" />
           )}
         </button>
         <button
           onClick={() => setActiveTab("pending")}
-          className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+          className={`px-4 py-2 text-sm font-medium transition-all duration-200 ease-in-out relative ${
             activeTab === "pending"
               ? "text-foreground"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground hover:text-foreground hover:scale-105"
           }`}
         >
           Pending
           {pendingCount > 0 && (
-            <span className="ml-2 px-1.5 py-0.5 text-xs bg-secondary rounded">
+            <span className="ml-2 px-1.5 py-0.5 text-xs bg-secondary rounded transition-transform duration-200 hover:scale-110">
               {pendingCount}
             </span>
           )}
           {activeTab === "pending" && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary animate-in fade-in slide-in-from-bottom-1 duration-200" />
           )}
         </button>
         <button
           onClick={() => setActiveTab("completed")}
-          className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+          className={`px-4 py-2 text-sm font-medium transition-all duration-200 ease-in-out relative ${
             activeTab === "completed"
               ? "text-foreground"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground hover:text-foreground hover:scale-105"
           }`}
         >
           Completed
           {completedCount > 0 && (
-            <span className="ml-2 px-1.5 py-0.5 text-xs bg-secondary rounded">
+            <span className="ml-2 px-1.5 py-0.5 text-xs bg-secondary rounded transition-transform duration-200 hover:scale-110">
               {completedCount}
             </span>
           )}
           {activeTab === "completed" && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary animate-in fade-in slide-in-from-bottom-1 duration-200" />
           )}
         </button>
       </div>
@@ -184,7 +184,7 @@ export default function TodoDashboard() {
           filteredTodos.map((todo) => (
             <div
               key={todo._id}
-              className="group bg-card rounded-lg p-4 border border-border hover:border-muted-foreground transition-colors"
+              className="group bg-card rounded-lg p-4 border border-border transition-all duration-300 ease-in-out hover:border-muted-foreground hover:shadow-lg hover:shadow-card/50 hover:scale-[1.02]"
             >
               {editingId === todo._id ? (
                 <div className="space-y-2">
@@ -205,13 +205,13 @@ export default function TodoDashboard() {
                   <div className="flex gap-2">
                     <button
                       onClick={handleSaveEdit}
-                      className="px-3 py-1 bg-primary text-primary-foreground text-xs rounded hover:opacity-80"
+                      className="px-3 py-1 bg-primary text-primary-foreground text-xs rounded transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md active:scale-95"
                     >
                       Save
                     </button>
                     <button
                       onClick={handleCancelEdit}
-                      className="px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+                      className="px-3 py-1 text-xs text-muted-foreground transition-colors duration-200 hover:text-foreground"
                     >
                       Cancel
                     </button>
@@ -221,10 +221,10 @@ export default function TodoDashboard() {
                 <div className="flex items-start gap-3">
                   <button
                     onClick={() => toggleComplete({ id: todo._id })}
-                    className={`mt-1 w-5 h-5 rounded border-2 flex-shrink-0 transition-colors ${
+                    className={`mt-1 w-5 h-5 rounded border-2 flex-shrink-0 transition-all duration-200 ease-in-out ${
                       todo.status === "completed"
                         ? "bg-primary border-primary"
-                        : "border-border hover:border-muted-foreground"
+                        : "border-border hover:border-muted-foreground hover:scale-110"
                     }`}
                   >
                     {todo.status === "completed" && (
@@ -275,10 +275,10 @@ export default function TodoDashboard() {
                       )}
                     </div>
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-in-out">
                     <button
                       onClick={() => handleStartEdit(todo)}
-                      className="p-1.5 text-muted-foreground hover:text-foreground"
+                      className="p-1.5 text-muted-foreground transition-all duration-200 ease-in-out hover:text-foreground hover:bg-secondary rounded hover:scale-110"
                     >
                       <svg
                         className="w-4 h-4"
@@ -296,7 +296,7 @@ export default function TodoDashboard() {
                     </button>
                     <button
                       onClick={() => removeTodo({ id: todo._id })}
-                      className="p-1.5 text-muted-foreground hover:text-red-600"
+                      className="p-1.5 text-muted-foreground transition-all duration-200 ease-in-out hover:text-red-600 hover:bg-red-600/10 rounded hover:scale-110"
                     >
                       <svg
                         className="w-4 h-4"

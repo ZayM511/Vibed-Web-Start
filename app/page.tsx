@@ -43,12 +43,12 @@ function SignInForm() {
       <p className="text-muted-foreground mb-8">Sign in to start organizing your tasks</p>
       <div className="flex flex-col gap-3">
         <SignInButton mode="modal">
-          <button className="w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity">
+          <button className="w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-lg transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-primary/20 active:scale-95">
             Sign in
           </button>
         </SignInButton>
         <SignUpButton mode="modal">
-          <button className="w-full px-4 py-2.5 border border-border rounded-lg hover:bg-secondary transition-colors">
+          <button className="w-full px-4 py-2.5 border border-border rounded-lg transition-all duration-300 ease-in-out hover:bg-secondary hover:border-secondary-foreground/20 hover:scale-105 hover:shadow-lg hover:shadow-secondary/20 active:scale-95">
             Create account
           </button>
         </SignUpButton>
