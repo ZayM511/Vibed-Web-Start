@@ -1,6 +1,6 @@
 # MCP Servers Setup Guide
 
-This project has been configured with **9 powerful MCP (Model Context Protocol) servers** to enhance Claude Code's capabilities.
+This project has been configured with **12 powerful MCP (Model Context Protocol) servers** to enhance Claude Code's capabilities.
 
 ## Installed MCP Servers
 
@@ -65,6 +65,28 @@ This project has been configured with **9 powerful MCP (Model Context Protocol) 
   2. Create a Personal Access Token
   3. Add to `.env.local`: `FIGMA_TOKEN=your_token_here`
 
+### 10. **Perplexity MCP** 🔑
+- **Package**: `perplexity-mcp-server`
+- **Purpose**: AI-powered search and research using Perplexity API
+- **API Key Required**: Yes
+- **Setup**:
+  1. Go to https://www.perplexity.ai/settings/api
+  2. Create an API key
+  3. Add to `.env.local`: `PERPLEXITY_API_KEY=your_key_here`
+- **Perfect for**: Real-time web search with AI-powered answers, deep research capabilities
+
+### 11. **Time MCP** ✅
+- **Package**: `@theo.foobar/mcp-time`
+- **Purpose**: Time and date operations with natural language parsing and timezone conversion
+- **No API key required**
+- **Perfect for**: Getting current time, timezone conversions, date calculations, natural language time parsing
+
+### 12. **VS Code MCP** ✅
+- **Package**: `vscode-mcp-server`
+- **Purpose**: VS Code workspace integration and editing features
+- **No API key required**
+- **Perfect for**: Interacting with VS Code workspace, accessing editor features programmatically
+
 ## Setup Instructions
 
 ### Step 1: Configure API Keys
@@ -79,6 +101,7 @@ Then edit `.env.local` and add your API keys for:
 - `GITHUB_TOKEN` (for GitHub MCP)
 - `BRAVE_API_KEY` (for Brave Search MCP)
 - `FIGMA_TOKEN` (for Figma MCP)
+- `PERPLEXITY_API_KEY` (for Perplexity MCP)
 
 ### Step 2: Restart Claude Code
 
@@ -141,6 +164,28 @@ Or use the `/mcp` command to manage servers interactively.
 "Show me the color palette from the design system"
 ```
 
+### Using Perplexity MCP
+```
+"Use Perplexity to research the latest trends in AI-powered job search tools"
+"Search Perplexity for best practices in React 19 performance optimization"
+"What are the current job market statistics for software developers?"
+```
+
+### Using Time MCP
+```
+"What time is it in New York right now?"
+"Convert 3pm PST to EST"
+"What's the date next Monday?"
+"Add 5 days to today's date"
+```
+
+### Using VS Code MCP
+```
+"Open the tasks page in VS Code"
+"Show me the current workspace files"
+"Access VS Code editor settings"
+```
+
 ## Troubleshooting
 
 ### MCP Server Not Loading
@@ -174,10 +219,13 @@ These MCP servers provide powerful capabilities for building VIBED:
 - **Filesystem**: Quickly navigate and modify project files
 - **GitHub**: Manage issues, PRs, and repository operations
 - **Brave Search**: Research job market trends and competitor features
+- **Perplexity**: AI-powered research on job market insights and industry best practices
 - **Puppeteer/Playwright**: Scrape job boards for market research
 - **shadcn**: Quickly implement UI components
 - **Context7**: Get up-to-date documentation for libraries
 - **Figma**: Import designs directly from Figma files
+- **Time**: Handle timezone-aware scheduling features for job applications
+- **VS Code**: Seamless editor integration for development workflow
 - **Postgres**: Manage database schema and queries (when implemented)
 
 ## Configuration File

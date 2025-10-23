@@ -82,6 +82,33 @@
         "FIGMA_PERSONAL_ACCESS_TOKEN": "${FIGMA_TOKEN}"
       },
       "description": "Figma design file access and integration"
+    },
+    "perplexity": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "perplexity-mcp-server"
+      ],
+      "env": {
+        "PERPLEXITY_API_KEY": "${PERPLEXITY_API_KEY}"
+      },
+      "description": "AI-powered search and research using Perplexity API"
+    },
+    "time": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@theo.foobar/mcp-time"
+      ],
+      "description": "Time and date operations with natural language parsing and timezone conversion"
+    },
+    "vscode": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "vscode-mcp-server"
+      ],
+      "description": "VS Code workspace integration and editing features"
     }
   }
 }
