@@ -5,40 +5,40 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Dark mode - black and dark grey tones */
-  --background: #000000;
+  /* Blue-indigo theme with deep gradient background */
+  --background: #0f0f23;
   --foreground: #ffffff;
-  --card: #1a1a1a;
+  --card: #1a1a3a;
   --card-foreground: #fafafa;
-  --popover: #1a1a1a;
+  --popover: #1a1a3a;
   --popover-foreground: #fafafa;
   --primary: #fafafa;
-  --primary-foreground: #1a1a1a;
-  --secondary: #2a2a2a;
+  --primary-foreground: #1a1a3a;
+  --secondary: #252545;
   --secondary-foreground: #fafafa;
-  --muted: #2a2a2a;
-  --muted-foreground: #b3b3b3;
-  --accent: #3a3a3a;
+  --muted: #252545;
+  --muted-foreground: #b3b3c3;
+  --accent: #3a3a5a;
   --accent-foreground: #fafafa;
   --destructive: #dc2626;
   --destructive-foreground: #fafafa;
-  --border: #3a3a3a;
-  --input: #3a3a3a;
-  --ring: #d4d4d8;
+  --border: #3a3a5a;
+  --input: #3a3a5a;
+  --ring: #818cf8;
   --radius: 0.625rem;
   --chart-1: #8b5cf6;
   --chart-2: #06b6d4;
   --chart-3: #10b981;
   --chart-4: #f59e0b;
   --chart-5: #ef4444;
-  --sidebar: #1a1a1a;
+  --sidebar: #1a1a3a;
   --sidebar-foreground: #fafafa;
   --sidebar-primary: #8b5cf6;
   --sidebar-primary-foreground: #fafafa;
-  --sidebar-accent: #2a2a2a;
+  --sidebar-accent: #252545;
   --sidebar-accent-foreground: #fafafa;
-  --sidebar-border: #3a3a3a;
-  --sidebar-ring: #d4d4d8;
+  --sidebar-border: #3a3a5a;
+  --sidebar-ring: #818cf8;
 }
 
 @theme inline {
@@ -96,6 +96,93 @@
 
 body {
   font-family: 'Mona Sans', system-ui, -apple-system, sans-serif;
+}
+
+/* Gradient animation for scanner button */
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Typing cursor blink animation */
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}
+
+/* Scan line animation for background */
+@keyframes scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+/* Pulse animation for scan dots */
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Subtle pulse animation for indicators */
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.02);
+  }
+}
+
+/* Gentle bounce animation for icons */
+@keyframes bounce-gentle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* Smooth flashing animation for high severity alerts */
+@keyframes flash {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+  }
+  50% {
+    opacity: 0.9;
+    box-shadow: 0 0 20px 5px rgba(220, 38, 38, 0.4);
+  }
+}
+
+@theme {
+  --animate-gradient: gradient 3s ease infinite;
+  --animate-blink: blink 1s step-end infinite;
+  --animate-scan: scan 8s linear infinite;
+  --animate-pulse-slow: pulse-slow 4s ease-in-out infinite;
+  --animate-pulse-subtle: pulse-subtle 2s ease-in-out infinite;
+  --animate-bounce-gentle: bounce-gentle 2s ease-in-out infinite;
+  --animate-flash: flash 2s ease-in-out infinite;
 }
 
 

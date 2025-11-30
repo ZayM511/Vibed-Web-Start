@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Select-Object Id, ProcessName, StartTime)",
+      "Bash(taskkill:*)",
+      "Bash(npm run dev:*)",
+      "Bash(nul)",
+      "Skill(extension-developer)",
+      "Bash(cmd /c build-extension.bat)",
+      "Bash(powershell:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(copy chrome-extensiondistjobfiltr-extension.zip publicjobfiltr-chrome-extension.zip)",
+      "Bash(node download-icons.js:*)",
+      "Bash(dir:*)",
+      "Bash(npm run dev:frontend:*)",
+      "Bash(claude mcp list:*)",
+      "Bash(claude mcp add context7 -- npx -y @upstash/context7-mcp@latest)",
+      "Bash(claude mcp add:*)",
+      "Bash(claude mcp add-json:*)",
+      "Bash(claude mcp get:*)",
+      "Bash(claude mcp remove:*)",
+      "Bash(start https://mcp.vercel.com)",
+      "Bash(start https://mcp.figma.com)",
+      "Bash(start https://mcp.expo.dev)",
+      "Bash(npx:*)",
+      "Bash(gh auth:*)",
+      "Bash(git add:*)",
+      "Bash(del /f nul)"
+    ],
+    "deny": [],
+    "ask": [],
+    "defaultMode": "bypassPermissions"
+  }
+}

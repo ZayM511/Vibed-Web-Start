@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JobFiltr - Scam & Ghost Job Detector</title>
+  <link rel="stylesheet" href="styles/popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo-section">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+            <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h1 class="logo-text">JobFiltr</h1>
+      </div>
+      <div class="status-badge" id="statusBadge">
+        <span class="status-dot"></span>
+        <span>Ready</span>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Scan Section -->
+      <div class="scan-section" id="scanSection">
+        <div class="scan-header">
+          <h2>Scan This Job Posting</h2>
+          <p>AI-powered analysis to detect scams and ghost jobs</p>
+        </div>
+
+        <div class="scan-mode-selector">
+          <button class="mode-button active" data-mode="quick" id="quickModeBtn">
+            <div class="mode-icon quick-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" fill="currentColor"/>
+              </svg>
+            </div>
+            <div class="mode-info">
+              <div class="mode-title">Quick Scan</div>
+              <div class="mode-desc">Fast analysis</div>
+            </div>
+          </button>
+
+          <button class="mode-button" data-mode="deep" id="deepModeBtn">
+            <div class="mode-icon deep-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="3" fill="currentColor"/>
+                <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2" fill="none"/>
+              </svg>
+            </div>
+            <div class="mode-info">
+              <div class="mode-title">Deep Analysis</div>
+              <div class="mode-desc">Comprehensive report</div>
+            </div>
+          </button>
+        </div>
+
+        <button class="scan-button" id="scanButton">
+          <svg class="scan-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" fill="currentColor"/>
+          </svg>
+          <span id="scanButtonText">Scan Job Posting</span>
+          <svg class="scan-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" fill="currentColor"/>
+          </svg>
+        </button>
+
+        <p class="scan-help-text">
+          Navigate to a job posting on LinkedIn, Indeed, Glassdoor, or other supported job boards
+        </p>
+      </div>
+
+      <!-- Loading Section -->
+      <div class="loading-section hidden" id="loadingSection">
+        <div class="loader-wrapper">
+          <div class="loader"></div>
+        </div>
+        <h3>Analyzing Job Posting...</h3>
+        <p>Our AI is detecting scams and ghost jobs</p>
+        <div class="loading-progress">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+      </div>
+
+      <!-- Results Section -->
+      <div class="results-section hidden" id="resultsSection">
+        <div class="result-header">
+          <div class="result-status-icon" id="resultIcon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+              <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="result-info">
+            <h3 id="resultTitle">Job Analysis Complete</h3>
+            <p id="resultCompany">Company Name</p>
+          </div>
+          <div class="result-badge" id="resultBadge">Legitimate</div>
+        </div>
+
+        <div class="confidence-score">
+          <div class="score-header">
+            <span>Legitimacy Score</span>
+            <span class="score-value" id="scoreValue">85/100</span>
+          </div>
+          <div class="score-bar">
+            <div class="score-fill" id="scoreFill"></div>
+          </div>
+        </div>
+
+        <div class="flags-section" id="flagsSection">
+          <h4>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" fill="currentColor"/>
+              <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" fill="none"/>
+            </svg>
+            Red Flags Detected
+          </h4>
+          <div class="flags-list" id="flagsList">
+            <!-- Flags will be inserted here -->
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button class="btn btn-secondary" id="viewFullReport">
+            View Full Report
+          </button>
+          <button class="btn btn-primary" id="newScan">
+            New Scan
+          </button>
+        </div>
+      </div>
+
+      <!-- History Section -->
+      <div class="history-section" id="historySection">
+        <div class="history-header">
+          <h3>Recent Scans</h3>
+          <button class="btn-text" id="clearHistory">Clear</button>
+        </div>
+        <div class="history-list" id="historyList">
+          <div class="empty-state">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+            </svg>
+            <p>No recent scans</p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <button class="footer-link" id="openSettings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="3" fill="currentColor"/>
+          <path d="M12 1v6m0 6v6M23 12h-6m-6 0H1" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        Settings
+      </button>
+      <button class="footer-link" id="openWebApp">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Open Web App
+      </button>
+    </footer>
+  </div>
+
+  <script src="src/popup.js"></script>
+</body>
+</html>

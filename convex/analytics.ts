@@ -1,0 +1,299 @@
+import { v } from "convex/values";
+import { query } from "./_generated/server";
+
+// Get training data statistics
+export const getTrainingDataStats = query({
+  args: {},
+  handler: async (ctx) => {
+    const allData = await ctx.db.query("trainingData").collect();
+
+    const labeled = allData.filter((d) => d.isLabeled);
+    const unlabeled = allData.filter((d) => !d.isLabeled);
+
+    const scamCount = labeled.filter((d) => d.trueScam).length;
+    const ghostCount = labeled.filter((d) => d.trueGhostJob).length;
+    const spamCount = labeled.filter((d) => d.trueSpam).length;
+
+    // Calculate accuracy metrics
+    const scamAccuracy = labeled.filter((d) => d.predictedScam === d.trueScam).length / (labeled.length || 1);
+    const ghostAccuracy = labeled.filter((d) => d.predictedGhost === d.trueGhostJob).length / (labeled.length || 1);
+
+    return {
+      total: allData.length,
+      labeled: labeled.length,
+      unlabeled: unlabeled.length,
+      scamCount,
+      ghostCount,
+      spamCount,
+      scamAccuracy: Math.round(scamAccuracy * 100),
+      ghostAccuracy: Math.round(ghostAccuracy * 100),
+      labeledPercentage: Math.round((labeled.length / (allData.length || 1)) * 100),
+    };
+  },
+});
+
+// Get scan statistics
+export const getScanStats = query({
+  args: {},
+  handler: async (ctx) => {
+    const manualScans = await ctx.db.query("scans").collect();
+    const urlScans = await ctx.db.query("jobScans").collect();
+
+    const totalScans = manualScans.length + urlScans.length;
+
+    // Count by type
+    const scamDetected = [
+      ...manualScans.filter((s) => s.report.isScam),
+      ...urlScans.filter((s) => s.report?.isScam),
+    ].length;
+
+    const ghostDetected = [
+      ...manualScans.filter((s) => s.report.isGhostJob),
+      ...urlScans.filter((s) => s.report?.isGhostJob),
+    ].length;
+
+    const spamDetected = [
+      ...manualScans.filter((s) => s.report.isSpam),
+      ...urlScans.filter((s) => s.report?.isSpam),
+    ].length;
+
+    // Get scans by source
+    const manualScanCount = manualScans.length;
+    const urlScanCount = urlScans.length;
+    const chromeExtensionCount = manualScans.filter((s) =>
+      s.context?.includes("Chrome Extension")
+    ).length;
+
+    return {
+      total: totalScans,
+      manualScans: manualScanCount,
+      urlScans: urlScanCount,
+      chromeExtensionScans: chromeExtensionCount,
+      scamDetected,
+      ghostDetected,
+      spamDetected,
+      legitimateCount: totalScans - scamDetected - ghostDetected - spamDetected,
+    };
+  },
+});
+
+// Get user activity statistics
+export const getUserActivityStats = query({
+  args: {},
+  handler: async (ctx) => {
+    // Get all scans
+    const manualScans = await ctx.db.query("scans").collect();
+    const urlScans = await ctx.db.query("jobScans").collect();
+
+    // Get unique users
+    const uniqueUsers = new Set([
+      ...manualScans.map((s) => s.userId),
+      ...urlScans.map((s) => s.userId),
+    ]);
+
+    // Get subscriptions
+    const subscriptions = await ctx.db.query("subscriptions").collect();
+    const activeSubscriptions = subscriptions.filter(
+      (s) => s.status === "active"
+    ).length;
+
+    return {
+      totalUsers: uniqueUsers.size,
+      activeSubscribers: activeSubscriptions,
+      freeUsers: uniqueUsers.size - activeSubscriptions,
+    };
+  },
+});
+
+// Get daily visitor count (scans in last 24 hours)
+export const getDailyVisitors = query({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+
+    const manualScans = await ctx.db.query("scans").collect();
+    const urlScans = await ctx.db.query("jobScans").collect();
+
+    // Filter for last 24 hours
+    const recentManualScans = manualScans.filter(
+      (s) => s.timestamp && s.timestamp > twentyFourHoursAgo
+    );
+    const recentUrlScans = urlScans.filter(
+      (s) => s.timestamp && s.timestamp > twentyFourHoursAgo
+    );
+
+    // Get unique users who visited today
+    const todayUsers = new Set([
+      ...recentManualScans.map((s) => s.userId),
+      ...recentUrlScans.map((s) => s.userId),
+    ]);
+
+    return {
+      count: todayUsers.size,
+      scansToday: recentManualScans.length + recentUrlScans.length,
+    };
+  },
+});
+
+// Get visitor data for the last 7 days (for chart)
+export const getVisitorHistory = query({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+
+    const manualScans = await ctx.db.query("scans").collect();
+    const urlScans = await ctx.db.query("jobScans").collect();
+
+    // Create buckets for each day
+    const dayBuckets: Record<string, Set<string>> = {};
+
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(now - i * 24 * 60 * 60 * 1000);
+      const dateKey = date.toISOString().split("T")[0];
+      dayBuckets[dateKey] = new Set();
+    }
+
+    // Fill buckets with users
+    [...manualScans, ...urlScans].forEach((scan) => {
+      const scanTime = (scan as any).timestamp || (scan as any).scannedAt;
+      if (!scanTime || scanTime < sevenDaysAgo) return;
+
+      const date = new Date(scanTime);
+      const dateKey = date.toISOString().split("T")[0];
+
+      if (dayBuckets[dateKey]) {
+        dayBuckets[dateKey].add((scan as any).userId);
+      }
+    });
+
+    // Convert to array format for chart
+    const data = Object.entries(dayBuckets)
+      .map(([date, users]) => ({
+        date,
+        visitors: users.size,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    return data;
+  },
+});
+
+// Get model performance metrics
+export const getModelPerformance = query({
+  args: {},
+  handler: async (ctx) => {
+    const labeled = await ctx.db
+      .query("trainingData")
+      .filter((q) => q.eq(q.field("isLabeled"), true))
+      .collect();
+
+    if (labeled.length === 0) {
+      return {
+        scamPrecision: 0,
+        scamRecall: 0,
+        ghostPrecision: 0,
+        ghostRecall: 0,
+        spamPrecision: 0,
+        spamRecall: 0,
+        overallAccuracy: 0,
+      };
+    }
+
+    // Calculate confusion matrix for scams
+    const scamTP = labeled.filter((d) => d.predictedScam && d.trueScam).length;
+    const scamFP = labeled.filter((d) => d.predictedScam && !d.trueScam).length;
+    const scamFN = labeled.filter((d) => !d.predictedScam && d.trueScam).length;
+
+    const scamPrecision = scamTP / (scamTP + scamFP || 1);
+    const scamRecall = scamTP / (scamTP + scamFN || 1);
+
+    // Calculate confusion matrix for ghost jobs
+    const ghostTP = labeled.filter((d) => d.predictedGhost && d.trueGhostJob).length;
+    const ghostFP = labeled.filter((d) => d.predictedGhost && !d.trueGhostJob).length;
+    const ghostFN = labeled.filter((d) => !d.predictedGhost && d.trueGhostJob).length;
+
+    const ghostPrecision = ghostTP / (ghostTP + ghostFP || 1);
+    const ghostRecall = ghostTP / (ghostTP + ghostFN || 1);
+
+    // Calculate confusion matrix for spam
+    const spamTP = labeled.filter((d) => d.predictedSpam && d.trueSpam).length;
+    const spamFP = labeled.filter((d) => d.predictedSpam && !d.trueSpam).length;
+    const spamFN = labeled.filter((d) => !d.predictedSpam && d.trueSpam).length;
+
+    const spamPrecision = spamTP / (spamTP + spamFP || 1);
+    const spamRecall = spamTP / (spamTP + spamFN || 1);
+
+    // Overall accuracy
+    const correct = labeled.filter(
+      (d) =>
+        d.predictedScam === d.trueScam &&
+        d.predictedGhost === d.trueGhostJob &&
+        (d.predictedSpam === d.trueSpam || d.trueSpam === undefined)
+    ).length;
+
+    const overallAccuracy = correct / labeled.length;
+
+    return {
+      scamPrecision: Math.round(scamPrecision * 100),
+      scamRecall: Math.round(scamRecall * 100),
+      ghostPrecision: Math.round(ghostPrecision * 100),
+      ghostRecall: Math.round(ghostRecall * 100),
+      spamPrecision: Math.round(spamPrecision * 100),
+      spamRecall: Math.round(spamRecall * 100),
+      overallAccuracy: Math.round(overallAccuracy * 100),
+      totalLabeled: labeled.length,
+    };
+  },
+});
+
+// Get active user locations for the globe visualization
+export const getActiveUserLocations = query({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+
+    // Get recent scans
+    const manualScans = await ctx.db.query("scans").collect();
+    const urlScans = await ctx.db.query("jobScans").collect();
+
+    // Filter for recent activity
+    const recentScans = [...manualScans, ...urlScans].filter((scan: any) => {
+      const scanTime = scan.timestamp || scan.scannedAt;
+      return scanTime && scanTime > oneDayAgo;
+    });
+
+    // Mock location data (in production, this would come from user profiles)
+    // Group by user and assign a location
+    const locationCounts: Record<string, { lat: number; lng: number; city: string; country: string; count: number }> = {};
+
+    // Sample locations for demonstration
+    const sampleLocations = [
+      { lat: 40.7128, lng: -74.0060, city: "New York", country: "USA" },
+      { lat: 51.5074, lng: -0.1278, city: "London", country: "UK" },
+      { lat: 35.6762, lng: 139.6503, city: "Tokyo", country: "Japan" },
+      { lat: 48.8566, lng: 2.3522, city: "Paris", country: "France" },
+      { lat: -33.8688, lng: 151.2093, city: "Sydney", country: "Australia" },
+      { lat: 37.7749, lng: -122.4194, city: "San Francisco", country: "USA" },
+      { lat: 55.7558, lng: 37.6173, city: "Moscow", country: "Russia" },
+      { lat: 1.3521, lng: 103.8198, city: "Singapore", country: "Singapore" },
+      { lat: 52.5200, lng: 13.4050, city: "Berlin", country: "Germany" },
+      { lat: 19.4326, lng: -99.1332, city: "Mexico City", country: "Mexico" },
+    ];
+
+    // Assign random locations to users (in production, use actual user location data)
+    recentScans.forEach((scan: any) => {
+      const location = sampleLocations[Math.floor(Math.random() * sampleLocations.length)];
+      const key = `${location.city}-${location.country}`;
+
+      if (!locationCounts[key]) {
+        locationCounts[key] = { ...location, count: 0 };
+      }
+      locationCounts[key].count++;
+    });
+
+    return Object.values(locationCounts);
+  },
+});

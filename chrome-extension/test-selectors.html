@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JobFiltr Selector Tester</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #001f54;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .instructions {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 30px;
+            border-left: 4px solid #0073b1;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        .test-section h2 {
+            color: #0073b1;
+            margin-top: 0;
+        }
+        button {
+            background: #0073b1;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #005885;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            color: #10b981;
+            font-weight: bold;
+        }
+        .error {
+            color: #ef4444;
+            font-weight: bold;
+        }
+        .info {
+            color: #6b46c1;
+            font-weight: bold;
+        }
+        code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 JobFiltr Selector Tester</h1>
+        <p class="subtitle">Test and identify working CSS selectors for LinkedIn and Indeed job postings</p>
+
+        <div class="instructions">
+            <strong>📋 Instructions:</strong>
+            <ol>
+                <li>Open this file in Chrome browser</li>
+                <li>Navigate to a LinkedIn or Indeed job posting page in another tab</li>
+                <li>Open DevTools (F12) on the job posting page</li>
+                <li>Copy and paste the code from the buttons below into the Console</li>
+                <li>The results will show which selectors work</li>
+            </ol>
+        </div>
+
+        <!-- LinkedIn Tests -->
+        <div class="test-section">
+            <h2>🔷 LinkedIn Job Title Selectors</h2>
+            <p>Run this in the Console on a LinkedIn job posting page:</p>
+            <button onclick="copyToClipboard('linkedin-title')">📋 Copy LinkedIn Title Test</button>
+            <div class="results" id="linkedin-title">
+// LinkedIn Job Title Selector Test
+const linkedInTitleSelectors = [
+    'h1.job-details-jobs-unified-top-card__job-title',
+    'h1.jobs-unified-top-card__job-title',
+    '.job-details-jobs-unified-top-card__job-title',
+    '.jobs-unified-top-card__job-title',
+    'h1.t-24.t-bold',
+    '.t-24.t-bold.job-details-jobs-unified-top-card__job-title',
+    '[data-job-title]',
+    'h2.t-24.t-bold',
+    '.jobs-unified-top-card__job-title-link',
+    'h1[class*="job-title"]',
+    'h2[class*="job-title"]'
+];
+
+console.log('🔍 Testing LinkedIn Job Title Selectors...\n');
+let found = false;
+
+linkedInTitleSelectors.forEach((selector, index) => {
+    const elem = document.querySelector(selector);
+    if (elem) {
+        const text = elem.textContent.trim();
+        console.log(`✅ SELECTOR ${index + 1} WORKS: "${selector}"`);
+        console.log(`   Title: "${text}"`);
+        console.log(`   Element:`, elem);
+        console.log('');
+        found = true;
+    } else {
+        console.log(`❌ Selector ${index + 1} failed: "${selector}"`);
+    }
+});
+
+if (!found) {
+    console.log('\n⚠️ No selectors found the title!');
+    console.log('🔎 Searching for any H1/H2 elements...\n');
+    document.querySelectorAll('h1, h2').forEach((h, i) => {
+        console.log(`H${h.tagName[1]} #${i + 1}:`, h.textContent.trim().substring(0, 100));
+        console.log('Classes:', h.className);
+        console.log('');
+    });
+}
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔷 LinkedIn Company Name Selectors</h2>
+            <p>Run this in the Console on a LinkedIn job posting page:</p>
+            <button onclick="copyToClipboard('linkedin-company')">📋 Copy LinkedIn Company Test</button>
+            <div class="results" id="linkedin-company">
+// LinkedIn Company Name Selector Test
+const linkedInCompanySelectors = [
+    'a.job-details-jobs-unified-top-card__company-name',
+    'a.jobs-unified-top-card__company-name',
+    '.job-details-jobs-unified-top-card__company-name',
+    '.jobs-unified-top-card__company-name',
+    '.jobs-unified-top-card__subtitle-primary-grouping a',
+    '[data-company-name]',
+    'a.app-aware-link[href*="/company/"]',
+    'a[class*="company-name"]'
+];
+
+console.log('🔍 Testing LinkedIn Company Name Selectors...\n');
+
+linkedInCompanySelectors.forEach((selector, index) => {
+    const elem = document.querySelector(selector);
+    if (elem) {
+        const text = elem.textContent.trim();
+        console.log(`✅ SELECTOR ${index + 1} WORKS: "${selector}"`);
+        console.log(`   Company: "${text}"`);
+        console.log(`   Element:`, elem);
+        console.log('');
+    } else {
+        console.log(`❌ Selector ${index + 1} failed: "${selector}"`);
+    }
+});
+            </div>
+        </div>
+
+        <!-- Indeed Tests -->
+        <div class="test-section">
+            <h2>🔶 Indeed Job Title Selectors</h2>
+            <p>Run this in the Console on an Indeed job posting page:</p>
+            <button onclick="copyToClipboard('indeed-title')">📋 Copy Indeed Title Test</button>
+            <div class="results" id="indeed-title">
+// Indeed Job Title Selector Test
+const indeedTitleSelectors = [
+    'h2.jobTitle > span',
+    'h2.jobTitle span',
+    'h1.jobsearch-JobInfoHeader-title',
+    'h1.jobTitle',
+    '[data-testid="jobsearch-JobInfoHeader-title"]',
+    'h1[class*="jobTitle"]',
+    'h2[class*="jobTitle"]',
+    '.jobsearch-JobInfoHeader-title-container h1',
+    'h2.jobTitle',
+    '.jobsearch-JobInfoHeader-title'
+];
+
+console.log('🔍 Testing Indeed Job Title Selectors...\n');
+let found = false;
+
+indeedTitleSelectors.forEach((selector, index) => {
+    const elem = document.querySelector(selector);
+    if (elem) {
+        const text = elem.textContent.trim();
+        console.log(`✅ SELECTOR ${index + 1} WORKS: "${selector}"`);
+        console.log(`   Title: "${text}"`);
+        console.log(`   Element:`, elem);
+        console.log('');
+        found = true;
+    } else {
+        console.log(`❌ Selector ${index + 1} failed: "${selector}"`);
+    }
+});
+
+if (!found) {
+    console.log('\n⚠️ No selectors found the title!');
+    console.log('🔎 Searching for any H1/H2 elements...\n');
+    document.querySelectorAll('h1, h2').forEach((h, i) => {
+        console.log(`H${h.tagName[1]} #${i + 1}:`, h.textContent.trim().substring(0, 100));
+        console.log('Classes:', h.className);
+        console.log('');
+    });
+}
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔶 Indeed Company Name Selectors</h2>
+            <p>Run this in the Console on an Indeed job posting page:</p>
+            <button onclick="copyToClipboard('indeed-company')">📋 Copy Indeed Company Test</button>
+            <div class="results" id="indeed-company">
+// Indeed Company Name Selector Test
+const indeedCompanySelectors = [
+    '[data-testid="inlineHeader-companyName"]',
+    '[data-company-name="true"]',
+    '.jobsearch-InlineCompanyRating-companyHeader a',
+    '.jobsearch-CompanyInfoContainer a',
+    '[data-testid="company-name"]',
+    'div[data-testid="inlineHeader-companyName"] a',
+    '.css-1cjgvjm',
+    'span[data-testid="company-name"]',
+    'a[data-testid="company-name"]'
+];
+
+console.log('🔍 Testing Indeed Company Name Selectors...\n');
+
+indeedCompanySelectors.forEach((selector, index) => {
+    const elem = document.querySelector(selector);
+    if (elem) {
+        const text = elem.textContent.trim();
+        console.log(`✅ SELECTOR ${index + 1} WORKS: "${selector}"`);
+        console.log(`   Company: "${text}"`);
+        console.log(`   Element:`, elem);
+        console.log('');
+    } else {
+        console.log(`❌ Selector ${index + 1} failed: "${selector}"`);
+    }
+});
+            </div>
+        </div>
+
+        <!-- Full Extraction Test -->
+        <div class="test-section">
+            <h2>🎯 Full Job Info Extraction Test</h2>
+            <p>Run this to test the complete extraction logic:</p>
+            <button onclick="copyToClipboard('full-test')">📋 Copy Full Test</button>
+            <div class="results" id="full-test">
+// Full Job Info Extraction Test
+function testJobExtraction() {
+    const url = window.location.href;
+    console.log('🔍 Testing Full Job Extraction');
+    console.log('URL:', url);
+    console.log('');
+
+    // Detect platform
+    let platform = 'unknown';
+    if (url.includes('linkedin.com')) {
+        platform = 'linkedin';
+    } else if (url.includes('indeed.com')) {
+        platform = 'indeed';
+    }
+
+    console.log('Platform:', platform);
+    console.log('');
+
+    // Test title extraction
+    console.log('📋 Testing Title Extraction:');
+    const titleSelectors = platform === 'linkedin' ? [
+        'h1.job-details-jobs-unified-top-card__job-title',
+        'h1.jobs-unified-top-card__job-title',
+        '.job-details-jobs-unified-top-card__job-title',
+        '.jobs-unified-top-card__job-title',
+        'h1.t-24.t-bold'
+    ] : [
+        'h2.jobTitle > span',
+        'h1.jobsearch-JobInfoHeader-title',
+        'h1.jobTitle',
+        '[data-testid="jobsearch-JobInfoHeader-title"]'
+    ];
+
+    let title = null;
+    for (const selector of titleSelectors) {
+        const elem = document.querySelector(selector);
+        if (elem) {
+            title = elem.textContent.trim();
+            console.log(`✅ Found title with: "${selector}"`);
+            console.log(`   Title: "${title}"`);
+            break;
+        }
+    }
+
+    if (!title) {
+        console.log('❌ Title not found with any selector');
+    }
+
+    console.log('');
+
+    // Test company extraction
+    console.log('🏢 Testing Company Extraction:');
+    const companySelectors = platform === 'linkedin' ? [
+        'a.job-details-jobs-unified-top-card__company-name',
+        '.job-details-jobs-unified-top-card__company-name'
+    ] : [
+        '[data-testid="inlineHeader-companyName"]',
+        '[data-testid="company-name"]'
+    ];
+
+    let company = null;
+    for (const selector of companySelectors) {
+        const elem = document.querySelector(selector);
+        if (elem) {
+            company = elem.textContent.trim();
+            console.log(`✅ Found company with: "${selector}"`);
+            console.log(`   Company: "${company}"`);
+            break;
+        }
+    }
+
+    if (!company) {
+        console.log('❌ Company not found with any selector');
+    }
+
+    console.log('');
+    console.log('📊 Summary:');
+    console.log('Title:', title || '❌ NOT FOUND');
+    console.log('Company:', company || '❌ NOT FOUND');
+    console.log('URL:', url);
+
+    return { title, company, url, platform };
+}
+
+testJobExtraction();
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent.trim();
+
+            navigator.clipboard.writeText(text).then(() => {
+                const button = event.target;
+                const originalText = button.textContent;
+                button.textContent = '✅ Copied!';
+                button.style.background = '#10b981';
+
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = '#0073b1';
+                }, 2000);
+            }).catch(err => {
+                alert('Failed to copy: ' + err);
+            });
+        }
+    </script>
+</body>
+</html>

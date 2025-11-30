@@ -6,6 +6,7 @@ import {
   IconInnerShadowTop,
   IconListDetails,
   IconSettings,
+  IconSearch,
 } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -24,8 +25,13 @@ import {
 const data = {
   navMain: [
     {
+      title: "JobFiltr",
+      url: "/filtr",
+      icon: IconSearch,
+    },
+    {
       title: "Tasks",
-      url: "/tasks",
+      url: "/dashboard",
       icon: IconListDetails,
     },
   ],
@@ -53,7 +59,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <a href="/tasks">
+              <a href="/dashboard">
                 <IconInnerShadowTop className="!size-5" />
                 <span className="text-base font-semibold">VIBED</span>
               </a>

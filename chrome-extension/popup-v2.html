@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JobFiltr - Job Search Power Tool</title>
+  <link rel="stylesheet" href="styles/popup-v2.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo-section">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+            <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h1 class="logo-text">JobFiltr</h1>
+      </div>
+      <div class="status-badge" id="statusBadge">
+        <span class="status-dot"></span>
+        <span id="statusText">Ready</span>
+      </div>
+    </header>
+
+    <!-- Tab Navigation -->
+    <nav class="tab-nav">
+      <button class="tab-button active" data-tab="filters">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Filters
+      </button>
+      <button class="tab-button" data-tab="scanner">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+          <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Scanner
+      </button>
+    </nav>
+
+    <!-- Filters Tab Content -->
+    <div class="tab-content active" id="filtersTab">
+      <div class="site-detector" id="siteDetector">
+        <div class="site-status">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          <span id="currentSite">Not on a supported job site</span>
+        </div>
+        <p class="site-help">Visit LinkedIn, Indeed, or Google Jobs to enable filters</p>
+      </div>
+
+      <div class="filters-container" id="filtersContainer">
+        <!-- Filter: Staffing Firms -->
+        <div class="filter-item">
+          <div class="filter-header">
+            <label class="filter-label">
+              <input type="checkbox" id="filterStaffing" class="filter-checkbox">
+              <span class="filter-title">Hide Staffing Firms</span>
+            </label>
+            <span class="filter-badge">Recommended</span>
+          </div>
+          <p class="filter-description">Show direct company hires only</p>
+        </div>
+
+        <!-- Filter: Sponsored Posts -->
+        <div class="filter-item">
+          <div class="filter-header">
+            <label class="filter-label">
+              <input type="checkbox" id="filterSponsored" class="filter-checkbox">
+              <span class="filter-title">Hide Sponsored/Promoted</span>
+            </label>
+          </div>
+          <p class="filter-description">Remove paid job listings</p>
+        </div>
+
+        <!-- Filter: Application Competition -->
+        <div class="filter-item expandable">
+          <div class="filter-header">
+            <label class="filter-label">
+              <input type="checkbox" id="filterApplicants" class="filter-checkbox">
+              <span class="filter-title">Application Competition</span>
+            </label>
+          </div>
+          <p class="filter-description">Filter by exact applicant count</p>
+          <div class="filter-options">
+            <select id="applicantRange" class="filter-select">
+              <option value="under10">Under 10 applicants (best odds)</option>
+              <option value="10-50">10-50 applicants (good odds)</option>
+              <option value="50-200">50-200 applicants (moderate)</option>
+              <option value="over200">Over 200 (competitive)</option>
+              <option value="over500">Over 500 (skip it)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Filter: Entry Level Accuracy -->
+        <div class="filter-item">
+          <div class="filter-header">
+            <label class="filter-label">
+              <input type="checkbox" id="filterEntryLevel" class="filter-checkbox">
+              <span class="filter-title">Entry Level Accuracy</span>
+            </label>
+            <span class="filter-badge badge-hot">Top Complaint</span>
+          </div>
+          <p class="filter-description">True entry level (0-1 years only), flags mismatches</p>
+        </div>
+
+        <!-- Filter: Salary Range -->
+        <div class="filter-item expandable">
+          <div class="filter-header">
+            <label class="filter-label">
+              <input type="checkbox" id="filterSalary" class="filter-checkbox">
+              <span class="filter-title">Salary Range Filter</span>
+            </label>
+          </div>
+          <p class="filter-description">Filter by actual posted ranges, shows Glassdoor data</p>
+          <div class="filter-options">
+            <div class="salary-inputs">
+              <input type="number" id="minSalary" placeholder="Min $" class="salary-input">
+              <span>to</span>
+              <input type="number" id="maxSalary" placeholder="Max $" class="salary-input">
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter: Actively Recruiting Badge -->
+        <div class="filter-item">
+          <div class="filter-header">
+            <label class="filter-label">
+              <input type="checkbox" id="filterActiveRecruiting" class="filter-checkbox">
+              <span class="filter-title">Show "Actively Recruiting" Badge</span>
+            </label>
+          </div>
+          <p class="filter-description">Green badge for active hiring, flags old postings</p>
+        </div>
+
+        <!-- Filter: Job Age Display -->
+        <div class="filter-item">
+          <div class="filter-header">
+            <label class="filter-label">
+              <input type="checkbox" id="filterJobAge" class="filter-checkbox">
+              <span class="filter-title">Job Age Display</span>
+            </label>
+          </div>
+          <p class="filter-description">Show original post date and repost count</p>
+        </div>
+
+        <!-- Filter: Auto-Hide Applied Jobs -->
+        <div class="filter-item">
+          <div class="filter-header">
+            <label class="filter-label">
+              <input type="checkbox" id="filterApplied" class="filter-checkbox">
+              <span class="filter-title">Auto-Hide Applied Jobs</span>
+            </label>
+          </div>
+          <p class="filter-description">Don't show jobs you already applied to</p>
+        </div>
+
+        <!-- Filter: Visa Sponsorship -->
+        <div class="filter-item">
+          <div class="filter-header">
+            <label class="filter-label">
+              <input type="checkbox" id="filterVisa" class="filter-checkbox">
+              <span class="filter-title">Visa Sponsorship Only</span>
+            </label>
+          </div>
+          <p class="filter-description">Critical for international candidates</p>
+        </div>
+
+        <!-- Filter: Easy Apply Only -->
+        <div class="filter-item">
+          <div class="filter-header">
+            <label class="filter-label">
+              <input type="checkbox" id="filterEasyApply" class="filter-checkbox">
+              <span class="filter-title">Easy Apply Only</span>
+            </label>
+          </div>
+          <p class="filter-description">Skip external application sites</p>
+        </div>
+      </div>
+
+      <div class="filter-actions">
+        <button class="btn btn-secondary" id="resetFilters">Reset All</button>
+        <button class="btn btn-primary" id="applyFilters">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Apply Filters
+        </button>
+      </div>
+
+      <div class="filter-stats" id="filterStats">
+        <div class="stat-item">
+          <span class="stat-label">Active Filters:</span>
+          <span class="stat-value" id="activeFiltersCount">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Jobs Hidden:</span>
+          <span class="stat-value" id="hiddenJobsCount">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scanner Tab Content -->
+    <div class="tab-content" id="scannerTab">
+      <div class="scanner-section">
+        <div class="scan-header">
+          <h2>Scan Job Posting</h2>
+          <p>Detect scam jobs, spam, and ghost jobs with AI</p>
+        </div>
+
+        <!-- Auto-Detected Job Info -->
+        <div class="detected-job-info" id="detectedJobInfo">
+          <div class="info-row">
+            <span class="info-label">Job Title:</span>
+            <span class="info-value" id="detectedTitle">Not detected</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Company:</span>
+            <span class="info-value" id="detectedCompany">Not detected</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">URL:</span>
+            <span class="info-value truncate" id="detectedUrl">Not detected</span>
+          </div>
+        </div>
+
+        <button class="scan-button" id="scanButton">
+          <svg class="scan-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+            <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span id="scanButtonText">Scan Current Job</span>
+        </button>
+
+        <!-- Loading State -->
+        <div class="loading-section hidden" id="loadingSection">
+          <div class="loader"></div>
+          <p>Analyzing job posting...</p>
+        </div>
+
+        <!-- Scan Results -->
+        <div class="scan-results hidden" id="scanResults">
+          <div class="result-header">
+            <div class="result-icon" id="resultIcon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="result-status">
+              <h3 id="resultTitle">Analysis Complete</h3>
+              <span class="result-badge" id="resultBadge">Legitimate</span>
+            </div>
+          </div>
+
+          <div class="legitimacy-score">
+            <div class="score-header">
+              <span>Legitimacy Score</span>
+              <span class="score-value" id="scoreValue">85/100</span>
+            </div>
+            <div class="score-bar">
+              <div class="score-fill" id="scoreFill" style="width: 85%"></div>
+            </div>
+          </div>
+
+          <div class="flags-section" id="flagsSection">
+            <h4>Red Flags</h4>
+            <div class="flags-list" id="flagsList">
+              <!-- Flags will be inserted here -->
+            </div>
+          </div>
+
+          <button class="btn btn-secondary" id="newScan">Scan Another Job</button>
+        </div>
+
+        <!-- Scan History -->
+        <div class="scan-history">
+          <div class="history-header">
+            <h3>Recent Scans</h3>
+            <button class="btn-text" id="clearHistory">Clear</button>
+          </div>
+          <div class="history-list" id="historyList">
+            <div class="empty-state">
+              <p>No recent scans</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <button class="footer-link" id="openSettings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="3" fill="currentColor"/>
+        </svg>
+        Settings
+      </button>
+      <button class="footer-link" id="openWebApp">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Dashboard
+      </button>
+    </footer>
+  </div>
+
+  <script src="src/popup-v2.js"></script>
+</body>
+</html>

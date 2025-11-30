@@ -4,6 +4,8 @@ import "./globals.css";
 import ConvexClientProvider from "@/components/ConvexClientProvider";
 import { ClerkProvider } from "@clerk/nextjs";
 import ClientBody from "@/components/ClientBody";
+import { Toaster } from "@/components/ui/sonner";
+import { PageLoadingIndicator } from "@/components/PageLoadingIndicator";
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -30,7 +32,6 @@ export default function RootLayout({
           <ClerkProvider
             dynamic
             appearance={{
-              baseTheme: "dark",
               variables: {
                 colorPrimary: "#ffffff",
                 colorBackground: "#000000",
@@ -55,7 +56,11 @@ export default function RootLayout({
               }
             }}
           >
-            <ConvexClientProvider>{children}</ConvexClientProvider>
+            <ConvexClientProvider>
+              <PageLoadingIndicator />
+              {children}
+            </ConvexClientProvider>
+            <Toaster />
           </ClerkProvider>
         </ClientBody>
       </body>
