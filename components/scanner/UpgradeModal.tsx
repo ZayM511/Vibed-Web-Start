@@ -128,7 +128,7 @@ export function UpgradeModal({ open, onOpenChange }: UpgradeModalProps) {
                 Unlock Unlimited Scans
               </DialogTitle>
               <DialogDescription className="text-white/90 text-sm text-center">
-                You've reached your free scan limit. Upgrade to Pro for unlimited job scanning and advanced features.
+                You&apos;ve reached your free scan limit. Upgrade to Pro for unlimited job scanning and advanced features.
               </DialogDescription>
             </DialogHeader>
 

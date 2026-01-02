@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+// Component no longer needs useState
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -18,7 +18,6 @@ import {
   Building2,
   Briefcase,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 type ReviewJob = {
@@ -48,8 +47,6 @@ interface JobPreviewModalProps {
 }
 
 export function JobPreviewModal({ job, isOpen, onClose }: JobPreviewModalProps) {
-  const [isLoading, setIsLoading] = useState(false);
-
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
     return date.toLocaleDateString("en-US", {
@@ -212,7 +209,7 @@ export function JobPreviewModal({ job, isOpen, onClose }: JobPreviewModalProps) 
                       <MessageSquare className="h-5 w-5 text-indigo-400" />
                       <h3 className="font-semibold text-white">Your Review</h3>
                     </div>
-                    <p className="text-white/80 italic">"{job.comment}"</p>
+                    <p className="text-white/80 italic">&quot;{job.comment}&quot;</p>
                   </div>
                 )}
 

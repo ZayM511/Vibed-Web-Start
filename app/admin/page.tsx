@@ -12,7 +12,6 @@ import {
   Activity,
   Target,
   Database,
-  CheckSquare,
   AlertTriangle,
   ShieldAlert,
 } from "lucide-react";
@@ -21,20 +20,13 @@ import { AnimatedStatCard } from "@/components/admin/AnimatedStatCard";
 import { InteractiveGlobe } from "@/components/admin/InteractiveGlobe";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
   Cell,
-  AreaChart,
-  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from "recharts";
 
@@ -79,11 +71,9 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("analytics");
 
   // Data queries
-  const trainingStats = useQuery(api.analytics.getTrainingDataStats);
   const scanStats = useQuery(api.analytics.getScanStats);
   const userStats = useQuery(api.analytics.getUserActivityStats);
   const dailyVisitors = useQuery(api.analytics.getDailyVisitors);
-  const visitorHistory = useQuery(api.analytics.getVisitorHistory);
   const modelPerformance = useQuery(api.analytics.getModelPerformance);
   const userLocations = useQuery(api.analytics.getActiveUserLocations);
 

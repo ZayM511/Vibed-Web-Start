@@ -1,6 +1,5 @@
 "use client";
 
-import { EnhancedUnifiedScanResults } from "@/components/scanner/EnhancedUnifiedScanResults";
 import { UltraEnhancedCommunityReviewForm } from "@/components/scanner/UltraEnhancedCommunityReviewForm";
 import { ElegantBackground } from "@/components/ElegantBackground";
 import { Id } from "@/convex/_generated/dataModel";
@@ -14,11 +13,6 @@ function MockScanResultsProvider({ children }: { children: React.ReactNode }) {
 export default function ResultsDemoPage() {
   // Mock scan ID
   const mockScanId = "demo-scan-123" as Id<"jobScans">;
-
-  const handleRequestDeeper = async (email: string) => {
-    console.log("Requesting deeper report for:", email);
-    alert(`Detailed report will be sent to: ${email}`);
-  };
 
   return (
     <ElegantBackground>

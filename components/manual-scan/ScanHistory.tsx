@@ -8,7 +8,7 @@ import { AlertTriangle, CheckCircle2, Clock, ExternalLink, Trash2, XCircle } fro
 import { Id } from "@/convex/_generated/dataModel";
 
 interface ScanHistoryItem {
-  _id: Id<"jobScans">;
+  _id: Id<"scans">;
   timestamp: number;
   jobInput: string;
   jobUrl?: string;
@@ -17,9 +17,11 @@ interface ScanHistoryItem {
     company: string;
     location?: string;
     confidenceScore: number;
-    isScam: boolean;
-    isGhostJob: boolean;
-    redFlags: Array<{
+    isScam?: boolean;
+    isGhostJob?: boolean;
+    isSpam?: boolean;
+    spamReasoning?: string;
+    redFlags?: Array<{
       type: string;
       description: string;
       severity: "low" | "medium" | "high";
@@ -29,8 +31,8 @@ interface ScanHistoryItem {
 
 interface ScanHistoryProps {
   scans: ScanHistoryItem[];
-  onViewDetails: (scanId: Id<"jobScans">) => void;
-  onDelete?: (scanId: Id<"jobScans">) => Promise<void>;
+  onViewDetails: (scanId: Id<"scans">) => void;
+  onDelete?: (scanId: Id<"scans">) => Promise<void>;
 }
 
 export function ScanHistory({ scans, onViewDetails, onDelete }: ScanHistoryProps) {
@@ -132,7 +134,7 @@ export function ScanHistory({ scans, onViewDetails, onDelete }: ScanHistoryProps
                   </div>
 
                   {/* Red Flags Preview */}
-                  {scan.report.redFlags.length > 0 && (
+                  {scan.report.redFlags && scan.report.redFlags.length > 0 && (
                     <div className="flex items-center gap-2">
                       <AlertTriangle className="size-4 text-yellow-600" />
                       <span className="text-sm text-muted-foreground">

@@ -23,13 +23,13 @@ import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
 
 interface ScanItem {
-  _id: Id<"jobScans">;
+  _id: Id<"jobScans"> | Id<"scans">;
   timestamp: number;
   report: {
     jobTitle: string;
     company: string;
-    isScam: boolean;
-    isGhostJob: boolean;
+    isScam?: boolean;
+    isGhostJob?: boolean;
   };
   type: "manual" | "ghost";
 }
@@ -38,7 +38,7 @@ interface EnhancedScanHistoryProps {
   scans: ScanItem[];
   selectedScanId: Id<"jobScans"> | null;
   onViewDetails: (scanId: Id<"jobScans">, scanType: "manual" | "ghost") => void;
-  onDelete: (scanId: Id<"jobScans">, type: "manual" | "ghost") => void;
+  onDelete: (scanId: string, type: "manual" | "ghost") => void;
 }
 
 export function EnhancedScanHistory({
@@ -47,7 +47,7 @@ export function EnhancedScanHistory({
   onViewDetails,
   onDelete,
 }: EnhancedScanHistoryProps) {
-  const [hoveredId, setHoveredId] = useState<Id<"jobScans"> | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const getStatusData = (scan: ScanItem) => {
     if (scan.report.jobTitle === "Analyzing...") {
@@ -124,7 +124,7 @@ export function EnhancedScanHistory({
       scale: 1,
       transition: {
         duration: 0.5,
-        ease: [0.25, 0.4, 0.25, 1],
+        ease: [0.25, 0.4, 0.25, 1] as const,
       },
     },
     exit: {
@@ -319,15 +319,16 @@ export function EnhancedScanHistory({
               const scanTypeData = getScanTypeData(scan.type);
               const StatusIcon = statusData.icon;
               const ScanIcon = scanTypeData.icon;
-              const isSelected = selectedScanId === scan._id;
-              const isHovered = hoveredId === scan._id;
+              const scanIdStr = scan._id as string;
+              const isSelected = (selectedScanId as string) === scanIdStr;
+              const isHovered = hoveredId === scanIdStr;
 
               return (
                 <motion.div
-                  key={scan._id}
+                  key={scanIdStr}
                   variants={itemVariants}
                   layout
-                  onHoverStart={() => setHoveredId(scan._id)}
+                  onHoverStart={() => setHoveredId(scanIdStr)}
                   onHoverEnd={() => setHoveredId(null)}
                   whileHover={{ scale: 1.03, y: -4 }}
                   className={`relative group cursor-pointer rounded-2xl backdrop-blur-xl transition-all duration-300 w-full overflow-hidden ${
@@ -335,7 +336,7 @@ export function EnhancedScanHistory({
                       ? "bg-gradient-to-br from-indigo-500/20 via-purple-500/15 to-pink-500/10 border-2 border-indigo-400/60 shadow-xl shadow-indigo-500/30"
                       : "bg-gradient-to-br from-slate-800/40 via-slate-900/30 to-slate-800/40 border-2 border-slate-700/30 hover:border-indigo-400/50 hover:shadow-lg hover:shadow-indigo-500/20"
                   }`}
-                  onClick={() => onViewDetails(scan._id, scan.type)}
+                  onClick={() => onViewDetails(scan._id as Id<"jobScans">, scan.type)}
                 >
                   {/* Animated gradient border on hover */}
                   <AnimatePresence>
@@ -420,7 +421,7 @@ export function EnhancedScanHistory({
                             className="h-7 w-7 p-0 bg-red-500/10 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition-all flex-shrink-0 rounded-xl border border-red-500/20 hover:border-red-500/40 backdrop-blur-sm shadow-lg shadow-red-500/10"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onDelete(scan._id, scan.type);
+                              onDelete(scanIdStr, scan.type);
                             }}
                           >
                             <Trash2 className="h-3.5 w-3.5 drop-shadow-[0_0_4px_rgba(239,68,68,0.6)]" />

@@ -129,7 +129,7 @@ function CircleFilled({ className, ...props }: LucideProps) {
   );
 }
 
-function Ellipsis({ className, ...props }: LucideProps) {
+function Ellipsis({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div className={cn('flex space-x-1', className)} {...props}>
       <div
@@ -191,7 +191,7 @@ function Ring({ className, ...props }: LucideProps) {
   );
 }
 
-function Bars({ className, ...props }: LucideProps) {
+function Bars({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div className={cn('flex space-x-1', className)} {...props}>
       <div
@@ -234,24 +234,24 @@ function Infinite({ className, ...props }: LucideProps) {
 }
 
 export const Spinner = React.forwardRef<SVGSVGElement, SpinnerProps>(
-  ({ variant = 'default', ...props }, ref) => {
+  ({ variant = 'default', className, ...props }, ref) => {
     switch (variant) {
       case 'circle':
-        return <Circle ref={ref} {...props} />;
+        return <Circle ref={ref} className={className} {...props} />;
       case 'pinwheel':
-        return <Pinwheel ref={ref} {...props} />;
+        return <Pinwheel ref={ref} className={className} {...props} />;
       case 'circle-filled':
-        return <CircleFilled ref={ref} {...props} />;
+        return <CircleFilled ref={ref} className={className} {...props} />;
       case 'ellipsis':
-        return <Ellipsis {...props} />;
+        return <Ellipsis className={className} />;
       case 'ring':
-        return <Ring {...props} />;
+        return <Ring className={className} {...props} />;
       case 'bars':
-        return <Bars {...props} />;
+        return <Bars className={className} />;
       case 'infinite':
-        return <Infinite ref={ref} {...props} />;
+        return <Infinite ref={ref} className={className} {...props} />;
       default:
-        return <Default ref={ref} {...props} />;
+        return <Default ref={ref} className={className} {...props} />;
     }
   }
 );

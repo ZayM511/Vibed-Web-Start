@@ -19,10 +19,12 @@ interface ScanReport {
   summary: string;
   keyQualifications: string[];
   responsibilities: string[];
-  redFlags: RedFlag[];
+  redFlags?: RedFlag[];
   confidenceScore: number;
-  isScam: boolean;
-  isGhostJob: boolean;
+  isScam?: boolean;
+  isGhostJob?: boolean;
+  isSpam?: boolean;
+  spamReasoning?: string;
   aiAnalysis: string;
 }
 
@@ -143,7 +145,7 @@ export function ScanResults({ report, onRequestDeeper }: ScanResultsProps) {
       </Card>
 
       {/* Red Flags Card */}
-      {report.redFlags.length > 0 && (
+      {report.redFlags && report.redFlags.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

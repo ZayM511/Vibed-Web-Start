@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -15,7 +15,6 @@ import {
   Shield,
   Ghost,
   CheckCircle2,
-  AlertTriangle,
   TrendingUp,
   Calendar,
   Building2,
@@ -350,7 +349,7 @@ export function ReviewDetailModal({ job, isOpen, onClose }: ReviewDetailModalPro
                           {job.notes && (
                             <div>
                               <p className="text-xs text-white/50 mb-1">Your Notes</p>
-                              <p className="text-white/80 italic">"{job.notes}"</p>
+                              <p className="text-white/80 italic">&quot;{job.notes}&quot;</p>
                             </div>
                           )}
                         </div>

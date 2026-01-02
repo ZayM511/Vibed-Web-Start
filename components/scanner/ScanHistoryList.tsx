@@ -1,8 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Shield, CheckCircle2, AlertCircle, XCircle, TrendingUp, Zap } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, AlertCircle, XCircle, TrendingUp, Zap } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UnifiedScan } from "@/lib/scanAdapters";
 import { ScanHistoryCard } from "./ScanHistoryCard";

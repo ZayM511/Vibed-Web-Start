@@ -5,9 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +18,6 @@ import {
   Upload,
   Trash2,
   Download,
-  Eye,
   Loader2,
   File,
   GripVertical
@@ -47,11 +44,20 @@ import { CSS } from '@dnd-kit/utilities';
 
 type DocumentType = "resume" | "cover_letter" | "portfolio";
 
+interface DocumentData {
+  _id: Id<"documents">;
+  fileName: string;
+  fileSize: number;
+  storageId: string;
+  fileType: DocumentType;
+  uploadedAt: number;
+}
+
 interface SortableDocumentItemProps {
-  doc: any;
+  doc: DocumentData;
   onDelete: (id: Id<"documents">) => void;
   onDownload: (storageId: string, fileName: string) => void;
-  onPreview: (doc: any) => void;
+  onPreview: (doc: DocumentData) => void;
   formatFileSize: (bytes: number) => string;
 }
 
@@ -135,11 +141,11 @@ export function DocumentManagement() {
   const [activeDocType, setActiveDocType] = useState<DocumentType>("resume");
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [previewDoc, setPreviewDoc] = useState<any | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const allDocuments = useQuery(api.documents.getUserDocuments);
   const documentsByType = useQuery(api.documents.getDocumentsByType, { fileType: activeDocType });
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
   const createDocument = useMutation(api.documents.createDocument);
@@ -305,6 +311,7 @@ export function DocumentManagement() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handlePreview = (doc: any) => {
     setPreviewDoc(doc);
   };
@@ -537,6 +544,7 @@ export function DocumentManagement() {
               // Image Preview
               if (fileType === 'image') {
                 return (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={previewUrl}
                     alt={previewDoc.fileName}

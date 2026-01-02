@@ -5,8 +5,6 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/nextjs";
 import {
-  Search,
-  Database,
   LayoutDashboard,
   Download,
   MessageSquare,
@@ -14,8 +12,6 @@ import {
   X,
   ChevronDown,
   Chrome,
-  Globe,
-  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { JobFiltrLogo } from "./JobFiltrLogo";

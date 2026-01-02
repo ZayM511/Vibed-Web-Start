@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Link2, FileText, Sparkles, Zap, Shield, Ghost, Scan, CheckCircle2 } from "lucide-react";
+import { Loader2, Shield, Ghost, Scan, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 // Custom SVG icons
@@ -29,7 +29,7 @@ interface EnhancedScanFormProps {
   isScanning: boolean;
 }
 
-export function EnhancedScanForm({ onManualScan, onGhostJobScan, isScanning }: EnhancedScanFormProps) {
+export function EnhancedScanForm({ onManualScan, isScanning }: EnhancedScanFormProps) {
   const [scanMode, setScanMode] = useState<"quick" | "deep">("quick");
 
   // Form fields
@@ -72,7 +72,7 @@ export function EnhancedScanForm({ onManualScan, onGhostJobScan, isScanning }: E
       transition: {
         delay: i * 0.1,
         duration: 0.5,
-        ease: [0.25, 0.4, 0.25, 1],
+        ease: [0.25, 0.4, 0.25, 1] as const,
       },
     }),
   };
@@ -88,7 +88,7 @@ export function EnhancedScanForm({ onManualScan, onGhostJobScan, isScanning }: E
     <motion.div
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: [0.25, 0.4, 0.25, 1] }}
+      transition={{ duration: 0.6, ease: [0.25, 0.4, 0.25, 1] as const }}
     >
       <Card className="backdrop-blur-xl bg-white/5 border-white/10 shadow-2xl shadow-black/20">
         <CardHeader className="space-y-4 pb-6">

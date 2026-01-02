@@ -1,0 +1,40 @@
+/* JobFiltr Content Script Styles */
+
+[data-jobfiltr-hidden="true"] {
+  display: none !important;
+}
+
+.jobfiltr-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
+.jobfiltr-badge--ghost {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.jobfiltr-badge--staffing {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.jobfiltr-badge--remote-true {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.jobfiltr-badge--remote-hybrid {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.jobfiltr-badge--remote-unclear {
+  background-color: #f3f4f6;
+  color: #4b5563;
+}

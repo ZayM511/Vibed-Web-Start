@@ -14,7 +14,6 @@ import { Separator } from "@/components/ui/separator";
 import {
   Scan,
   History,
-  AlertCircle,
   Search
 } from "lucide-react";
 
@@ -27,15 +26,17 @@ import CommunityReviewList from "@/components/CommunityReviewList";
 import { ElegantBackground } from "@/components/ElegantBackground";
 
 export default function UnifiedScannerPage() {
-  const { user } = useUser();
+  useUser();
   const [activeTab, setActiveTab] = useState<"scan" | "history">("scan");
   const [selectedScanId, setSelectedScanId] = useState<Id<"jobScans"> | null>(null);
+  const [selectedScanType, setSelectedScanType] = useState<"manual" | "ghost">("ghost");
   const [currentScanId, setCurrentScanId] = useState<Id<"jobScans"> | null>(null);
   const [isScanning, setIsScanning] = useState(false);
 
   // Convex hooks - Manual scan (scans.* functions)
   const scrapeAndAnalyze = useAction(api.scans.actions.scrapeAndAnalyzeAction);
-  const requestDeeperReport = useAction(api.scans.actions.requestDeeperReportAction);
+  // Temporarily disabled - email service not yet implemented
+  // const requestDeeperReport = useAction(api.scans.actions.requestDeeperReportAction);
   const deleteManualScan = useMutation(api.scans.mutations.deleteScanResultMutation);
   const manualScanHistory = useQuery(api.scans.queries.getScanHistoryQuery);
 
@@ -108,23 +109,15 @@ export default function UnifiedScannerPage() {
     }
   };
 
-  const handleRequestDeeper = async (email: string) => {
-    if (!currentScanId) return;
-
-    try {
-      const result = await requestDeeperReport({
-        scanId: currentScanId,
-        userEmail: email,
-      });
-      toast.success(result.message);
-    } catch (error) {
-      console.error("Failed to request deeper report:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to request report");
-    }
+  // Temporarily disabled - email service not yet implemented
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleRequestDeeper = async (_email: string) => {
+    toast.info("Deeper report feature coming soon!");
   };
 
-  const handleViewDetails = (scanId: Id<"jobScans">) => {
+  const handleViewDetails = (scanId: Id<"jobScans">, scanType: "manual" | "ghost") => {
     setSelectedScanId(scanId);
+    setSelectedScanType(scanType);
     setCurrentScanId(null);
 
     // Scroll to results
@@ -133,16 +126,16 @@ export default function UnifiedScannerPage() {
     }, 100);
   };
 
-  const handleDeleteScan = async (scanId: Id<"jobScans">, type: "manual" | "ghost") => {
+  const handleDeleteScan = async (scanId: string, type: "manual" | "ghost") => {
     if (!confirm("Are you sure you want to delete this scan?")) {
       return;
     }
 
     try {
       if (type === "manual") {
-        await deleteManualScan({ scanId });
+        await deleteManualScan({ scanId: scanId as Id<"scans"> });
       } else {
-        await deleteJobScan({ jobScanId: scanId });
+        await deleteJobScan({ jobScanId: scanId as Id<"jobScans"> });
       }
 
       toast.success("Scan deleted successfully");
@@ -218,6 +211,7 @@ export default function UnifiedScannerPage() {
                 <div id="scan-results" className="space-y-6 scroll-mt-8">
                   <EnhancedUnifiedScanResults
                     scanId={selectedScanId}
+                    scanType={selectedScanType}
                     onRequestDeeper={handleRequestDeeper}
                   />
 

@@ -15,7 +15,7 @@ import { AccountOverview } from "@/components/dashboard/AccountOverview";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
 import { ProfileCompletionDialog } from "@/components/ProfileCompletionDialog";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, User, FileText, Settings, ListChecks } from "lucide-react";
+import { LayoutDashboard, FileText, Settings, ListChecks } from "lucide-react";
 
 // Custom Quick Review icon component
 const QuickReviewIcon = ({ className }: { className?: string }) => (

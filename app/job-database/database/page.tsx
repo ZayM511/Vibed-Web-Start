@@ -18,7 +18,6 @@ import {
   MapPin,
   Calendar,
   Users,
-  TrendingUp,
   ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
@@ -273,7 +272,7 @@ export default function DatabasePage() {
 
                                       {review.comment && (
                                         <div className="text-sm text-white/80 italic border-l-2 border-amber-400/30 pl-3">
-                                          "{review.comment}"
+                                          &quot;{review.comment}&quot;
                                         </div>
                                       )}
 

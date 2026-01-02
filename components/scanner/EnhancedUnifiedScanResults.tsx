@@ -17,7 +17,6 @@ import {
   AlertCircle,
   Search,
   Sparkles,
-  TrendingUp,
   Globe,
   Eye,
   Download,
@@ -26,7 +25,7 @@ import {
 import { useState } from "react";
 
 interface EnhancedUnifiedScanResultsProps {
-  scanId: Id<"jobScans">;
+  scanId: Id<"jobScans"> | Id<"scans">;
   scanType: "manual" | "ghost";
   onRequestDeeper?: (email: string) => Promise<void>;
 }
@@ -41,11 +40,11 @@ export function EnhancedUnifiedScanResults({
   // Query based on scan type
   const ghostScan = useQuery(
     api.jobScans.getJobScanById,
-    scanType === "ghost" ? { jobScanId: scanId } : "skip"
+    scanType === "ghost" ? { jobScanId: scanId as Id<"jobScans"> } : "skip"
   );
   const manualScan = useQuery(
     api.scans.queries.getScanResultByIdQuery,
-    scanType === "manual" ? { scanId } : "skip"
+    scanType === "manual" ? { scanId: scanId as Id<"scans"> } : "skip"
   );
 
   const scan = scanType === "ghost" ? ghostScan : manualScan;
@@ -119,7 +118,7 @@ export function EnhancedUnifiedScanResults({
       y: 0,
       transition: {
         duration: 0.5,
-        ease: [0.25, 0.4, 0.25, 1],
+        ease: [0.25, 0.4, 0.25, 1] as const,
       },
     },
   };
@@ -389,7 +388,7 @@ export function EnhancedUnifiedScanResults({
       </motion.div>
 
       {/* Red Flags Section */}
-      {report.redFlags.length > 0 && (
+      {report.redFlags && report.redFlags.length > 0 && (
         <motion.div
           variants={itemVariants}
           className="relative overflow-hidden rounded-2xl backdrop-blur-xl bg-white/5 border border-red-400/30"
@@ -487,7 +486,7 @@ export function EnhancedUnifiedScanResults({
       )}
 
       {/* Web Research Validation */}
-      {!isAnalyzing && report.webResearch && (
+      {!isAnalyzing && "webResearch" in report && report.webResearch && (
         <motion.div
           variants={itemVariants}
           className="relative overflow-hidden rounded-2xl backdrop-blur-xl bg-white/5 border border-blue-400/30"

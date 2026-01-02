@@ -22,26 +22,29 @@ interface ScanReport {
   summary: string;
   keyQualifications: string[];
   responsibilities: string[];
-  redFlags: Array<{
+  redFlags?: Array<{
     type: string;
     description: string;
     severity: "low" | "medium" | "high";
   }>;
   confidenceScore: number;
-  isScam: boolean;
-  isGhostJob: boolean;
+  isScam?: boolean;
+  isGhostJob?: boolean;
+  isSpam?: boolean;
+  spamReasoning?: string;
   aiAnalysis: string;
 }
 
 export default function ScanPage() {
-  const [currentScanId, setCurrentScanId] = useState<Id<"jobScans"> | null>(null);
+  const [currentScanId, setCurrentScanId] = useState<Id<"scans"> | null>(null);
   const [currentReport, setCurrentReport] = useState<ScanReport | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [selectedHistoryScanId, setSelectedHistoryScanId] = useState<Id<"jobScans"> | null>(null);
+  const [selectedHistoryScanId, setSelectedHistoryScanId] = useState<Id<"scans"> | null>(null);
 
   // Convex hooks
   const scrapeAndAnalyze = useAction(api.scans.actions.scrapeAndAnalyzeAction);
-  const requestDeeperReport = useAction(api.scans.actions.requestDeeperReportAction);
+  // Temporarily disabled - email service not yet implemented
+  // const requestDeeperReport = useAction(api.scans.actions.requestDeeperReportAction);
   const deleteScan = useMutation(api.scans.mutations.deleteScanResultMutation);
   const scanHistory = useQuery(api.scans.queries.getScanHistoryQuery);
   const scanById = useQuery(
@@ -94,22 +97,13 @@ export default function ScanPage() {
     }
   };
 
-  const handleRequestDeeper = async (email: string) => {
-    if (!currentScanId) return;
-
-    try {
-      const result = await requestDeeperReport({
-        scanId: currentScanId,
-        userEmail: email,
-      });
-      toast.success(result.message);
-    } catch (error) {
-      console.error("Failed to request deeper report:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to request report");
-    }
+  // Temporarily disabled - email service not yet implemented
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleRequestDeeper = async (_email: string) => {
+    toast.info("Deeper report feature coming soon!");
   };
 
-  const handleViewHistoryDetails = (scanId: Id<"jobScans">) => {
+  const handleViewHistoryDetails = (scanId: Id<"scans">) => {
     setSelectedHistoryScanId(scanId);
     setCurrentReport(null);
     setCurrentScanId(null);
@@ -120,7 +114,7 @@ export default function ScanPage() {
     }, 100);
   };
 
-  const handleDeleteScan = async (scanId: Id<"jobScans">) => {
+  const handleDeleteScan = async (scanId: Id<"scans">) => {
     try {
       await deleteScan({ scanId });
       toast.success("Scan deleted successfully");
@@ -193,7 +187,7 @@ export default function ScanPage() {
           <div className="space-y-2">
             <h3 className="text-xl font-bold text-red-400">Free Scan Limit Reached</h3>
             <p className="text-muted-foreground">
-              You've used all 3 free scans. Upgrade to Pro for unlimited scans and access to all features.
+              You&apos;ve used all 3 free scans. Upgrade to Pro for unlimited scans and access to all features.
             </p>
           </div>
           <Link href="/pricing">

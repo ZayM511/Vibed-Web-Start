@@ -105,7 +105,7 @@ export default function HistoryDemoPage() {
     console.log("Viewing scan:", scanId);
   };
 
-  const handleDelete = (scanId: Id<"jobScans">, type: "manual" | "ghost") => {
+  const handleDelete = (scanId: string, type: "manual" | "ghost") => {
     console.log("Deleting scan:", scanId, "type:", type);
     alert(`Delete scan ${scanId} (${type})`);
   };

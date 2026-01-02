@@ -8,7 +8,6 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   CreditCard,
   Calendar,
@@ -24,9 +23,12 @@ import { useSubscription, usePaymentMethods, usePaymentHistory } from "@/hooks/u
 import { cn } from "@/lib/utils";
 
 export default function BillingPage() {
-  const { user, isSignedIn } = useUser();
-  const { subscription, isActive, isTrialing, trialDaysRemaining, isLoading } = useSubscription();
-  const { paymentMethods, defaultPaymentMethod } = usePaymentMethods();
+  const { isSignedIn } = useUser();
+  const { subscription, isActive, isLoading } = useSubscription();
+  // Trial features not yet implemented
+  const isTrialing = false;
+  const trialDaysRemaining: number = 0;
+  const { defaultPaymentMethod } = usePaymentMethods();
   const { payments } = usePaymentHistory(10);
   const createPortalSession = useAction(api.stripe.createPortalSession);
   const [portalLoading, setPortalLoading] = useState(false);

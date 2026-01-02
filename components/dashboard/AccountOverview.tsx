@@ -117,13 +117,13 @@ function ActivityItem({ title, description, time, icon: Icon, iconColor }: Activ
 
 export function AccountOverview() {
   const { user } = useUser();
-  const { subscription, isPro, isFree } = useSubscription();
+  const { isPro, isFree } = useSubscription();
   const { totalScans, scansRemaining, isUnlimited } = useScanUsage();
   const allDocuments = useQuery(api.documents.getUserDocuments);
 
   // Calculate stats
   const documentCount = allDocuments?.length || 0;
-  const accountAge = user?.createdAt ? Math.floor((Date.now() - user.createdAt) / (1000 * 60 * 60 * 24)) : 0;
+  const accountAge = user?.createdAt ? Math.floor((Date.now() - Number(user.createdAt)) / (1000 * 60 * 60 * 24)) : 0;
   const scansUsed = isPro ? totalScans : Math.min(totalScans, 3);
   const scanLimit = isPro ? "Unlimited" : "3";
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { MessageSquare, Send, CheckCircle2, Lightbulb, Bug, Heart, ArrowLeft } from "lucide-react";
+import { MessageSquare, Send, CheckCircle2, Lightbulb, Bug, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -143,7 +143,7 @@ export default function ContactPage() {
 
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-white to-rose-300">
-                We'd Love to Hear From You
+                We&apos;d Love to Hear From You
               </span>
             </h1>
             <p className="text-white/60 text-lg">
@@ -338,7 +338,7 @@ export default function ContactPage() {
               We read every message and use your feedback to continuously improve
               JobFiltr.
               <br />
-              Response times may vary, but we'll get back to you as soon as
+              Response times may vary, but we&apos;ll get back to you as soon as
               possible.
             </p>
           </motion.div>

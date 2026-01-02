@@ -111,7 +111,7 @@ export function EmptyHistoryState() {
           className="text-sm text-white/50 flex items-center gap-2"
         >
           <div className="h-px w-8 bg-gradient-to-r from-transparent to-white/30" />
-          <span>Switch to "New Scan" tab to get started</span>
+          <span>Switch to &quot;New Scan&quot; tab to get started</span>
           <div className="h-px w-8 bg-gradient-to-l from-transparent to-white/30" />
         </motion.div>
       </div>

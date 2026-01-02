@@ -17,6 +17,7 @@ export interface UnifiedScan {
   userId: string;
   jobInput: string;
   context?: string;
+  scanMode?: "quick" | "deep";
   report: {
     jobTitle: string;
     company: string;

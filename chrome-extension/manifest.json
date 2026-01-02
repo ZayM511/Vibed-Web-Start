@@ -7,7 +7,9 @@
     "activeTab",
     "storage",
     "tabs",
-    "scripting"
+    "scripting",
+    "contextMenus",
+    "notifications"
   ],
   "options_page": "settings.html",
   "host_permissions": [
@@ -38,13 +40,13 @@
   "content_scripts": [
     {
       "matches": ["https://*.linkedin.com/*"],
-      "js": ["src/content-linkedin-v3.js"],
+      "js": ["src/content-linkedin-v3.js", "src/ghost-detection-bundle.js"],
       "css": ["styles/content.css"],
       "run_at": "document_idle"
     },
     {
       "matches": ["https://*.indeed.com/*"],
-      "js": ["src/content-indeed-v3.js"],
+      "js": ["src/content-indeed-v3.js", "src/ghost-detection-bundle.js"],
       "css": ["styles/content.css"],
       "run_at": "document_idle"
     },

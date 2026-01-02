@@ -10,12 +10,9 @@ import {
   TrendingDown,
   Lock,
   Brain,
-  ChartBar,
   ArrowRight,
-  TrendingUp,
   Download,
   X,
-  Database,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,7 +20,6 @@ import { TypingAnimation } from "@/components/ui/typing-animation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { JobFilterLogo } from "@/components/JobFilterLogo";
-import { CountingNumber } from "@/components/ui/counting-number";
 import { useUser, SignInButton, SignUpButton } from "@clerk/nextjs";
 
 // Custom alert diamond icon component
@@ -51,13 +47,6 @@ export function SolutionShowcase() {
     }, 4000);
     return () => clearInterval(interval);
   }, [phrases.length]);
-
-  const ctaStats = [
-    { icon: Shield, value: "95%", label: "Detection accuracy" },
-    { icon: TrendingUp, value: "50+", label: "Red flags detected" },
-    { icon: Zap, value: "<3s", label: "Analysis time" },
-    { icon: CheckCircle2, value: "10,000+", label: "Jobs scanned" },
-  ];
 
   const fadeUpVariants = {
     hidden: { opacity: 0, y: 30 },
@@ -211,7 +200,7 @@ export function SolutionShowcase() {
                   <Card className="bg-gradient-to-br from-white/[0.08] to-white/[0.04] border-white/10 backdrop-blur-sm h-full group-hover:border-white/30 transition-all duration-300">
                     <CardContent className="p-8">
                       {/* Coming Soon Badge */}
-                      {(prop as any).comingSoon && (
+                      {'comingSoon' in prop && prop.comingSoon && (
                         <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-xs font-semibold text-white shadow-lg">
                           Coming soon
                         </div>

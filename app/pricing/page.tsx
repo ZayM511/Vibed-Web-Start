@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Zap, Crown, Building2, ArrowLeft } from "lucide-react";
+import { Check, Zap, Crown, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { useSubscription } from "@/hooks/use-subscription";
 import { cn } from "@/lib/utils";
@@ -57,8 +57,8 @@ const PRICING_TIERS = [
 ];
 
 export default function PricingPage() {
-  const { user, isSignedIn } = useUser();
-  const { subscription, isActive } = useSubscription();
+  const { isSignedIn } = useUser();
+  const { subscription } = useSubscription();
   const createCheckoutSession = useAction(api.stripe.createCheckoutSession);
   const [loading, setLoading] = useState<string | null>(null);
 

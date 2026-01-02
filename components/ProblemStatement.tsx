@@ -23,6 +23,17 @@ import {
   Legend,
 } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
+import { LucideIcon } from "lucide-react";
+
+interface StatItem {
+  icon: LucideIcon;
+  value: number;
+  suffix?: string;
+  prefix?: string;
+  label: string;
+  color: string;
+  source: string;
+}
 
 export function ProblemStatement() {
   const fadeUpVariants = {
@@ -57,6 +68,7 @@ export function ProblemStatement() {
   ];
 
   // Custom tooltip for charts
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -71,7 +83,7 @@ export function ProblemStatement() {
     return null;
   };
 
-  const extendedStats = [
+  const extendedStats: StatItem[] = [
     {
       icon: AlertTriangle,
       value: 27.4,
@@ -183,7 +195,7 @@ export function ProblemStatement() {
                   transition={{
                     duration: 0.5,
                     delay: 0.2 + index * 0.1,
-                    ease: [0.25, 0.4, 0.25, 1],
+                    ease: [0.25, 0.4, 0.25, 1] as const,
                   }}
                   whileHover={{ scale: 1.03 }}
                   className="relative group"
@@ -425,12 +437,12 @@ export function ProblemStatement() {
               <CardContent className="p-8 md:p-12">
                 {/* Title */}
                 <h3 className="text-2xl md:text-3xl font-bold text-white mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-200 to-purple-200">
-                  This isn't just about numbers.
+                  This isn&apos;t just about numbers.
                 </h3>
 
                 {/* Main Text */}
                 <p className="text-base md:text-lg text-white/70 leading-relaxed max-w-2xl mx-auto mb-8">
-                  It's about <span className="text-white font-semibold">your time</span>,{" "}
+                  It&apos;s about <span className="text-white font-semibold">your time</span>,{" "}
                   <span className="text-white font-semibold">your energy</span>,{" "}
                   <span className="text-white font-semibold">your mental health</span>,
                   and{" "}

@@ -14,7 +14,6 @@ import {
   Eye,
   Clock,
   CheckCircle2,
-  AlertTriangle,
   Ghost,
   Shield,
   MessageSquare,
@@ -81,13 +80,15 @@ export function ReviewHistoryList({ onSelectJob }: ReviewHistoryListProps) {
   const { reviewed, unreviewed, stats: historyStat } = reviewHistory;
 
   // Filter jobs based on search query
-  const filterJobs = (jobs: typeof reviewed) => {
+  const filterJobs = <T extends { jobTitle: string; company: string } | null>(jobs: T[]): T[] => {
     if (!searchQuery.trim()) return jobs;
     const query = searchQuery.toLowerCase();
     return jobs.filter(
-      (job) =>
-        job.jobTitle.toLowerCase().includes(query) ||
-        job.company.toLowerCase().includes(query)
+      (job): job is T =>
+        job !== null && (
+          job.jobTitle.toLowerCase().includes(query) ||
+          job.company.toLowerCase().includes(query)
+        )
     );
   };
 
@@ -98,6 +99,7 @@ export function ReviewHistoryList({ onSelectJob }: ReviewHistoryListProps) {
 
     // Group by trainingDataId
     jobs.forEach((job) => {
+      if (!job) return;
       if (job.type === "labeling" && job.trainingDataId) {
         const key = job.trainingDataId;
         if (!grouped.has(key)) {
@@ -479,7 +481,7 @@ function ReviewJobCard({ job, index, onPreview, onSelect, onReviewDetail, isPend
               {/* Comment Preview */}
               {job.comment && (
                 <p className="text-sm text-white/50 line-clamp-2 italic">
-                  "{job.comment}"
+                  &quot;{job.comment}&quot;
                 </p>
               )}
 
@@ -536,7 +538,6 @@ interface ReviewThreadProps {
 }
 
 function ReviewThread({ thread, index, onPreview, onReviewDetail }: ReviewThreadProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
   const { original, updates } = thread;
 
   const formatDate = (timestamp: number) => {
@@ -657,7 +658,7 @@ function ReviewThread({ thread, index, onPreview, onReviewDetail }: ReviewThread
               {/* Comment Preview */}
               {original.comment && (
                 <p className="text-sm text-white/50 line-clamp-2 italic">
-                  "{original.comment}"
+                  &quot;{original.comment}&quot;
                 </p>
               )}
 

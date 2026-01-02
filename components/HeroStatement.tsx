@@ -3,9 +3,6 @@
 import { motion } from "framer-motion";
 import { AlertTriangle, Clock, TrendingUp, Users, ShieldAlert, Ghost, Ban, XCircle, Target } from "lucide-react";
 import { StatsPulse } from "./StatsPulse";
-import CountUp from "react-countup";
-import { GradientText } from "./ui/gradient-text";
-import BlurText from "./ui/blur-text";
 import { CountingNumber } from "./ui/counting-number";
 import { SlotMachineNumber } from "./ui/slot-machine-number";
 
@@ -284,7 +281,7 @@ export function HeroStatement() {
               transition={{
                 duration: 0.5,
                 delay: 0.8 + index * 0.1,
-                ease: [0.25, 0.4, 0.25, 1],
+                ease: [0.25, 0.4, 0.25, 1] as const,
               }}
               whileHover={{ scale: 1.03 }}
               className="relative group"

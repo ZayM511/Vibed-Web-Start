@@ -13,27 +13,6 @@ interface CommunityReviewListProps {
   jobScanId: Id<"jobScans"> | Id<"scans">; // Accept IDs from both scan tables
 }
 
-// Helper function to format user display name
-function formatUserDisplayName(userId: string, fullName?: string): string {
-  if (!fullName) {
-    // If no name, use "Anonymous User"
-    return "Anonymous User";
-  }
-
-  const nameParts = fullName.trim().split(" ");
-  if (nameParts.length === 1) {
-    // Only first name provided
-    return nameParts[0];
-  }
-
-  // First name + last initial
-  const firstName = nameParts[0];
-  const lastName = nameParts[nameParts.length - 1];
-  const lastInitial = lastName.charAt(0).toUpperCase();
-
-  return `${firstName} ${lastInitial}.`;
-}
-
 export default function CommunityReviewList({ jobScanId }: CommunityReviewListProps) {
   const { user: currentUser } = useUser();
   const reviews = useQuery(api.communityReviews.getReviewsForJob, { jobScanId });

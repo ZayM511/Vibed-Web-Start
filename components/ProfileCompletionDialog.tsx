@@ -14,7 +14,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { MapPin, X } from "lucide-react";
+import { MapPin } from "lucide-react";
 
 const POPUP_SESSION_KEY = "profileCompletionPopupShown";
 
@@ -74,7 +74,7 @@ export function ProfileCompletionDialog() {
         <div className="space-y-4 py-4">
           <div className="space-y-3">
             <p className="text-sm text-white/80">
-              By adding your location, you'll be able to:
+              By adding your location, you&apos;ll be able to:
             </p>
             <ul className="space-y-2 text-sm text-white/70">
               <li className="flex items-start gap-2">

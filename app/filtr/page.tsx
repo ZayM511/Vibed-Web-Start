@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
-import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -17,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import {
   Scan,
   History,
-  AlertCircle,
   ArrowLeft
 } from "lucide-react";
 
@@ -29,7 +26,6 @@ import { UltraEnhancedCommunityReviewForm } from "@/components/scanner/UltraEnha
 import CommunityReviewList from "@/components/CommunityReviewList";
 import { FiltrPageHeader } from "@/components/FiltrPageHeader";
 import { combineAndSortScans } from "@/lib/scanAdapters";
-import { UpgradePrompt } from "@/components/billing/UpgradePrompt";
 import { UpgradeModal } from "@/components/scanner/UpgradeModal";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useScanUsage } from "@/hooks/use-subscription";
@@ -104,7 +100,6 @@ function ElegantShape({
 }
 
 export default function JobFiltrPage() {
-  const { user } = useUser();
   const { isPro, isLoading: subLoading } = useSubscription();
   const { isLimitReached, scansRemaining, isUnlimited, isLoading: scanLoading } = useScanUsage();
   const [activeTab, setActiveTab] = useState<"scan" | "history">("scan");
@@ -220,21 +215,6 @@ export default function JobFiltrPage() {
     }
   };
 
-  const handleRequestDeeper = async (email: string) => {
-    if (!currentScanId) return;
-
-    try {
-      const result = await requestDeeperReport({
-        scanId: currentScanId,
-        userEmail: email,
-      });
-      toast.success(result.message);
-    } catch (error) {
-      console.error("Failed to request deeper report:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to request report");
-    }
-  };
-
   const handleViewDetails = (scanId: string, scanType: "manual" | "ghost") => {
     setSelectedScanId(scanId);
     setSelectedScanType(scanType);
@@ -252,8 +232,10 @@ export default function JobFiltrPage() {
 
     try {
       if (type === "manual") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await deleteManualScan({ scanId: scanId as any });
       } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await deleteJobScan({ jobScanId: scanId as any });
       }
 
@@ -439,8 +421,9 @@ export default function JobFiltrPage() {
                     <Separator className="bg-white/10" />
 
                     <div className="space-y-4">
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                       <CommunityReviewList jobScanId={selectedScanId as any} />
-
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                       <UltraEnhancedCommunityReviewForm jobScanId={selectedScanId as any} />
                     </div>
                   </div>

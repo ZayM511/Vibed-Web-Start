@@ -22,16 +22,16 @@ import {
 } from "lucide-react";
 
 interface UnifiedScanResultsProps {
-  scanId: Id<"jobScans">;
+  scanId: Id<"jobScans"> | Id<"scans">;
   onRequestDeeper?: (email: string) => Promise<void>;
 }
 
 export function UnifiedScanResults({ scanId, onRequestDeeper }: UnifiedScanResultsProps) {
   // Try both query types to support both scan systems
-  const ghostScan = useQuery(api.jobScans.getJobScanById, { jobScanId: scanId });
+  const ghostScan = useQuery(api.jobScans.getJobScanById, { jobScanId: scanId as Id<"jobScans"> });
   const manualScan = useQuery(
     api.scans.queries.getScanResultByIdQuery,
-    ghostScan ? "skip" : { scanId }
+    ghostScan ? "skip" : { scanId: scanId as Id<"scans"> }
   );
 
   const scan = ghostScan || manualScan;
@@ -227,7 +227,7 @@ export function UnifiedScanResults({ scanId, onRequestDeeper }: UnifiedScanResul
       </Card>
 
       {/* Red Flags */}
-      {report.redFlags.length > 0 && (
+      {report.redFlags && report.redFlags.length > 0 && (
         <Card className="border-red-300 dark:border-red-700 shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-2xl">
@@ -327,7 +327,7 @@ export function UnifiedScanResults({ scanId, onRequestDeeper }: UnifiedScanResul
       )}
 
       {/* Web Research Results */}
-      {!isAnalyzing && report.webResearch && (
+      {!isAnalyzing && "webResearch" in report && report.webResearch && (
         <Card className="border-blue-200 dark:border-blue-800">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">

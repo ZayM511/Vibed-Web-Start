@@ -22,6 +22,21 @@ chrome.runtime.onInstalled.addListener((details) => {
     // Extension updated
     console.log('JobFiltr extension updated');
   }
+
+  // Create context menu on install/update
+  chrome.contextMenus.create({
+    id: 'scan-job',
+    title: 'Scan with JobFiltr',
+    contexts: ['page', 'selection'],
+    documentUrlPatterns: [
+      '*://*.linkedin.com/jobs/*',
+      '*://*.indeed.com/*',
+      '*://*.glassdoor.com/*',
+      '*://*.monster.com/*',
+      '*://*.ziprecruiter.com/*',
+      '*://*.careerbuilder.com/*'
+    ]
+  });
 });
 
 // Listen for tab updates to detect job pages
@@ -176,42 +191,13 @@ function updateBadgeForResult(result, tabId) {
   }
 }
 
-// Context menu for quick scan
-chrome.contextMenus.create({
-  id: 'scan-job',
-  title: 'Scan with JobFiltr',
-  contexts: ['page', 'selection'],
-  documentUrlPatterns: [
-    '*://*.linkedin.com/jobs/*',
-    '*://*.indeed.com/*',
-    '*://*.glassdoor.com/*',
-    '*://*.monster.com/*',
-    '*://*.ziprecruiter.com/*',
-    '*://*.careerbuilder.com/*'
-  ]
-});
-
+// Context menu click handler
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'scan-job') {
     // Trigger scan via content script
     chrome.tabs.sendMessage(tab.id, { action: 'extractJobData' }, (jobData) => {
       if (jobData) {
         handleJobScan(jobData, tab.id);
-      }
-    });
-  }
-});
-
-// Listen for keyboard shortcut
-chrome.commands.onCommand.addListener((command) => {
-  if (command === 'scan-current-page') {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: 'extractJobData' }, (jobData) => {
-          if (jobData) {
-            handleJobScan(jobData, tabs[0].id);
-          }
-        });
       }
     });
   }

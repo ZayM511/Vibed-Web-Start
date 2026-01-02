@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Download, Chrome, CheckCircle2, Zap, Shield, Globe } from "lucide-react";
+import { Download, Chrome, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
@@ -34,7 +34,8 @@ type BrowserType = "chrome" | "firefox" | "safari" | "edge";
 interface BrowserTab {
   id: BrowserType;
   name: string;
-  icon: typeof Chrome;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  icon: any;
   color: string;
   available: boolean;
 }
@@ -258,24 +259,6 @@ export function ChromeExtensionSection({ id }: { id?: string }) {
     // Show installation guide
     window.open("/extension-install-guide", "_blank");
   };
-
-  const features = [
-    {
-      icon: Zap,
-      title: "Instant Detection",
-      description: "Real-time analysis as you browse",
-    },
-    {
-      icon: Shield,
-      title: "Privacy First",
-      description: "Your data stays on your device",
-    },
-    {
-      icon: CheckCircle2,
-      title: "Always Free",
-      description: "No subscriptions, no hidden fees",
-    },
-  ];
 
   return (
     <div id={id} className="relative pt-12 pb-24 overflow-hidden">

@@ -26,10 +26,26 @@
       "Bash(npx:*)",
       "Bash(gh auth:*)",
       "Bash(git add:*)",
-      "Bash(del /f nul)"
+      "Bash(del /f nul)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)",
+      "Bash(git push:*)",
+      "Bash(ngrok config add-authtoken:*)",
+      "Bash(cmd /c \"if not exist %APPDATA%\\Claude\\skills mkdir %APPDATA%\\Claude\\skills\")",
+      "Bash(cmd /c \"xcopy .claude\\skills %APPDATA%\\Claude\\skills /E /I /Y\")",
+      "Bash(cmd /c xcopy .claudeskills %APPDATA%Claudeskills /E /I /Y)",
+      "Bash(cmd /c dir .claudeskills)",
+      "Bash(xcopy \".claude\\skills\" \"%APPDATA%\\Claude\\skills\" /E /I /Y)",
+      "Bash(cmd /c dir %APPDATA%Claudeskills)",
+      "Bash(cmd /c echo %APPDATA%Claudeskills)",
+      "Bash(cmd /c \"echo Copying from: .claude\\skills && echo Copying to: %APPDATA%\\Claude\\skills && xcopy .claude\\skills %APPDATA%\\Claude\\skills /E /I /Y /H && echo Done! && dir %APPDATA%\\Claude\\skills\")",
+      "Bash(claude --version:*)",
+      "Bash(npm update:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": [],
     "defaultMode": "bypassPermissions"
-  }
+  },
+  "model": "claude-opus-4-5-20251101"
 }

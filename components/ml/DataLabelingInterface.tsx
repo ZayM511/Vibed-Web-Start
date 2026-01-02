@@ -200,7 +200,7 @@ export function DataLabelingInterface() {
           <CheckCircle className="h-16 w-16 text-green-400 mx-auto mb-4" />
           <h3 className="text-2xl font-bold text-white mb-2">Queue Complete!</h3>
           <p className="text-white/60 mb-6">
-            You've labeled all {unlabeledData.length} jobs in the queue. Great work!
+            You&apos;ve labeled all {unlabeledData.length} jobs in the queue. Great work!
           </p>
           <Button
             onClick={() => setCurrentIndex(0)}
@@ -233,7 +233,7 @@ export function DataLabelingInterface() {
         <div className="bg-green-500/10 border border-green-500/30 rounded p-4 text-green-200">
           <p className="font-bold text-xl">✅ System Working! You have {unlabeledData?.length || 0} jobs ready to label!</p>
           <p className="text-lg mt-2">Currently viewing: Job {currentIndex + 1} of {unlabeledData?.length || 0}</p>
-          <p className="text-sm mt-2 text-green-300">After you label this job and click Submit, you'll return to the review history!</p>
+          <p className="text-sm mt-2 text-green-300">After you label this job and click Submit, you&apos;ll return to the review history!</p>
         </div>
 
         {/* Stats Header */}

@@ -8,7 +8,8 @@ import { FiltrPageHeader } from "@/components/FiltrPageHeader";
 export default function ScannerDemoPage() {
   const [isScanning, setIsScanning] = useState(false);
 
-  const handleManualScan = async (data: { jobInput: string; context?: string }) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleManualScan = async (_data: { jobInput: string; context?: string }) => {
     setIsScanning(true);
     // Simulate scanning
     await new Promise(resolve => setTimeout(resolve, 3000));
@@ -16,7 +17,8 @@ export default function ScannerDemoPage() {
     alert("Deep Analysis completed! (Demo)");
   };
 
-  const handleGhostJobScan = async (data: { jobInput: string; jobUrl?: string; context?: string }) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleGhostJobScan = async (_data: { jobInput: string; jobUrl?: string; context?: string }) => {
     setIsScanning(true);
     // Simulate scanning
     await new Promise(resolve => setTimeout(resolve, 2000));

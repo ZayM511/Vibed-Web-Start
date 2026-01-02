@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import { HeaderNav } from "@/components/HeaderNav";
 import { JobFiltrHero } from "@/components/JobFiltrHero";
 import { SolutionShowcase } from "@/components/SolutionShowcase";
-import { AnimatedBottomCTA } from "@/components/AnimatedBottomCTA";
 import { ChromeExtensionSection } from "@/components/ChromeExtensionSection";
 import { cn } from "@/lib/utils";
 

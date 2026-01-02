@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export function PageLoadingIndicator() {
   const pathname = usePathname();
-  const [isLoading, setIsLoading] = useState(false);
+  const [, setIsLoading] = useState(false);
   const [showSpinner, setShowSpinner] = useState(false);
 
   useEffect(() => {
