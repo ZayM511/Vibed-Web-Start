@@ -400,6 +400,10 @@ async function requestPageInfo() {
 
     if (tabId) {
       chrome.tabs.sendMessage(tabId, { type: 'GET_PAGE_INFO' }, (response) => {
+        if (chrome.runtime.lastError) {
+          // Silently ignore - content script may not be loaded
+          return;
+        }
         if (response && response.page) {
           updatePageIndicator(response.page, response.hiddenCount);
         }
@@ -455,6 +459,9 @@ async function loadFilterSettings() {
     document.getElementById('showBenefitsIndicator').checked = filterSettings.showBenefitsIndicator || false;
     updateBenefitsLegend(filterSettings.showBenefitsIndicator || false);
 
+    // Applicant Count Display
+    document.getElementById('showApplicantCount').checked = filterSettings.showApplicantCount || false;
+
     // Load keywords
     includeKeywords = filterSettings.includeKeywords || [];
     excludeKeywords = filterSettings.excludeKeywords || [];
@@ -503,7 +510,9 @@ async function saveFilterSettings() {
     visaOnly: document.getElementById('filterVisa').checked,
     easyApplyOnly: document.getElementById('filterEasyApply').checked,
     // Benefits Indicator
-    showBenefitsIndicator: document.getElementById('showBenefitsIndicator').checked
+    showBenefitsIndicator: document.getElementById('showBenefitsIndicator').checked,
+    // Applicant Count Display
+    showApplicantCount: document.getElementById('showApplicantCount').checked
   };
 
   await chrome.storage.local.set({ filterSettings });
@@ -678,24 +687,43 @@ document.getElementById('applyFilters').addEventListener('click', async () => {
       return;
     }
 
-    await chrome.tabs.sendMessage(tabId, {
-      type: 'APPLY_FILTERS',
-      settings: filterSettings,
-      site: currentSite
-    });
+    try {
+      await chrome.tabs.sendMessage(tabId, {
+        type: 'APPLY_FILTERS',
+        settings: filterSettings,
+        site: currentSite
+      });
 
-    // Show success feedback
-    const btn = document.getElementById('applyFilters');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Filters Applied!';
-    btn.style.background = 'var(--success)';
+      // Show success feedback
+      const btn = document.getElementById('applyFilters');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Filters Applied!';
+      btn.style.background = 'var(--success)';
 
-    setTimeout(() => {
-      btn.innerHTML = originalText;
-      btn.style.background = '';
-    }, 2000);
+      setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.style.background = '';
+      }, 2000);
 
-    updateFilterStats();
+      updateFilterStats();
+    } catch (msgError) {
+      // Handle content script not available
+      if (msgError.message?.includes('Receiving end does not exist')) {
+        console.warn('Content script not loaded on this page');
+        // Show error feedback
+        const btn = document.getElementById('applyFilters');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '⚠ Content script not loaded';
+        btn.style.background = 'var(--error)';
+
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+          btn.style.background = '';
+        }, 2000);
+      } else {
+        throw msgError;
+      }
+    }
   } catch (error) {
     console.error('Error applying filters:', error);
   }
@@ -736,9 +764,17 @@ document.getElementById('resetFilters').addEventListener('click', async () => {
     }
 
     if (tabId) {
-      await chrome.tabs.sendMessage(tabId, {
-        type: 'RESET_FILTERS'
-      });
+      try {
+        await chrome.tabs.sendMessage(tabId, {
+          type: 'RESET_FILTERS'
+        });
+      } catch (msgError) {
+        // Silently ignore if content script is not available
+        // This happens when the tab doesn't have our content script loaded
+        if (!msgError.message?.includes('Receiving end does not exist')) {
+          console.error('Error sending reset message:', msgError);
+        }
+      }
     }
   } catch (error) {
     console.error('Error resetting filters:', error);
@@ -789,14 +825,22 @@ async function detectCurrentJob() {
     }
 
     // Send message to content script to extract job info
-    const response = await chrome.tabs.sendMessage(tabId, {
-      type: 'EXTRACT_JOB_INFO'
-    });
+    try {
+      const response = await chrome.tabs.sendMessage(tabId, {
+        type: 'EXTRACT_JOB_INFO'
+      });
 
-    if (response && response.success) {
-      currentJobData = response.data;
-      updateDetectedJobInfo(response.data);
-    } else {
+      if (response && response.success) {
+        currentJobData = response.data;
+        updateDetectedJobInfo(response.data);
+      } else {
+        updateDetectedJobInfo(null);
+      }
+    } catch (msgError) {
+      // Silently ignore if content script is not available
+      if (!msgError.message?.includes('Receiving end does not exist')) {
+        console.error('Error sending job extraction message:', msgError);
+      }
       updateDetectedJobInfo(null);
     }
   } catch (error) {
@@ -856,10 +900,21 @@ document.getElementById('scanButton').addEventListener('click', async () => {
     }
 
     // Send message to content script to perform ghost detection analysis
-    const result = await chrome.tabs.sendMessage(tabId, {
-      type: 'ANALYZE_GHOST_JOB',
-      jobData: currentJobData
-    });
+    let result;
+    try {
+      result = await chrome.tabs.sendMessage(tabId, {
+        type: 'ANALYZE_GHOST_JOB',
+        jobData: currentJobData
+      });
+    } catch (msgError) {
+      // Handle content script not available - fall back to local analysis
+      if (msgError.message?.includes('Receiving end does not exist')) {
+        console.warn('Content script not available, using local analysis');
+        result = null;
+      } else {
+        throw msgError;
+      }
+    }
 
     // Hide loading, show results
     document.querySelector('.loading-section').classList.add('hidden');

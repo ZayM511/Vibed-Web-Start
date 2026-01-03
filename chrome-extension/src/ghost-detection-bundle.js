@@ -202,59 +202,148 @@
   // STORAGE FUNCTIONS
   // ============================================
 
+  // Helper to check if extension context is still valid
+  function isExtensionContextValid() {
+    try {
+      return chrome && chrome.runtime && chrome.runtime.id;
+    } catch (e) {
+      return false;
+    }
+  }
+
   async function loadConfig() {
+    if (!isExtensionContextValid()) {
+      console.log('[GhostDetection] Extension context invalidated, using defaults');
+      return {
+        enabled: true,
+        sensitivity: 'medium',
+        showScores: true,
+        autoHide: false,
+        autoHideThreshold: 80,
+      };
+    }
+
     return new Promise((resolve) => {
-      chrome.storage.local.get(CONFIG_KEY, (result) => {
-        resolve(result[CONFIG_KEY] || {
+      try {
+        chrome.storage.local.get(CONFIG_KEY, (result) => {
+          if (chrome.runtime.lastError) {
+            console.error('[GhostDetection] Storage error:', chrome.runtime.lastError);
+            resolve({
+              enabled: true,
+              sensitivity: 'medium',
+              showScores: true,
+              autoHide: false,
+              autoHideThreshold: 80,
+            });
+            return;
+          }
+          resolve(result[CONFIG_KEY] || {
+            enabled: true,
+            sensitivity: 'medium',
+            showScores: true,
+            autoHide: false,
+            autoHideThreshold: 80,
+          });
+        });
+      } catch (e) {
+        console.error('[GhostDetection] Failed to load config:', e);
+        resolve({
           enabled: true,
           sensitivity: 'medium',
           showScores: true,
           autoHide: false,
           autoHideThreshold: 80,
         });
-      });
+      }
     });
   }
 
   async function getCachedScore(jobId) {
+    if (!isExtensionContextValid()) {
+      return null;
+    }
+
     return new Promise((resolve) => {
-      chrome.storage.local.get(CACHE_KEY, (result) => {
-        const scores = result[CACHE_KEY] || {};
-        const cached = scores[jobId];
-        if (cached && cached.expiresAt > Date.now()) {
-          resolve(cached.data);
-        } else {
-          resolve(null);
-        }
-      });
+      try {
+        chrome.storage.local.get(CACHE_KEY, (result) => {
+          if (chrome.runtime.lastError) {
+            console.error('[GhostDetection] Cache read error:', chrome.runtime.lastError);
+            resolve(null);
+            return;
+          }
+          const scores = result[CACHE_KEY] || {};
+          const cached = scores[jobId];
+          if (cached && cached.expiresAt > Date.now()) {
+            resolve(cached.data);
+          } else {
+            resolve(null);
+          }
+        });
+      } catch (e) {
+        console.error('[GhostDetection] Failed to get cached score:', e);
+        resolve(null);
+      }
     });
   }
 
   async function cacheScore(jobId, score) {
+    if (!isExtensionContextValid()) {
+      return;
+    }
+
     return new Promise((resolve) => {
-      chrome.storage.local.get(CACHE_KEY, (result) => {
-        const scores = result[CACHE_KEY] || {};
-        scores[jobId] = {
-          data: score,
-          expiresAt: Date.now() + 60 * 60 * 1000,
-        };
-        chrome.storage.local.set({ [CACHE_KEY]: scores }, resolve);
-      });
+      try {
+        chrome.storage.local.get(CACHE_KEY, (result) => {
+          if (chrome.runtime.lastError) {
+            console.error('[GhostDetection] Cache write error:', chrome.runtime.lastError);
+            resolve();
+            return;
+          }
+          const scores = result[CACHE_KEY] || {};
+          scores[jobId] = {
+            data: score,
+            expiresAt: Date.now() + 60 * 60 * 1000,
+          };
+          chrome.storage.local.set({ [CACHE_KEY]: scores }, () => {
+            if (chrome.runtime.lastError) {
+              console.error('[GhostDetection] Cache set error:', chrome.runtime.lastError);
+            }
+            resolve();
+          });
+        });
+      } catch (e) {
+        console.error('[GhostDetection] Failed to cache score:', e);
+        resolve();
+      }
     });
   }
 
   async function checkBlacklist(company) {
+    if (!isExtensionContextValid()) {
+      return null;
+    }
+
     return new Promise((resolve) => {
-      chrome.storage.local.get(BLACKLIST_KEY, (result) => {
-        const cached = result[BLACKLIST_KEY];
-        if (!cached || cached.expiresAt < Date.now()) {
-          resolve(null);
-          return;
-        }
-        const normalized = company.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const entry = cached.data?.find((e) => normalized.includes(e.normalizedName));
-        resolve(entry || null);
-      });
+      try {
+        chrome.storage.local.get(BLACKLIST_KEY, (result) => {
+          if (chrome.runtime.lastError) {
+            console.error('[GhostDetection] Blacklist read error:', chrome.runtime.lastError);
+            resolve(null);
+            return;
+          }
+          const cached = result[BLACKLIST_KEY];
+          if (!cached || cached.expiresAt < Date.now()) {
+            resolve(null);
+            return;
+          }
+          const normalized = company.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const entry = cached.data?.find((e) => normalized.includes(e.normalizedName));
+          resolve(entry || null);
+        });
+      } catch (e) {
+        console.error('[GhostDetection] Failed to check blacklist:', e);
+        resolve(null);
+      }
     });
   }
 
@@ -507,7 +596,7 @@
       }
       .jobfiltr-ghost-score:hover {
         transform: scale(1.02);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.35) !important;
       }
       .jobfiltr-ghost-badge-container {
         animation: jobfiltr-fade-in 0.4s ease-out;
@@ -543,10 +632,13 @@
     const textId = elementId ? `id="${elementId}"` : '';
     const circleId = elementId ? `id="${elementId}-circle"` : '';
 
+    // Use darker track for inline badge (size 56), lighter track for modal (size 100)
+    const trackColor = size <= 60 ? 'rgba(255,255,255,0.15)' : '#e2e8f0';
+
     return `
       <svg class="jobfiltr-progress-ring" width="${size}" height="${size}">
         <circle
-          stroke="#e2e8f0"
+          stroke="${trackColor}"
           stroke-width="${strokeWidth}"
           fill="transparent"
           r="${radius}"
@@ -702,20 +794,20 @@
         align-items: center;
         gap: 12px;
         padding: 10px 16px;
-        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
         border: 2px solid ${color};
         border-radius: 12px;
         cursor: pointer;
         margin: 12px 0;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         transition: all 0.3s ease;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.25);
       ">
         ${createCircularProgress(score, color, 56)}
         <div style="display: flex; flex-direction: column; gap: 3px;">
           <div style="display: flex; align-items: center; gap: 6px;">
             <span style="font-size: 16px;">${riskEmoji}</span>
-            <span style="font-size: 14px; font-weight: 600; color: #334155;">${label}</span>
+            <span style="font-size: 14px; font-weight: 600; color: #ffffff;">${label}</span>
           </div>
           <span style="font-size: 11px; color: #94a3b8;">Ghost Job Analysis • Click for details</span>
         </div>
@@ -1053,6 +1145,12 @@
   async function initialize() {
     if (initialized) return;
 
+    // Check if extension context is still valid
+    if (!isExtensionContextValid()) {
+      console.log('[GhostDetection] Extension context invalidated, aborting initialization');
+      return;
+    }
+
     console.log('[GhostDetection] Initializing...');
 
     config = await loadConfig();
@@ -1085,7 +1183,14 @@
 
   // Handle SPA navigation
   let lastUrl = window.location.href;
-  setInterval(() => {
+  const navigationInterval = setInterval(() => {
+    // Stop the interval if extension context is invalidated
+    if (!isExtensionContextValid()) {
+      console.log('[GhostDetection] Extension context invalidated, stopping navigation observer');
+      clearInterval(navigationInterval);
+      return;
+    }
+
     if (window.location.href !== lastUrl) {
       lastUrl = window.location.href;
       currentJob = null;

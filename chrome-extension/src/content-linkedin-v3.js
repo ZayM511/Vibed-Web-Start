@@ -224,31 +224,192 @@ function isSponsored(jobCard) {
 // ===== APPLICANT COUNT EXTRACTION =====
 function getApplicantCount(jobCard) {
   try {
-    const applicantSelectors = [
+    // First, try to find applicant count within the job card itself
+    const cardApplicantSelectors = [
       '.jobs-unified-top-card__applicant-count',
       '.job-card-container__applicant-count',
-      '.jobs-details-top-card__bullet'
+      '.jobs-details-top-card__bullet',
+      '.job-card-container__footer-item',
+      '.job-card-container__metadata-item',
+      '.job-card-list__insight',
+      '.artdeco-entity-lockup__caption'
     ];
 
-    for (const selector of applicantSelectors) {
-      const elem = jobCard.querySelector(selector);
-      if (elem) {
+    for (const selector of cardApplicantSelectors) {
+      const elems = jobCard.querySelectorAll(selector);
+      for (const elem of elems) {
         const text = elem.textContent.trim().toLowerCase();
 
-        if (text.includes('be among the first') || text.includes('be an early applicant')) {
+        // Check for early applicant indicators
+        if (text.includes('be among the first') || text.includes('be an early applicant') ||
+            text.includes('be one of the first')) {
           return 5;
         }
 
-        const match = text.match(/(\d+)\+?\s*applicants?/i);
+        // Match patterns like "25 applicants", "100+ applicants", "Over 200 applicants"
+        const match = text.match(/(?:over\s+)?(\d+)\+?\s*applicants?/i);
         if (match) {
           return parseInt(match[1]);
         }
       }
     }
+
+    // Also check the full text content of the job card
+    const cardText = jobCard.textContent.toLowerCase();
+    if (cardText.includes('be among the first') || cardText.includes('be an early applicant')) {
+      return 5;
+    }
+
+    const textMatch = cardText.match(/(?:over\s+)?(\d+)\+?\s*applicants?/i);
+    if (textMatch) {
+      return parseInt(textMatch[1]);
+    }
+
+    // Check if this job is currently selected and look at the detail panel
+    const isSelected = jobCard.classList.contains('jobs-search-results-list__list-item--active') ||
+                       jobCard.querySelector('.job-card-container--active') ||
+                       jobCard.getAttribute('data-occludable-job-id');
+
+    if (isSelected) {
+      // Try to get applicant count from the job detail panel
+      const detailApplicantSelectors = [
+        '.jobs-unified-top-card__applicant-count',
+        '.job-details-jobs-unified-top-card__job-insight',
+        '.jobs-details-top-card__bullet',
+        '.tvm__text--positive',
+        '.jobs-unified-top-card__subtitle-secondary-grouping span',
+        '.job-details-jobs-unified-top-card__primary-description span'
+      ];
+
+      for (const selector of detailApplicantSelectors) {
+        const elems = document.querySelectorAll(selector);
+        for (const elem of elems) {
+          const text = elem.textContent.trim().toLowerCase();
+
+          if (text.includes('be among the first') || text.includes('be an early applicant')) {
+            return 5;
+          }
+
+          const match = text.match(/(?:over\s+)?(\d+)\+?\s*applicants?/i);
+          if (match) {
+            return parseInt(match[1]);
+          }
+        }
+      }
+    }
+
+    return null;
+  } catch (error) {
+    log('Error getting applicant count:', error);
+    return null;
+  }
+}
+
+// Get applicant count from the job detail panel (for currently viewed job)
+function getDetailPanelApplicantCount() {
+  try {
+    const detailSelectors = [
+      '.jobs-unified-top-card__applicant-count',
+      '.job-details-jobs-unified-top-card__job-insight',
+      '.jobs-details-top-card__bullet',
+      '.tvm__text--positive',
+      '.jobs-unified-top-card__subtitle-secondary-grouping span',
+      '.job-details-jobs-unified-top-card__primary-description span',
+      '.jobs-unified-top-card__job-insight span'
+    ];
+
+    for (const selector of detailSelectors) {
+      const elems = document.querySelectorAll(selector);
+      for (const elem of elems) {
+        const text = elem.textContent.trim().toLowerCase();
+
+        if (text.includes('be among the first') || text.includes('be an early applicant') ||
+            text.includes('be one of the first')) {
+          return 5;
+        }
+
+        const match = text.match(/(?:over\s+)?(\d+)\+?\s*applicants?/i);
+        if (match) {
+          return parseInt(match[1]);
+        }
+      }
+    }
+
+    // Also scan the whole detail panel text
+    const detailPanel = document.querySelector('.jobs-details, .job-view-layout, .scaffold-layout__detail');
+    if (detailPanel) {
+      const panelText = detailPanel.textContent.toLowerCase();
+      if (panelText.includes('be among the first') || panelText.includes('be an early applicant')) {
+        return 5;
+      }
+      const match = panelText.match(/(?:over\s+)?(\d+)\+?\s*applicants?/i);
+      if (match) {
+        return parseInt(match[1]);
+      }
+    }
+
     return null;
   } catch (error) {
     return null;
   }
+}
+
+// Add applicant count badge to job card
+function addApplicantCountBadge(jobCard, count) {
+  const existingBadge = jobCard.querySelector('.jobfiltr-applicant-badge');
+  if (existingBadge) existingBadge.remove();
+
+  if (count === null) return;
+
+  // Determine color based on count
+  let bgColor, textColor, icon;
+  if (count <= 10) {
+    bgColor = '#dcfce7'; // Light green
+    textColor = '#166534'; // Dark green
+    icon = '🟢';
+  } else if (count <= 50) {
+    bgColor = '#dbeafe'; // Light blue
+    textColor = '#1e40af'; // Dark blue
+    icon = '🔵';
+  } else if (count <= 200) {
+    bgColor = '#fef3c7'; // Light yellow
+    textColor = '#92400e'; // Dark amber
+    icon = '🟡';
+  } else if (count <= 500) {
+    bgColor = '#fed7aa'; // Light orange
+    textColor = '#9a3412'; // Dark orange
+    icon = '🟠';
+  } else {
+    bgColor = '#fecaca'; // Light red
+    textColor = '#991b1b'; // Dark red
+    icon = '🔴';
+  }
+
+  const badge = document.createElement('div');
+  badge.className = 'jobfiltr-applicant-badge';
+  badge.innerHTML = `${icon} ${count}${count >= 100 ? '+' : ''} applicants`;
+  badge.style.cssText = `
+    position: absolute;
+    top: 36px;
+    right: 8px;
+    background: ${bgColor};
+    color: ${textColor};
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    z-index: 999;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border: 1px solid ${textColor}30;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  `;
+
+  if (window.getComputedStyle(jobCard).position === 'static') {
+    jobCard.style.position = 'relative';
+  }
+  jobCard.appendChild(badge);
 }
 
 // ===== GET JOB CARD TEXT (INCLUDING LOCATION) =====
@@ -1040,6 +1201,14 @@ function applyFilters(settings) {
       }
     }
 
+    // Applicant Count Display (display only, doesn't hide)
+    if (settings.showApplicantCount && !shouldHide) {
+      const applicantCount = getApplicantCount(jobCard);
+      if (applicantCount !== null) {
+        addApplicantCountBadge(jobCard, applicantCount);
+      }
+    }
+
     // Apply hiding
     if (shouldHide) {
       jobCard.style.display = 'none';
@@ -1696,6 +1865,16 @@ function performFullScan() {
           const jobAge = getJobAge(jobCard);
           if (jobAge !== null) {
             addJobAgeBadge(jobCard, jobAge);
+          }
+        }
+      }
+
+      // Applicant Count Display (display only, on visible jobs)
+      if (filterSettings.showApplicantCount) {
+        if (!jobCard.querySelector('.jobfiltr-applicant-badge')) {
+          const applicantCount = getApplicantCount(jobCard);
+          if (applicantCount !== null) {
+            addApplicantCountBadge(jobCard, applicantCount);
           }
         }
       }
