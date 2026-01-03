@@ -577,6 +577,9 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 .filter-options {
   margin-top: var(--spacing-xs);
   margin-left: 22px;
+  max-width: calc(100% - 22px);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .filter-select {
@@ -600,15 +603,21 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .salary-inputs span {
   color: var(--text-tertiary);
   font-size: 11px;
+  flex-shrink: 0;
 }
 
 .salary-input {
   flex: 1;
+  min-width: 0;
+  max-width: calc(50% - 16px);
   padding: var(--spacing-xs) var(--spacing-sm);
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
@@ -616,6 +625,7 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   font-size: 11px;
   color: var(--text-primary);
   transition: all var(--transition-normal) var(--ease-out);
+  box-sizing: border-box;
 }
 
 .salary-input:focus {
@@ -1110,6 +1120,77 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   font-size: 8px;
   font-weight: 600;
   border-radius: var(--radius-full);
+}
+
+/* Template Active Badge */
+.template-active-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  margin-left: 6px;
+  background: var(--success);
+  color: white;
+  font-size: 8px;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Favorite Button */
+.btn-favorite-template {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast) var(--ease-out);
+  flex-shrink: 0;
+}
+
+.btn-favorite-template:hover {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  transform: scale(1.1);
+}
+
+.btn-favorite-template.active {
+  color: #f59e0b;
+}
+
+.btn-favorite-template.active:hover {
+  color: #d97706;
+}
+
+/* Favorite Template Item Styling */
+.template-item.is-favorite {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), var(--bg-tertiary));
+}
+
+.template-item.is-favorite:hover {
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+/* Active Template Item Styling */
+.template-item.is-active {
+  border-color: var(--success);
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.08), var(--bg-tertiary));
+  box-shadow: 0 0 0 1px var(--success) inset;
+}
+
+.template-item.is-active:hover {
+  border-color: var(--success);
+}
+
+/* Combined favorite + active */
+.template-item.is-favorite.is-active {
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.08), rgba(245, 158, 11, 0.05), var(--bg-tertiary));
 }
 
 .template-item-actions {

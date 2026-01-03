@@ -665,6 +665,7 @@ document.getElementById('addExcludeKeyword').addEventListener('click', () => {
 // ===== TEMPLATES MANAGEMENT =====
 const TEMPLATES_STORAGE_KEY = 'jobfiltr_templates';
 let templates = [];
+let activeTemplateId = null; // Track currently applied template
 
 async function loadTemplates() {
   try {
@@ -770,7 +771,8 @@ async function saveTemplate(name) {
     name: name.trim(),
     createdAt: Date.now(),
     settings: settings,
-    filterCount: countActiveFilters(settings)
+    filterCount: countActiveFilters(settings),
+    isFavorite: false
   };
 
   templates.unshift(template);
@@ -790,10 +792,23 @@ async function deleteTemplate(id) {
   renderTemplates();
 }
 
+async function toggleFavorite(id) {
+  const template = templates.find(t => t.id === id);
+  if (template) {
+    template.isFavorite = !template.isFavorite;
+    await saveTemplates();
+    renderTemplates();
+  }
+}
+
 function loadTemplate(id) {
   const template = templates.find(t => t.id === id);
   if (template) {
     applyTemplateSettings(template.settings);
+
+    // Set as active template
+    activeTemplateId = id;
+    renderTemplates(); // Re-render to show active state
 
     // Show feedback
     const saveBtn = document.getElementById('saveTemplateBtn');
@@ -810,6 +825,14 @@ function loadTemplate(id) {
       saveBtn.innerHTML = originalHTML;
       saveBtn.style.background = '';
     }, 1500);
+  }
+}
+
+// Clear active template when filters are manually changed
+function clearActiveTemplate() {
+  if (activeTemplateId) {
+    activeTemplateId = null;
+    renderTemplates();
   }
 }
 
@@ -840,13 +863,32 @@ function renderTemplates() {
 
   templatesEmpty.classList.add('hidden');
 
-  templates.forEach(template => {
+  // Sort templates: favorites first, then by creation date (newest first)
+  const sortedTemplates = [...templates].sort((a, b) => {
+    // Favorites first
+    if (a.isFavorite && !b.isFavorite) return -1;
+    if (!a.isFavorite && b.isFavorite) return 1;
+    // Then by creation date (newest first)
+    return b.createdAt - a.createdAt;
+  });
+
+  sortedTemplates.forEach(template => {
+    const isFavorite = template.isFavorite || false;
+    const isActive = template.id === activeTemplateId;
     const item = document.createElement('div');
-    item.className = 'template-item';
+    item.className = `template-item${isFavorite ? ' is-favorite' : ''}${isActive ? ' is-active' : ''}`;
     item.dataset.id = template.id;
     item.innerHTML = `
+      <button class="btn-favorite-template${isFavorite ? ' active' : ''}" title="${isFavorite ? 'Remove from favorites' : 'Add to favorites'}" data-id="${template.id}">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="${isFavorite ? 'currentColor' : 'none'}" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
       <div class="template-item-info">
-        <div class="template-item-name">${escapeHtml(template.name)}</div>
+        <div class="template-item-name">
+          ${escapeHtml(template.name)}
+          ${isActive ? '<span class="template-active-badge">Active</span>' : ''}
+        </div>
         <div class="template-item-meta">
           <span class="template-filter-count">${template.filterCount} filters</span>
           <span>${formatDate(template.createdAt)}</span>
@@ -866,11 +908,17 @@ function renderTemplates() {
       </div>
     `;
 
-    // Click on item to load template
+    // Click on item to load template (except on action buttons)
     item.addEventListener('click', (e) => {
-      if (!e.target.closest('.btn-delete-template')) {
+      if (!e.target.closest('.btn-delete-template') && !e.target.closest('.btn-favorite-template')) {
         loadTemplate(template.id);
       }
+    });
+
+    // Favorite button handler
+    item.querySelector('.btn-favorite-template').addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleFavorite(template.id);
     });
 
     // Load button handler
@@ -1035,6 +1083,10 @@ document.getElementById('applyFilters').addEventListener('click', async () => {
 
 // Reset Filters Button
 document.getElementById('resetFilters').addEventListener('click', async () => {
+  // Clear active template
+  activeTemplateId = null;
+  renderTemplates();
+
   // Reset all checkboxes
   document.querySelectorAll('.filter-checkbox').forEach(checkbox => {
     checkbox.checked = false;
