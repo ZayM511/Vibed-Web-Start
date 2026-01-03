@@ -530,12 +530,18 @@
   }
 
   // Create SVG circular progress indicator
-  function createCircularProgress(score, color, size = 60) {
+  // If animated=true, starts from 0 and animates to target score
+  function createCircularProgress(score, color, size = 60, animated = false, elementId = null) {
     const strokeWidth = 4;
     const radius = (size - strokeWidth) / 2;
     const circumference = radius * 2 * Math.PI;
     const progress = Math.min(100, Math.max(0, score));
-    const offset = circumference - (progress / 100) * circumference;
+    const targetOffset = circumference - (progress / 100) * circumference;
+
+    // For animated version, start from full offset (0%) and animate to target
+    const startOffset = animated ? circumference : targetOffset;
+    const textId = elementId ? `id="${elementId}"` : '';
+    const circleId = elementId ? `id="${elementId}-circle"` : '';
 
     return `
       <svg class="jobfiltr-progress-ring" width="${size}" height="${size}">
@@ -548,6 +554,7 @@
           cy="${size / 2}"
         />
         <circle
+          ${circleId}
           class="jobfiltr-progress-ring-circle"
           stroke="${color}"
           stroke-width="${strokeWidth}"
@@ -556,27 +563,97 @@
           r="${radius}"
           cx="${size / 2}"
           cy="${size / 2}"
+          data-circumference="${circumference}"
+          data-target-offset="${targetOffset}"
           style="
             stroke-dasharray: ${circumference} ${circumference};
-            stroke-dashoffset: ${offset};
-            animation: jobfiltr-progress-fill 1s ease-out;
+            stroke-dashoffset: ${startOffset};
+            transition: stroke-dashoffset 1.5s ease-out;
           "
         />
         <text
+          ${textId}
           x="50%"
           y="50%"
           text-anchor="middle"
           dominant-baseline="central"
           style="
-            font-size: 16px;
+            font-size: ${size > 80 ? '24px' : '16px'};
             font-weight: 700;
             fill: ${color};
             transform: rotate(90deg);
             transform-origin: center;
           "
-        >${score}%</text>
+        >${animated ? '0' : score}%</text>
       </svg>
     `;
+  }
+
+  // Animate score counting from 0 to target value
+  function animateScoreCount(elementId, targetScore, duration = 1500) {
+    const element = document.getElementById(elementId);
+    const circleElement = document.getElementById(`${elementId}-circle`);
+
+    if (!element) return;
+
+    const startTime = performance.now();
+    const startValue = 0;
+
+    // Animate the circle stroke
+    if (circleElement) {
+      const targetOffset = circleElement.dataset.targetOffset;
+      setTimeout(() => {
+        circleElement.style.strokeDashoffset = targetOffset;
+      }, 50);
+    }
+
+    // Animate the number counting
+    function updateCount(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Ease-out function for smooth deceleration
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      const currentValue = Math.round(startValue + (targetScore - startValue) * easeOut);
+
+      element.textContent = `${currentValue}%`;
+
+      if (progress < 1) {
+        requestAnimationFrame(updateCount);
+      } else {
+        element.textContent = `${targetScore}%`;
+      }
+    }
+
+    requestAnimationFrame(updateCount);
+  }
+
+  // Animate confidence counting
+  function animateConfidenceCount(elementId, targetConfidence, duration = 1500) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    const startTime = performance.now();
+    const startValue = 0;
+
+    function updateCount(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Ease-out function
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      const currentValue = Math.round(startValue + (targetConfidence - startValue) * easeOut);
+
+      element.textContent = `Confidence: ${currentValue}%`;
+
+      if (progress < 1) {
+        requestAnimationFrame(updateCount);
+      } else {
+        element.textContent = `Confidence: ${targetConfidence}%`;
+      }
+    }
+
+    requestAnimationFrame(updateCount);
   }
 
   function injectScoreUI(score, category, scoreTargets, onClick) {
@@ -712,11 +789,11 @@
 
       <div style="text-align: center; padding: 24px; background: ${currentScore.category === 'safe' ? 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)' : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)'}; border-radius: 12px; margin-bottom: 20px;">
         <div style="display: inline-block; margin-bottom: 12px;">
-          ${createCircularProgress(currentScore.overall, currentScore.category === 'safe' ? '#4ade80' : color, 100)}
+          ${createCircularProgress(currentScore.overall, currentScore.category === 'safe' ? '#4ade80' : color, 100, true, 'jobfiltr-modal-score')}
         </div>
         <div style="font-size: 18px; font-weight: 600; color: ${currentScore.category === 'safe' ? '#ffffff' : '#334155'}; margin-bottom: 4px;">${getLabel(currentScore.category)}</div>
-        <div style="font-size: 13px; color: ${currentScore.category === 'safe' ? '#94a3b8' : '#64748b'};">
-          Confidence: ${Math.round(currentScore.confidence * 100)}%
+        <div id="jobfiltr-modal-confidence" style="font-size: 13px; color: ${currentScore.category === 'safe' ? '#94a3b8' : '#64748b'};">
+          Confidence: 0%
         </div>
       </div>
 
@@ -807,6 +884,12 @@
     document.addEventListener('keydown', handleEsc);
 
     document.body.appendChild(modal);
+
+    // Trigger animations after modal is in DOM
+    setTimeout(() => {
+      animateScoreCount('jobfiltr-modal-score', currentScore.overall, 1500);
+      animateConfidenceCount('jobfiltr-modal-confidence', Math.round(currentScore.confidence * 100), 1500);
+    }, 100);
   }
 
   // ============================================

@@ -452,8 +452,16 @@ function createBenefitsBadge(benefits) {
   const badge = document.createElement('div');
   badge.className = 'jobfiltr-benefits-badge';
 
-  const categoryLabels = { health: 'Health', retirement: '401k', pto: 'PTO', equity: 'Equity', other: '+More' };
-  const categoryColors = { health: '#ef4444', retirement: '#22c55e', pto: '#3b82f6', equity: '#a855f7', other: '#6b7280' };
+  const categoryLabels = { health: 'Health', retirement: '401k', pto: 'PTO', equity: 'Equity', other: 'Bonus' };
+  const categoryIcons = { health: '🏥', retirement: '💰', pto: '🏖️', equity: '📈', other: '🎁' };
+  const categoryColors = { health: '#ef4444', retirement: '#22c55e', pto: '#3b82f6', equity: '#a855f7', other: '#f59e0b' };
+  const categoryDescriptions = {
+    health: 'Health/Medical/Dental/Vision Insurance',
+    retirement: '401k/Pension/Retirement Plan',
+    pto: 'Paid Time Off/Vacation/Sick Leave',
+    equity: 'Stock Options/RSUs/Equity',
+    other: 'Bonus/Tuition/Wellness/Life Insurance'
+  };
 
   badge.style.cssText = `
     position: absolute;
@@ -462,25 +470,107 @@ function createBenefitsBadge(benefits) {
     display: flex;
     gap: 4px;
     flex-wrap: wrap;
-    max-width: 200px;
+    max-width: 220px;
     z-index: 1000;
   `;
 
-  detectedCategories.slice(0, 4).forEach(category => {
+  const maxVisible = 3;
+  const visibleCategories = detectedCategories.slice(0, maxVisible);
+  const hiddenCategories = detectedCategories.slice(maxVisible);
+
+  // Add visible benefit tags with icons
+  visibleCategories.forEach(category => {
     const tag = document.createElement('span');
-    tag.textContent = categoryLabels[category];
+    tag.innerHTML = `${categoryIcons[category]} ${categoryLabels[category]}`;
+    tag.title = categoryDescriptions[category];
     tag.style.cssText = `
-      display: inline-block;
-      padding: 2px 6px;
-      font-size: 9px;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 3px 8px;
+      font-size: 10px;
       font-weight: 600;
       border-radius: 9999px;
       background: ${categoryColors[category]}20;
       color: ${categoryColors[category]};
       border: 1px solid ${categoryColors[category]}40;
+      cursor: default;
     `;
     badge.appendChild(tag);
   });
+
+  // Add "+X More" button if there are hidden categories
+  if (hiddenCategories.length > 0) {
+    const moreTag = document.createElement('span');
+    moreTag.className = 'jobfiltr-benefits-more';
+    moreTag.innerHTML = `+${hiddenCategories.length} More`;
+    moreTag.style.cssText = `
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      font-size: 10px;
+      font-weight: 600;
+      border-radius: 9999px;
+      background: #64748b20;
+      color: #64748b;
+      border: 1px solid #64748b40;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    `;
+
+    // Create expanded dropdown
+    const dropdown = document.createElement('div');
+    dropdown.className = 'jobfiltr-benefits-dropdown';
+    dropdown.style.cssText = `
+      display: none;
+      position: absolute;
+      bottom: 100%;
+      right: 0;
+      margin-bottom: 8px;
+      background: white;
+      border-radius: 10px;
+      padding: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      border: 1px solid #e2e8f0;
+      min-width: 180px;
+      z-index: 1001;
+    `;
+
+    // Add all benefits to dropdown
+    dropdown.innerHTML = `
+      <div style="font-size: 11px; font-weight: 700; color: #334155; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #e2e8f0;">
+        All Benefits Detected
+      </div>
+      ${detectedCategories.map(cat => `
+        <div style="display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 11px;">
+          <span style="font-size: 14px;">${categoryIcons[cat]}</span>
+          <div>
+            <div style="font-weight: 600; color: ${categoryColors[cat]};">${categoryLabels[cat]}</div>
+            <div style="font-size: 9px; color: #64748b;">${categoryDescriptions[cat]}</div>
+          </div>
+        </div>
+      `).join('')}
+    `;
+
+    // Toggle dropdown on click
+    moreTag.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isVisible = dropdown.style.display === 'block';
+      dropdown.style.display = isVisible ? 'none' : 'block';
+      moreTag.style.background = isVisible ? '#64748b20' : '#64748b';
+      moreTag.style.color = isVisible ? '#64748b' : 'white';
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', () => {
+      dropdown.style.display = 'none';
+      moreTag.style.background = '#64748b20';
+      moreTag.style.color = '#64748b';
+    });
+
+    badge.appendChild(moreTag);
+    badge.appendChild(dropdown);
+  }
 
   return badge;
 }
