@@ -4,11 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JobFiltr Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles/popup.css">
   <style>
     body {
-      width: 500px;
-      min-height: 400px;
+      width: 480px;
+      min-height: 500px;
+      max-height: none;
     }
 
     .settings-container {
@@ -16,41 +20,54 @@
     }
 
     .settings-header {
-      margin-bottom: 24px;
+      margin-bottom: 28px;
     }
 
     .settings-header h1 {
-      font-size: 24px;
-      font-weight: 700;
+      font-family: "Cormorant", "Playfair Display", Georgia, serif;
+      font-size: 22px;
+      font-weight: 500;
+      letter-spacing: -0.02em;
       margin-bottom: 8px;
+      color: var(--text-primary);
     }
 
     .settings-header p {
       color: var(--text-secondary);
-      font-size: 14px;
+      font-size: 13px;
+      line-height: 1.5;
     }
 
     .settings-section {
-      margin-bottom: 24px;
+      margin-bottom: 28px;
     }
 
     .settings-section h2 {
-      font-size: 16px;
+      font-size: 13px;
       font-weight: 600;
-      margin-bottom: 12px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
       display: flex;
       align-items: center;
       gap: 8px;
+      color: var(--text-tertiary);
+    }
+
+    .settings-section h2 svg {
+      width: 16px;
+      height: 16px;
+      color: var(--accent);
     }
 
     .form-group {
-      margin-bottom: 16px;
+      margin-bottom: 18px;
     }
 
     .form-group label {
       display: block;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 500;
       margin-bottom: 8px;
       color: var(--text-primary);
     }
@@ -58,37 +75,44 @@
     .form-group input[type="text"],
     .form-group input[type="url"] {
       width: 100%;
-      padding: 10px 12px;
-      background: var(--surface);
+      padding: 12px 14px;
+      background: var(--bg-secondary);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 10px;
       color: var(--text-primary);
       font-size: 13px;
-      font-family: monospace;
+      font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+      transition: all var(--transition-normal) var(--ease-out);
     }
 
     .form-group input[type="text"]:focus,
     .form-group input[type="url"]:focus {
       outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(0, 31, 84, 0.1);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
     }
 
     .form-group .help-text {
       font-size: 12px;
-      color: var(--text-secondary);
-      margin-top: 6px;
+      color: var(--text-tertiary);
+      margin-top: 8px;
+      line-height: 1.5;
     }
 
     .toggle-group {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 12px;
-      background: var(--surface);
+      padding: 16px;
+      background: var(--bg-secondary);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 12px;
       margin-bottom: 12px;
+      transition: all var(--transition-normal) var(--ease-out);
+    }
+
+    .toggle-group:hover {
+      border-color: var(--accent);
     }
 
     .toggle-info {
@@ -98,7 +122,9 @@
     .toggle-info strong {
       display: block;
       font-size: 13px;
+      font-weight: 500;
       margin-bottom: 4px;
+      color: var(--text-primary);
     }
 
     .toggle-info span {
@@ -109,15 +135,17 @@
     .toggle-switch {
       position: relative;
       width: 48px;
-      height: 24px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
+      height: 26px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 13px;
       cursor: pointer;
-      transition: background 0.3s ease;
+      transition: all var(--transition-normal) var(--ease-out);
     }
 
     .toggle-switch.active {
-      background: var(--primary);
+      background: var(--accent);
+      border-color: var(--accent);
     }
 
     .toggle-switch::after {
@@ -129,54 +157,76 @@
       height: 20px;
       background: white;
       border-radius: 50%;
-      transition: transform 0.3s ease;
+      box-shadow: var(--shadow-sm);
+      transition: transform var(--transition-normal) var(--ease-out);
     }
 
     .toggle-switch.active::after {
-      transform: translateX(24px);
+      transform: translateX(22px);
     }
 
     .action-buttons {
       display: flex;
       gap: 12px;
-      margin-top: 24px;
+      margin-top: 28px;
     }
 
     .success-message {
       display: none;
-      padding: 12px 16px;
-      background: rgba(16, 185, 129, 0.1);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      border-radius: 8px;
+      padding: 14px 18px;
+      background: var(--success-bg);
+      border: 1px solid var(--success-border);
+      border-radius: 10px;
       color: var(--success);
       font-size: 13px;
-      margin-bottom: 16px;
-      animation: slideIn 0.3s ease;
+      font-weight: 500;
+      margin-bottom: 20px;
+      animation: fadeInUp 0.3s var(--ease-out);
     }
 
     .success-message.show {
-      display: block;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
-    .warning-box {
-      padding: 12px 16px;
-      background: rgba(245, 158, 11, 0.1);
-      border: 1px solid rgba(245, 158, 11, 0.3);
-      border-radius: 8px;
+    .success-message svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .info-box {
+      padding: 16px;
+      background: var(--accent-subtle);
+      border: 1px solid var(--border);
+      border-radius: 12px;
       font-size: 12px;
-      color: var(--warning);
-      margin-bottom: 16px;
+      color: var(--text-secondary);
+      line-height: 1.6;
     }
 
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+    .info-box a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .info-box a:hover {
+      text-decoration: underline;
+    }
+
+    .version-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: var(--bg-tertiary);
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      margin-top: 8px;
     }
   </style>
 </head>
@@ -186,31 +236,43 @@
       <div class="logo-section">
         <div class="logo-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-            <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 6H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M7 12H17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M10 18H14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M18 16L19.5 17.5L22 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
           </svg>
         </div>
-        <h1 class="logo-text">JobFiltr Settings</h1>
+        <h1 class="logo-text">Settings</h1>
       </div>
-      <button class="btn-text" onclick="window.close()">Close</button>
+      <div class="header-actions">
+        <button class="theme-toggle" id="themeToggle" title="Toggle theme">
+          <svg class="sun-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 2V4M12 20V22M4 12H2M22 12H20M5.64 5.64L4.22 4.22M19.78 19.78L18.36 18.36M5.64 18.36L4.22 19.78M19.78 4.22L18.36 5.64" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <svg class="moon-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="btn-text" onclick="window.close()" style="padding: 8px 12px;">Close</button>
+      </div>
     </header>
 
     <div class="settings-container">
       <div id="successMessage" class="success-message">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="display: inline; margin-right: 8px; vertical-align: middle;">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-          <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        Settings saved successfully!
+        <span>Settings saved successfully</span>
       </div>
 
       <!-- Backend Configuration -->
       <div class="settings-section">
         <h2>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          Backend Configuration
+          Backend
         </h2>
 
         <div class="form-group">
@@ -221,7 +283,7 @@
             placeholder="https://your-deployment.convex.cloud"
           />
           <p class="help-text">
-            Your Convex backend URL for AI-powered job analysis
+            Your Convex backend URL for AI-powered job analysis. Find this in your Convex dashboard.
           </p>
         </div>
       </div>
@@ -229,11 +291,11 @@
       <!-- Extension Behavior -->
       <div class="settings-section">
         <h2>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="3" fill="currentColor"/>
-            <path d="M12 1v6m0 6v6M23 12h-6m-6 0H1" stroke="currentColor" stroke-width="2"/>
+          <svg viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 1v6m0 6v6M23 12h-6m-6 0H1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
-          Extension Behavior
+          Behavior
         </h2>
 
         <div class="toggle-group">
@@ -256,17 +318,24 @@
       <!-- About -->
       <div class="settings-section">
         <h2>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <svg viewBox="0 0 24 24" fill="none">
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
             <path d="M12 16v-4m0-4h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
           About
         </h2>
 
-        <div class="warning-box">
-          <strong>JobFiltr Chrome Extension v1.0.0</strong><br>
-          AI-powered scam and ghost job detector<br>
-          <a href="https://jobfiltr.com" target="_blank" style="color: var(--warning); text-decoration: underline;">Visit Website</a>
+        <div class="info-box">
+          <strong>JobFiltr</strong><br>
+          AI-powered scam and ghost job detection for smarter job searching.
+          <br><br>
+          <a href="https://jobfiltr.com" target="_blank">Visit Website</a>
+          <div class="version-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            v1.0.0
+          </div>
         </div>
       </div>
 
@@ -275,7 +344,7 @@
           Save Settings
         </button>
         <button class="btn btn-secondary" id="resetButton" style="flex: 1;">
-          Reset to Default
+          Reset
         </button>
       </div>
     </div>

@@ -24,6 +24,7 @@ const openSettingsBtn = document.getElementById('openSettings');
 const openWebAppBtn = document.getElementById('openWebApp');
 const clearHistoryBtn = document.getElementById('clearHistory');
 const historyList = document.getElementById('historyList');
+const themeToggle = document.getElementById('themeToggle');
 
 // State
 let currentMode = 'quick';
@@ -34,6 +35,9 @@ let currentTabId = null;
 init();
 
 async function init() {
+  // Initialize theme
+  initTheme();
+
   // Load current tab info
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab) {
@@ -44,10 +48,8 @@ async function init() {
   // Check if current page is a supported job site
   if (isSupportedJobSite(currentUrl)) {
     scanButton.disabled = false;
-    updateStatusBadge('Ready to Scan', 'ready');
   } else {
     scanButton.disabled = true;
-    updateStatusBadge('Navigate to job board', 'inactive');
   }
 
   // Load scan history
@@ -62,6 +64,32 @@ async function init() {
   openSettingsBtn.addEventListener('click', openSettings);
   openWebAppBtn.addEventListener('click', openWebApp);
   clearHistoryBtn.addEventListener('click', clearHistory);
+  themeToggle.addEventListener('click', toggleTheme);
+}
+
+// Theme Management
+function initTheme() {
+  // Check stored preference first
+  chrome.storage.local.get(['theme'], (result) => {
+    if (result.theme) {
+      setTheme(result.theme);
+    } else {
+      // Check system preference
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setTheme(prefersDark ? 'dark' : 'light');
+    }
+  });
+}
+
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  chrome.storage.local.set({ theme });
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  setTheme(newTheme);
 }
 
 function isSupportedJobSite(url) {
@@ -81,35 +109,7 @@ function setMode(mode) {
   currentMode = mode;
   quickModeBtn.classList.toggle('active', mode === 'quick');
   deepModeBtn.classList.toggle('active', mode === 'deep');
-
-  scanButton.classList.toggle('deep', mode === 'deep');
   scanButtonText.textContent = mode === 'quick' ? 'Quick Scan' : 'Deep Analysis';
-}
-
-function updateStatusBadge(text, status) {
-  const badge = document.getElementById('statusBadge');
-  const dot = badge.querySelector('.status-dot');
-  const span = badge.querySelector('span');
-
-  span.textContent = text;
-
-  // Update styling based on status
-  if (status === 'ready') {
-    badge.style.background = 'rgba(16, 185, 129, 0.1)';
-    badge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-    badge.style.color = '#10B981';
-    dot.style.background = '#10B981';
-  } else if (status === 'scanning') {
-    badge.style.background = 'rgba(59, 130, 246, 0.1)';
-    badge.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-    badge.style.color = '#3B82F6';
-    dot.style.background = '#3B82F6';
-  } else if (status === 'inactive') {
-    badge.style.background = 'rgba(255, 255, 255, 0.05)';
-    badge.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-    badge.style.color = 'rgba(255, 255, 255, 0.6)';
-    dot.style.background = 'rgba(255, 255, 255, 0.4)';
-  }
 }
 
 async function handleScan() {
@@ -117,7 +117,7 @@ async function handleScan() {
 
   // Show loading
   showSection('loading');
-  updateStatusBadge('Scanning...', 'scanning');
+  document.body.classList.add('scanning');
 
   try {
     // Extract job data from page
@@ -138,11 +138,11 @@ async function handleScan() {
     // Save to history
     saveToHistory(result);
 
-    updateStatusBadge('Scan Complete', 'ready');
+    document.body.classList.remove('scanning');
   } catch (error) {
     console.error('Scan error:', error);
     showError(error.message);
-    updateStatusBadge('Scan Failed', 'inactive');
+    document.body.classList.remove('scanning');
   }
 }
 
@@ -179,7 +179,7 @@ async function analyzeJob(jobData, mode) {
           salary: jobData.salary || undefined,
           jobUrl: jobData.url,
           mode: mode,
-          useAIExtraction: jobData.useAIExtraction || false // Pass AI extraction flag
+          useAIExtraction: jobData.useAIExtraction || false
         }
       })
     });
@@ -213,26 +213,13 @@ async function analyzeJob(jobData, mode) {
   }
 }
 
-function generateMockFlags() {
-  const possibleFlags = [
-    { type: 'urgent_language', description: 'Job posting uses urgent language like "immediate hire" or "apply now"', severity: 'medium' },
-    { type: 'vague_description', description: 'Job description lacks specific details about responsibilities', severity: 'low' },
-    { type: 'unrealistic_salary', description: 'Salary range appears unusually high for the position level', severity: 'high' },
-    { type: 'generic_title', description: 'Job title is very generic and not industry-specific', severity: 'low' },
-    { type: 'application_redirect', description: 'Application process redirects to external website', severity: 'medium' }
-  ];
-
-  const numFlags = Math.floor(Math.random() * 3);
-  return possibleFlags.slice(0, numFlags);
-}
-
 function displayResults(result) {
   // Update result header
   resultTitle.textContent = result.jobTitle;
   resultCompany.textContent = result.company + (result.location ? ` • ${result.location}` : '');
 
   // Update badge and icon
-  let badgeText = 'Legitimate';
+  let badgeText = 'Verified';
   let badgeClass = '';
   let iconClass = '';
 
@@ -245,18 +232,33 @@ function displayResults(result) {
     badgeClass = 'warning';
     iconClass = 'warning';
   } else if (result.isSpam) {
-    badgeText = 'Spam Likely';
-    badgeClass = 'spam';
-    iconClass = 'spam';
+    badgeText = 'Spam';
+    badgeClass = 'warning';
+    iconClass = 'warning';
   }
 
   resultBadge.textContent = badgeText;
   resultBadge.className = `result-badge ${badgeClass}`;
   resultIcon.className = `result-status-icon ${iconClass}`;
 
+  // Update icon SVG based on result
+  if (iconClass === 'danger' || iconClass === 'warning') {
+    resultIcon.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 9v4m0 4h.01M5.07 19H19a2 2 0 001.72-3.01L13.72 4.99a2 2 0 00-3.44 0L3.35 15.99A2 2 0 005.07 19z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `;
+  } else {
+    resultIcon.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `;
+  }
+
   // Update confidence score
   const score = result.confidenceScore;
-  scoreValue.textContent = `${score}/100`;
+  scoreValue.textContent = score;
   scoreFill.style.width = `${score}%`;
 
   if (score >= 75) {
@@ -275,9 +277,9 @@ function displayResults(result) {
     flagsSection.classList.remove('hidden');
     flagsList.innerHTML = result.redFlags.map(flag => `
       <div class="flag-item">
-        <svg class="flag-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2L2 7l10 5 10-5-10-5z" fill="currentColor"/>
-          <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" fill="none"/>
+        <svg class="flag-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 8v4m0 4h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
         <div>${flag.description}</div>
       </div>
@@ -306,12 +308,36 @@ function showSection(section) {
 
 function resetToScan() {
   showSection('scan');
-  updateStatusBadge('Ready to Scan', 'ready');
 }
 
 function showError(message) {
   showSection('scan');
-  alert('Scan Error: ' + message);
+  // Create a more elegant error display
+  const errorDiv = document.createElement('div');
+  errorDiv.className = 'error-toast';
+  errorDiv.textContent = message;
+  errorDiv.style.cssText = `
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    color: var(--danger);
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    z-index: 100;
+    animation: fadeInUp 0.3s ease-out;
+  `;
+  document.body.appendChild(errorDiv);
+
+  setTimeout(() => {
+    errorDiv.style.opacity = '0';
+    errorDiv.style.transform = 'translateX(-50%) translateY(10px)';
+    errorDiv.style.transition = 'all 0.3s ease-out';
+    setTimeout(() => errorDiv.remove(), 300);
+  }, 3000);
 }
 
 async function saveToHistory(result) {
@@ -337,8 +363,8 @@ async function loadHistory() {
   if (scanHistory.length === 0) {
     historyList.innerHTML = `
       <div class="empty-state">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         <p>No recent scans</p>
       </div>
@@ -348,15 +374,18 @@ async function loadHistory() {
 
   historyList.innerHTML = scanHistory.map(item => `
     <div class="history-item" data-id="${item.id}">
-      <div class="history-icon ${item.isScam ? 'danger' : item.isGhostJob ? 'warning' : item.isSpam ? 'spam' : 'success'}">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-          <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <div class="history-icon ${item.isScam ? 'danger' : item.isGhostJob ? 'warning' : ''}">
+        <svg viewBox="0 0 24 24" fill="none">
+          ${item.isScam || item.isGhostJob ? `
+            <path d="M12 9v4m0 4h.01M5.07 19H19a2 2 0 001.72-3.01L13.72 4.99a2 2 0 00-3.44 0L3.35 15.99A2 2 0 005.07 19z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          ` : `
+            <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          `}
         </svg>
       </div>
       <div class="history-info">
         <div class="history-title">${item.jobTitle}</div>
-        <div class="history-meta">${item.company} • Score: ${item.confidenceScore}</div>
+        <div class="history-meta">${item.company} • ${item.confidenceScore}%</div>
       </div>
     </div>
   `).join('');

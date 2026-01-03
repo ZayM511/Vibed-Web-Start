@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JobFiltr - Scam & Ghost Job Detector</title>
+  <title>JobFiltr</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles/popup.css">
 </head>
 <body>
@@ -12,16 +15,35 @@
     <header class="header">
       <div class="logo-section">
         <div class="logo-icon">
+          <!-- Filter Icon - Refined -->
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-            <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 6H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M7 12H17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M10 18H14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <!-- Subtle checkmark accent -->
+            <path d="M18 16L19.5 17.5L22 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
           </svg>
         </div>
         <h1 class="logo-text">JobFiltr</h1>
       </div>
-      <div class="status-badge" id="statusBadge">
-        <span class="status-dot"></span>
-        <span>Ready</span>
+      <div class="header-actions">
+        <button class="theme-toggle" id="themeToggle" title="Toggle theme">
+          <!-- Sun Icon (shown in light mode) -->
+          <svg class="sun-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 2V4M12 20V22M4 12H2M22 12H20M5.64 5.64L4.22 4.22M19.78 19.78L18.36 18.36M5.64 18.36L4.22 19.78M19.78 4.22L18.36 5.64" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <!-- Moon Icon (shown in dark mode) -->
+          <svg class="moon-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="settings-btn" id="openSettings" title="Settings">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -30,49 +52,49 @@
       <!-- Scan Section -->
       <div class="scan-section" id="scanSection">
         <div class="scan-header">
-          <h2>Scan This Job Posting</h2>
-          <p>AI-powered analysis to detect scams and ghost jobs</p>
+          <h2>Verify This Job</h2>
+          <p>AI-powered detection for scams and ghost listings</p>
         </div>
 
         <div class="scan-mode-selector">
           <button class="mode-button active" data-mode="quick" id="quickModeBtn">
-            <div class="mode-icon quick-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <div class="mode-icon">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" fill="currentColor"/>
               </svg>
             </div>
             <div class="mode-info">
-              <div class="mode-title">Quick Scan</div>
-              <div class="mode-desc">Fast analysis</div>
+              <div class="mode-title">Quick</div>
+              <div class="mode-desc">Fast check</div>
             </div>
           </button>
 
           <button class="mode-button" data-mode="deep" id="deepModeBtn">
-            <div class="mode-icon deep-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <div class="mode-icon">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="12" cy="12" r="3" fill="currentColor"/>
-                <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2" fill="none"/>
+                <circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="2"/>
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1" opacity="0.4"/>
               </svg>
             </div>
             <div class="mode-info">
-              <div class="mode-title">Deep Analysis</div>
-              <div class="mode-desc">Comprehensive report</div>
+              <div class="mode-title">Deep</div>
+              <div class="mode-desc">Full analysis</div>
             </div>
           </button>
         </div>
 
         <button class="scan-button" id="scanButton">
-          <svg class="scan-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" fill="currentColor"/>
+          <svg class="scan-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 6H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M7 12H17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M10 18H14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
           <span id="scanButtonText">Scan Job Posting</span>
-          <svg class="scan-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" fill="currentColor"/>
-          </svg>
         </button>
 
         <p class="scan-help-text">
-          Navigate to a job posting on LinkedIn, Indeed, Glassdoor, or other supported job boards
+          Navigate to a job listing on LinkedIn, Indeed, Glassdoor, or other supported platforms
         </p>
       </div>
 
@@ -80,9 +102,16 @@
       <div class="loading-section hidden" id="loadingSection">
         <div class="loader-wrapper">
           <div class="loader"></div>
+          <div class="loader-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 6H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M7 12H17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M10 18H14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
         </div>
-        <h3>Analyzing Job Posting...</h3>
-        <p>Our AI is detecting scams and ghost jobs</p>
+        <h3>Analyzing...</h3>
+        <p>Verifying job authenticity</p>
         <div class="loading-progress">
           <div class="progress-bar" id="progressBar"></div>
         </div>
@@ -92,22 +121,21 @@
       <div class="results-section hidden" id="resultsSection">
         <div class="result-header">
           <div class="result-status-icon" id="resultIcon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-              <path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
           <div class="result-info">
             <h3 id="resultTitle">Job Analysis Complete</h3>
             <p id="resultCompany">Company Name</p>
           </div>
-          <div class="result-badge" id="resultBadge">Legitimate</div>
+          <div class="result-badge" id="resultBadge">Verified</div>
         </div>
 
         <div class="confidence-score">
           <div class="score-header">
-            <span>Legitimacy Score</span>
-            <span class="score-value" id="scoreValue">85/100</span>
+            <span class="score-label">Legitimacy Score</span>
+            <span class="score-value" id="scoreValue">85</span>
           </div>
           <div class="score-bar">
             <div class="score-fill" id="scoreFill"></div>
@@ -116,11 +144,10 @@
 
         <div class="flags-section" id="flagsSection">
           <h4>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2L2 7l10 5 10-5-10-5z" fill="currentColor"/>
-              <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" fill="none"/>
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 9v4m0 4h.01M5.07 19H19a2 2 0 001.72-3.01L13.72 4.99a2 2 0 00-3.44 0L3.35 15.99A2 2 0 005.07 19z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            Red Flags Detected
+            Issues Detected
           </h4>
           <div class="flags-list" id="flagsList">
             <!-- Flags will be inserted here -->
@@ -129,7 +156,7 @@
 
         <div class="action-buttons">
           <button class="btn btn-secondary" id="viewFullReport">
-            View Full Report
+            Full Report
           </button>
           <button class="btn btn-primary" id="newScan">
             New Scan
@@ -140,13 +167,13 @@
       <!-- History Section -->
       <div class="history-section" id="historySection">
         <div class="history-header">
-          <h3>Recent Scans</h3>
+          <h3>Recent</h3>
           <button class="btn-text" id="clearHistory">Clear</button>
         </div>
         <div class="history-list" id="historyList">
           <div class="empty-state">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             <p>No recent scans</p>
           </div>
@@ -156,18 +183,11 @@
 
     <!-- Footer -->
     <footer class="footer">
-      <button class="footer-link" id="openSettings">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="12" cy="12" r="3" fill="currentColor"/>
-          <path d="M12 1v6m0 6v6M23 12h-6m-6 0H1" stroke="currentColor" stroke-width="2"/>
-        </svg>
-        Settings
-      </button>
       <button class="footer-link" id="openWebApp">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        Open Web App
+        Open Dashboard
       </button>
     </footer>
   </div>

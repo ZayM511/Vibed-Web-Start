@@ -10,15 +10,41 @@ const notificationsToggle = document.getElementById('notificationsToggle');
 const saveButton = document.getElementById('saveButton');
 const resetButton = document.getElementById('resetButton');
 const successMessage = document.getElementById('successMessage');
+const themeToggle = document.getElementById('themeToggle');
 
-// Load settings on page load
+// Initialize theme and load settings on page load
+initTheme();
 loadSettings();
+
+// Theme Management
+function initTheme() {
+  chrome.storage.local.get(['theme'], (result) => {
+    if (result.theme) {
+      setTheme(result.theme);
+    } else {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setTheme(prefersDark ? 'dark' : 'light');
+    }
+  });
+}
+
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  chrome.storage.local.set({ theme });
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  setTheme(newTheme);
+}
 
 // Event listeners
 saveButton.addEventListener('click', saveSettings);
 resetButton.addEventListener('click', resetToDefaults);
 autoScanToggle.addEventListener('click', toggleAutoScan);
 notificationsToggle.addEventListener('click', toggleNotifications);
+themeToggle.addEventListener('click', toggleTheme);
 
 // Load current settings
 async function loadSettings() {
