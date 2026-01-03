@@ -110,6 +110,48 @@
           <p class="filter-description">True entry level (0-1 years only), flags mismatches</p>
         </div>
 
+        <!-- Filter: Include Keywords -->
+        <div class="filter-item expandable">
+          <div class="filter-header">
+            <label class="filter-label">
+              <input type="checkbox" id="filterIncludeKeywords" class="filter-checkbox">
+              <span class="filter-title">Include Keywords</span>
+            </label>
+            <span class="filter-badge">Must Have</span>
+          </div>
+          <p class="filter-description">Only show jobs containing these words in title/description</p>
+          <div class="filter-options keywords-section">
+            <div class="keywords-input-container">
+              <input type="text" id="includeKeywordInput" placeholder="Type keyword and press Enter" class="keyword-input">
+              <button type="button" id="addIncludeKeyword" class="keyword-add-btn">+</button>
+            </div>
+            <div class="keywords-chips" id="includeKeywordsChips">
+              <!-- Chips will be added here dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter: Exclude Keywords -->
+        <div class="filter-item expandable">
+          <div class="filter-header">
+            <label class="filter-label">
+              <input type="checkbox" id="filterExcludeKeywords" class="filter-checkbox">
+              <span class="filter-title">Exclude Keywords</span>
+            </label>
+            <span class="filter-badge badge-warning">Hide Jobs</span>
+          </div>
+          <p class="filter-description">Hide jobs containing these words in title/description</p>
+          <div class="filter-options keywords-section">
+            <div class="keywords-input-container">
+              <input type="text" id="excludeKeywordInput" placeholder="Type keyword and press Enter" class="keyword-input">
+              <button type="button" id="addExcludeKeyword" class="keyword-add-btn">+</button>
+            </div>
+            <div class="keywords-chips" id="excludeKeywordsChips">
+              <!-- Chips will be added here dynamically -->
+            </div>
+          </div>
+        </div>
+
         <!-- Filter: Salary Range -->
         <div class="filter-item expandable">
           <div class="filter-header">

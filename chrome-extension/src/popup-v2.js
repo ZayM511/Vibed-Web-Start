@@ -84,6 +84,8 @@ function updateSiteStatus(site) {
 
 // ===== FILTERS FUNCTIONALITY =====
 let filterSettings = {};
+let includeKeywords = [];
+let excludeKeywords = [];
 
 async function initializeFilters() {
   await detectCurrentSite();
@@ -102,6 +104,8 @@ async function loadFilterSettings() {
     document.getElementById('filterApplicants').checked = filterSettings.filterApplicants || false;
     document.getElementById('applicantRange').value = filterSettings.applicantRange || 'under10';
     document.getElementById('filterEntryLevel').checked = filterSettings.entryLevelAccuracy || false;
+    document.getElementById('filterIncludeKeywords').checked = filterSettings.filterIncludeKeywords || false;
+    document.getElementById('filterExcludeKeywords').checked = filterSettings.filterExcludeKeywords || false;
     document.getElementById('filterSalary').checked = filterSettings.filterSalary || false;
     document.getElementById('minSalary').value = filterSettings.minSalary || '';
     document.getElementById('maxSalary').value = filterSettings.maxSalary || '';
@@ -110,6 +114,11 @@ async function loadFilterSettings() {
     document.getElementById('filterApplied').checked = filterSettings.hideApplied || false;
     document.getElementById('filterVisa').checked = filterSettings.visaOnly || false;
     document.getElementById('filterEasyApply').checked = filterSettings.easyApplyOnly || false;
+
+    // Load keywords
+    includeKeywords = filterSettings.includeKeywords || [];
+    excludeKeywords = filterSettings.excludeKeywords || [];
+    renderKeywordChips();
 
   } catch (error) {
     console.error('Error loading filter settings:', error);
@@ -123,6 +132,10 @@ async function saveFilterSettings() {
     filterApplicants: document.getElementById('filterApplicants').checked,
     applicantRange: document.getElementById('applicantRange').value,
     entryLevelAccuracy: document.getElementById('filterEntryLevel').checked,
+    filterIncludeKeywords: document.getElementById('filterIncludeKeywords').checked,
+    filterExcludeKeywords: document.getElementById('filterExcludeKeywords').checked,
+    includeKeywords: includeKeywords,
+    excludeKeywords: excludeKeywords,
     filterSalary: document.getElementById('filterSalary').checked,
     minSalary: document.getElementById('minSalary').value,
     maxSalary: document.getElementById('maxSalary').value,
@@ -140,6 +153,122 @@ function updateFilterStats() {
   const activeCount = Object.values(filterSettings).filter(v => v === true).length;
   document.getElementById('activeFiltersCount').textContent = activeCount;
 }
+
+// ===== KEYWORDS MANAGEMENT =====
+function renderKeywordChips() {
+  // Render include keywords
+  const includeContainer = document.getElementById('includeKeywordsChips');
+  includeContainer.innerHTML = '';
+
+  if (includeKeywords.length === 0) {
+    includeContainer.innerHTML = '<span class="keywords-empty">No keywords added</span>';
+  } else {
+    includeKeywords.forEach((keyword, index) => {
+      const chip = createKeywordChip(keyword, 'include', index);
+      includeContainer.appendChild(chip);
+    });
+  }
+
+  // Render exclude keywords
+  const excludeContainer = document.getElementById('excludeKeywordsChips');
+  excludeContainer.innerHTML = '';
+
+  if (excludeKeywords.length === 0) {
+    excludeContainer.innerHTML = '<span class="keywords-empty">No keywords added</span>';
+  } else {
+    excludeKeywords.forEach((keyword, index) => {
+      const chip = createKeywordChip(keyword, 'exclude', index);
+      excludeContainer.appendChild(chip);
+    });
+  }
+}
+
+function createKeywordChip(keyword, type, index) {
+  const chip = document.createElement('span');
+  chip.className = `keyword-chip ${type === 'exclude' ? 'exclude' : ''}`;
+  chip.innerHTML = `
+    ${keyword}
+    <button class="keyword-chip-remove" data-type="${type}" data-index="${index}">&times;</button>
+  `;
+
+  // Add click handler for remove button
+  chip.querySelector('.keyword-chip-remove').addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    removeKeyword(type, index);
+  });
+
+  return chip;
+}
+
+function addKeyword(type, keyword) {
+  keyword = keyword.trim().toLowerCase();
+
+  if (!keyword) return false;
+
+  if (type === 'include') {
+    if (includeKeywords.includes(keyword)) {
+      return false; // Already exists
+    }
+    includeKeywords.push(keyword);
+  } else {
+    if (excludeKeywords.includes(keyword)) {
+      return false; // Already exists
+    }
+    excludeKeywords.push(keyword);
+  }
+
+  renderKeywordChips();
+  return true;
+}
+
+function removeKeyword(type, index) {
+  if (type === 'include') {
+    includeKeywords.splice(index, 1);
+  } else {
+    excludeKeywords.splice(index, 1);
+  }
+
+  renderKeywordChips();
+}
+
+// Include keyword input handlers
+document.getElementById('includeKeywordInput').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const input = e.target;
+    if (addKeyword('include', input.value)) {
+      input.value = '';
+    }
+  }
+});
+
+document.getElementById('addIncludeKeyword').addEventListener('click', () => {
+  const input = document.getElementById('includeKeywordInput');
+  if (addKeyword('include', input.value)) {
+    input.value = '';
+  }
+  input.focus();
+});
+
+// Exclude keyword input handlers
+document.getElementById('excludeKeywordInput').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const input = e.target;
+    if (addKeyword('exclude', input.value)) {
+      input.value = '';
+    }
+  }
+});
+
+document.getElementById('addExcludeKeyword').addEventListener('click', () => {
+  const input = document.getElementById('excludeKeywordInput');
+  if (addKeyword('exclude', input.value)) {
+    input.value = '';
+  }
+  input.focus();
+});
 
 // Apply Filters Button
 document.getElementById('applyFilters').addEventListener('click', async () => {
@@ -182,6 +311,11 @@ document.getElementById('resetFilters').addEventListener('click', async () => {
   document.getElementById('applicantRange').value = 'under10';
   document.getElementById('minSalary').value = '';
   document.getElementById('maxSalary').value = '';
+
+  // Reset keywords
+  includeKeywords = [];
+  excludeKeywords = [];
+  renderKeywordChips();
 
   filterSettings = {};
   await chrome.storage.local.set({ filterSettings: {} });

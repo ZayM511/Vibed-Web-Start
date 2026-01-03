@@ -219,6 +219,62 @@ function getApplicantCount(jobCard) {
   }
 }
 
+// ===== KEYWORD FILTERING =====
+function getJobCardText(jobCard) {
+  // Get title
+  const titleSelectors = [
+    '[data-testid="job-title"]',
+    '.jobTitle',
+    'h2.jobTitle span',
+    'a[data-jk] span[title]'
+  ];
+
+  let title = '';
+  for (const selector of titleSelectors) {
+    const elem = jobCard.querySelector(selector);
+    if (elem) {
+      title = elem.textContent.trim().toLowerCase();
+      break;
+    }
+  }
+
+  // Get company
+  const companySelectors = [
+    '[data-testid="company-name"]',
+    '.companyName',
+    '.company'
+  ];
+
+  let company = '';
+  for (const selector of companySelectors) {
+    const elem = jobCard.querySelector(selector);
+    if (elem) {
+      company = elem.textContent.trim().toLowerCase();
+      break;
+    }
+  }
+
+  // Get snippet/description if available
+  const snippetElem = jobCard.querySelector('.job-snippet, .jobCardShelfContainer');
+  const snippet = snippetElem ? snippetElem.textContent.trim().toLowerCase() : '';
+
+  return `${title} ${company} ${snippet}`;
+}
+
+function matchesIncludeKeywords(jobCard, keywords) {
+  if (!keywords || keywords.length === 0) return true;
+
+  const text = getJobCardText(jobCard);
+  return keywords.some(keyword => text.includes(keyword.toLowerCase()));
+}
+
+function matchesExcludeKeywords(jobCard, keywords) {
+  if (!keywords || keywords.length === 0) return false;
+
+  const text = getJobCardText(jobCard);
+  return keywords.some(keyword => text.includes(keyword.toLowerCase()));
+}
+
 // ===== FILTER APPLICATION WITH IMPROVED SELECTORS =====
 function applyFilters(settings) {
   filterSettings = settings;
@@ -280,6 +336,22 @@ function applyFilters(settings) {
         if (range === 'over500' && applicantCount < 500) shouldHide = true;
 
         if (shouldHide) reasons.push(`Applicants: ${applicantCount}`);
+      }
+    }
+
+    // Filter: Include Keywords (must contain at least one)
+    if (settings.filterIncludeKeywords && settings.includeKeywords && settings.includeKeywords.length > 0) {
+      if (!matchesIncludeKeywords(jobCard, settings.includeKeywords)) {
+        shouldHide = true;
+        reasons.push('Missing required keywords');
+      }
+    }
+
+    // Filter: Exclude Keywords (hide if contains any)
+    if (settings.filterExcludeKeywords && settings.excludeKeywords && settings.excludeKeywords.length > 0) {
+      if (matchesExcludeKeywords(jobCard, settings.excludeKeywords)) {
+        shouldHide = true;
+        reasons.push('Contains excluded keywords');
       }
     }
 

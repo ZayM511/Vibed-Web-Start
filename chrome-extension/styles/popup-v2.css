@@ -275,6 +275,10 @@ body {
   background: var(--danger);
 }
 
+.filter-badge.badge-warning {
+  background: var(--warning);
+}
+
 .filter-description {
   font-size: 12px;
   color: var(--gray-600);
@@ -315,6 +319,119 @@ body {
 
 .salary-input::placeholder {
   color: var(--gray-400);
+}
+
+/* Keywords Filter Styles */
+.keywords-section {
+  margin-top: var(--spacing-sm);
+}
+
+.keywords-input-container {
+  display: flex;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+}
+
+.keyword-input {
+  flex: 1;
+  padding: var(--spacing-sm);
+  background: var(--gray-50);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--gray-700);
+}
+
+.keyword-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.keyword-input::placeholder {
+  color: var(--gray-400);
+}
+
+.keyword-add-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.keyword-add-btn:hover {
+  background: var(--primary-dark);
+}
+
+.keywords-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  min-height: 24px;
+}
+
+.keyword-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--primary-light);
+  color: white;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  animation: chipIn 0.2s ease;
+}
+
+.keyword-chip.exclude {
+  background: var(--warning);
+}
+
+@keyframes chipIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.keyword-chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  font-size: 10px;
+  cursor: pointer;
+  transition: var(--transition);
+  padding: 0;
+  line-height: 1;
+}
+
+.keyword-chip-remove:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.keywords-empty {
+  font-size: 11px;
+  color: var(--gray-400);
+  font-style: italic;
 }
 
 /* Filter Actions */
