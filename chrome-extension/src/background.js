@@ -121,6 +121,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.action === 'getDisplayForPosition') {
+    getDisplayForPosition(request.left)
+      .then(info => sendResponse(info))
+      .catch(() => sendResponse(null));
+    return true;
+  }
+
+  if (request.action === 'snapToEdge') {
+    snapPanelToEdge(request.dock)
+      .then(() => sendResponse({ success: true }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
   // ===== EXISTING HANDLERS =====
   if (request.action === 'scanJob') {
     handleJobScan(request.data, sender.tab?.id)
@@ -247,7 +261,86 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // ===== PANEL WINDOW MANAGEMENT FUNCTIONS =====
 
-// Open panel window docked to specified side
+// Helper function to find which display a window is on based on its position
+function findDisplayForWindow(windowInfo, displays) {
+  if (!windowInfo || windowInfo.left === undefined) {
+    return displays.find(d => d.isPrimary) || displays[0];
+  }
+
+  const windowCenterX = windowInfo.left + (windowInfo.width || 0) / 2;
+  const windowCenterY = windowInfo.top + (windowInfo.height || 0) / 2;
+
+  // Find the display that contains the center of the window
+  for (const display of displays) {
+    const bounds = display.workArea;
+    if (
+      windowCenterX >= bounds.left &&
+      windowCenterX < bounds.left + bounds.width &&
+      windowCenterY >= bounds.top &&
+      windowCenterY < bounds.top + bounds.height
+    ) {
+      return display;
+    }
+  }
+
+  // If no display found (window might be partially off-screen), find closest display
+  let closestDisplay = displays[0];
+  let closestDistance = Infinity;
+
+  for (const display of displays) {
+    const bounds = display.workArea;
+    const displayCenterX = bounds.left + bounds.width / 2;
+    const displayCenterY = bounds.top + bounds.height / 2;
+    const distance = Math.sqrt(
+      Math.pow(windowCenterX - displayCenterX, 2) +
+      Math.pow(windowCenterY - displayCenterY, 2)
+    );
+
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestDisplay = display;
+    }
+  }
+
+  return closestDisplay;
+}
+
+// Get the current active browser window and its display
+async function getCurrentWindowDisplay() {
+  try {
+    // Get the currently focused window
+    const currentWindow = await chrome.windows.getCurrent();
+    const displays = await chrome.system.display.getInfo();
+
+    console.log('Current window:', currentWindow);
+    console.log('Available displays:', displays.map(d => ({
+      id: d.id,
+      isPrimary: d.isPrimary,
+      workArea: d.workArea
+    })));
+
+    const targetDisplay = findDisplayForWindow(currentWindow, displays);
+
+    console.log('Target display:', targetDisplay.workArea);
+
+    return {
+      window: currentWindow,
+      display: targetDisplay,
+      displays: displays
+    };
+  } catch (error) {
+    console.error('Error getting current window display:', error);
+    // Fallback to primary display
+    const displays = await chrome.system.display.getInfo();
+    return {
+      window: null,
+      display: displays.find(d => d.isPrimary) || displays[0],
+      displays: displays
+    };
+  }
+}
+
+// Open panel window docked to specified side ON THE SAME MONITOR as the active browser window
 async function openPanelWindow(dock = 'left') {
   // Close existing panel if open
   if (panelWindowId) {
@@ -259,13 +352,17 @@ async function openPanelWindow(dock = 'left') {
     panelWindowId = null;
   }
 
-  // Get screen dimensions
-  const displays = await chrome.system.display.getInfo();
-  const primaryDisplay = displays.find(d => d.isPrimary) || displays[0];
-  const screenWidth = primaryDisplay.workArea.width;
-  const screenHeight = primaryDisplay.workArea.height;
-  const screenLeft = primaryDisplay.workArea.left;
-  const screenTop = primaryDisplay.workArea.top;
+  // Get current window's display (the monitor the browser is on)
+  const { display } = await getCurrentWindowDisplay();
+  const workArea = display.workArea;
+
+  // Use full height of the monitor's work area
+  const screenWidth = workArea.width;
+  const screenHeight = workArea.height;
+  const screenLeft = workArea.left;
+  const screenTop = workArea.top;
+
+  console.log(`Opening panel on monitor: left=${screenLeft}, top=${screenTop}, width=${screenWidth}, height=${screenHeight}`);
 
   // Calculate position based on dock side
   let left;
@@ -278,12 +375,12 @@ async function openPanelWindow(dock = 'left') {
     left = screenLeft + Math.floor((screenWidth - PANEL_WIDTH) / 2);
   }
 
-  // Create panel window
+  // Create panel window with FULL HEIGHT of the monitor
   const panelWindow = await chrome.windows.create({
     url: `popup-v2.html?mode=panel&dock=${dock}`,
     type: 'popup',
     width: PANEL_WIDTH,
-    height: Math.min(PANEL_HEIGHT, screenHeight),
+    height: screenHeight, // Full height of the monitor's work area
     left: left,
     top: screenTop,
     focused: true
@@ -291,12 +388,13 @@ async function openPanelWindow(dock = 'left') {
 
   panelWindowId = panelWindow.id;
 
-  // Save panel state
+  // Save panel state including the display info
   await chrome.storage.local.set({
     panelState: {
       isOpen: true,
       dock: dock,
-      windowId: panelWindowId
+      windowId: panelWindowId,
+      displayId: display.id
     }
   });
 
@@ -324,50 +422,72 @@ async function closePanelWindow() {
   });
 }
 
-// Reposition panel to specified dock side
+// Reposition panel to specified dock side on the CURRENT MONITOR where the panel is located
 async function repositionPanelWindow(dock) {
   if (!panelWindowId) return;
 
-  // Get screen dimensions
-  const displays = await chrome.system.display.getInfo();
-  const primaryDisplay = displays.find(d => d.isPrimary) || displays[0];
-  const screenWidth = primaryDisplay.workArea.width;
-  const screenLeft = primaryDisplay.workArea.left;
+  try {
+    // Get current panel window position to determine which monitor it's on
+    const panelWindow = await chrome.windows.get(panelWindowId);
+    const displays = await chrome.system.display.getInfo();
 
-  // Calculate new position
-  let left;
-  if (dock === 'left') {
-    left = screenLeft;
-  } else if (dock === 'right') {
-    left = screenLeft + screenWidth - PANEL_WIDTH;
-  }
+    // Find which display the panel is currently on
+    const currentDisplay = findDisplayForWindow(panelWindow, displays);
+    const workArea = currentDisplay.workArea;
 
-  // Update window position
-  await chrome.windows.update(panelWindowId, { left });
-
-  // Update stored state
-  await chrome.storage.local.set({
-    panelState: {
-      isOpen: true,
-      dock: dock,
-      windowId: panelWindowId
+    // Calculate new position on the same monitor
+    let left;
+    if (dock === 'left') {
+      left = workArea.left;
+    } else if (dock === 'right') {
+      left = workArea.left + workArea.width - PANEL_WIDTH;
     }
-  });
+
+    // Update window position and ensure full height
+    await chrome.windows.update(panelWindowId, {
+      left: left,
+      top: workArea.top,
+      height: workArea.height
+    });
+
+    // Update stored state
+    await chrome.storage.local.set({
+      panelState: {
+        isOpen: true,
+        dock: dock,
+        windowId: panelWindowId,
+        displayId: currentDisplay.id
+      }
+    });
+  } catch (error) {
+    console.error('Error repositioning panel:', error);
+  }
 }
 
-// Move panel to specific x position (for dragging)
+// Move panel to specific x position (for dragging) - supports multi-monitor
 async function movePanelWindow(left) {
   if (!panelWindowId) return;
 
-  // Clamp to screen bounds
-  const displays = await chrome.system.display.getInfo();
-  const primaryDisplay = displays.find(d => d.isPrimary) || displays[0];
-  const screenWidth = primaryDisplay.workArea.width;
-  const screenLeft = primaryDisplay.workArea.left;
+  try {
+    const displays = await chrome.system.display.getInfo();
 
-  const clampedLeft = Math.max(screenLeft, Math.min(left, screenLeft + screenWidth - PANEL_WIDTH));
+    // Calculate the total screen bounds across all monitors
+    let minLeft = Infinity;
+    let maxRight = -Infinity;
 
-  await chrome.windows.update(panelWindowId, { left: clampedLeft });
+    for (const display of displays) {
+      const workArea = display.workArea;
+      minLeft = Math.min(minLeft, workArea.left);
+      maxRight = Math.max(maxRight, workArea.left + workArea.width);
+    }
+
+    // Clamp to total screen bounds (allowing movement across all monitors)
+    const clampedLeft = Math.max(minLeft, Math.min(left, maxRight - PANEL_WIDTH));
+
+    await chrome.windows.update(panelWindowId, { left: clampedLeft });
+  } catch (error) {
+    console.error('Error moving panel:', error);
+  }
 }
 
 // Get current panel window info
@@ -386,6 +506,70 @@ async function getPanelWindowInfo() {
   } catch (e) {
     panelWindowId = null;
     return null;
+  }
+}
+
+// Get display info for a given x position (to find which monitor the panel is on)
+async function getDisplayForPosition(left) {
+  if (!panelWindowId) return null;
+
+  try {
+    const panelWindow = await chrome.windows.get(panelWindowId);
+    const displays = await chrome.system.display.getInfo();
+
+    // Find display that contains this position
+    const targetDisplay = findDisplayForWindow(panelWindow, displays);
+
+    return {
+      workArea: targetDisplay.workArea,
+      displayId: targetDisplay.id
+    };
+  } catch (error) {
+    console.error('Error getting display for position:', error);
+    return null;
+  }
+}
+
+// Snap panel to left or right edge of the monitor it's currently on
+async function snapPanelToEdge(dock) {
+  if (!panelWindowId) return;
+
+  try {
+    const panelWindow = await chrome.windows.get(panelWindowId);
+    const displays = await chrome.system.display.getInfo();
+
+    // Find which display the panel is currently on
+    const currentDisplay = findDisplayForWindow(panelWindow, displays);
+    const workArea = currentDisplay.workArea;
+
+    // Calculate snap position
+    let left;
+    if (dock === 'left') {
+      left = workArea.left;
+    } else if (dock === 'right') {
+      left = workArea.left + workArea.width - PANEL_WIDTH;
+    }
+
+    // Update window position and ensure full height
+    await chrome.windows.update(panelWindowId, {
+      left: left,
+      top: workArea.top,
+      height: workArea.height
+    });
+
+    // Update stored state
+    await chrome.storage.local.set({
+      panelState: {
+        isOpen: true,
+        dock: dock,
+        windowId: panelWindowId,
+        displayId: currentDisplay.id
+      }
+    });
+
+    console.log(`Snapped panel to ${dock} edge of display ${currentDisplay.id}`);
+  } catch (error) {
+    console.error('Error snapping panel to edge:', error);
   }
 }
 

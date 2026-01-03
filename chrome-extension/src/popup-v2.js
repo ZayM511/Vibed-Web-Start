@@ -143,27 +143,53 @@ async function updateDockStateFromPosition() {
   const windowInfo = await chrome.runtime.sendMessage({ action: 'getWindowInfo' });
   if (!windowInfo) return;
 
-  const screenWidth = window.screen.availWidth;
+  // Get display info to find which monitor the panel is on
+  const displayInfo = await chrome.runtime.sendMessage({ action: 'getDisplayForPosition', left: windowInfo.left });
+
+  if (!displayInfo) {
+    // Fallback to basic screen detection
+    const screenWidth = window.screen.availWidth;
+    const panelWidth = 380;
+    const snapThreshold = 50;
+
+    if (windowInfo.left < snapThreshold) {
+      document.body.classList.remove('docked-right');
+      document.body.classList.add('docked-left');
+      currentDockSide = 'left';
+      await chrome.runtime.sendMessage({ action: 'movePanel', left: 0 });
+    } else if (windowInfo.left > screenWidth - panelWidth - snapThreshold) {
+      document.body.classList.remove('docked-left');
+      document.body.classList.add('docked-right');
+      currentDockSide = 'right';
+      await chrome.runtime.sendMessage({ action: 'movePanel', left: screenWidth - panelWidth });
+    } else {
+      document.body.classList.remove('docked-left', 'docked-right');
+      currentDockSide = 'float';
+    }
+    return;
+  }
+
+  const { workArea } = displayInfo;
   const panelWidth = 380;
   const snapThreshold = 50;
 
-  // Check if near left edge
-  if (windowInfo.left < snapThreshold) {
+  // Check if near left edge of THIS monitor
+  if (windowInfo.left < workArea.left + snapThreshold) {
     document.body.classList.remove('docked-right');
     document.body.classList.add('docked-left');
     currentDockSide = 'left';
-    // Snap to edge
-    await chrome.runtime.sendMessage({ action: 'movePanel', left: 0 });
+    // Snap to left edge of this monitor
+    await chrome.runtime.sendMessage({ action: 'snapToEdge', dock: 'left' });
   }
-  // Check if near right edge
-  else if (windowInfo.left > screenWidth - panelWidth - snapThreshold) {
+  // Check if near right edge of THIS monitor
+  else if (windowInfo.left > workArea.left + workArea.width - panelWidth - snapThreshold) {
     document.body.classList.remove('docked-left');
     document.body.classList.add('docked-right');
     currentDockSide = 'right';
-    // Snap to edge
-    await chrome.runtime.sendMessage({ action: 'movePanel', left: screenWidth - panelWidth });
+    // Snap to right edge of this monitor
+    await chrome.runtime.sendMessage({ action: 'snapToEdge', dock: 'right' });
   }
-  // Floating in middle
+  // Floating in middle of this monitor
   else {
     document.body.classList.remove('docked-left', 'docked-right');
     currentDockSide = 'float';
