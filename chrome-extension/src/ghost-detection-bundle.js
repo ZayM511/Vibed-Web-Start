@@ -710,12 +710,12 @@
         ">✕</button>
       </div>
 
-      <div style="text-align: center; padding: 24px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; margin-bottom: 20px;">
+      <div style="text-align: center; padding: 24px; background: ${currentScore.category === 'safe' ? 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)' : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)'}; border-radius: 12px; margin-bottom: 20px;">
         <div style="display: inline-block; margin-bottom: 12px;">
-          ${createCircularProgress(currentScore.overall, color, 100)}
+          ${createCircularProgress(currentScore.overall, currentScore.category === 'safe' ? '#4ade80' : color, 100)}
         </div>
-        <div style="font-size: 18px; font-weight: 600; color: #334155; margin-bottom: 4px;">${getLabel(currentScore.category)}</div>
-        <div style="font-size: 13px; color: #64748b;">
+        <div style="font-size: 18px; font-weight: 600; color: ${currentScore.category === 'safe' ? '#ffffff' : '#334155'}; margin-bottom: 4px;">${getLabel(currentScore.category)}</div>
+        <div style="font-size: 13px; color: ${currentScore.category === 'safe' ? '#94a3b8' : '#64748b'};">
           Confidence: ${Math.round(currentScore.confidence * 100)}%
         </div>
       </div>
@@ -724,14 +724,24 @@
       <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
         ${Object.entries(currentScore.breakdown)
           .filter(([_, value]) => value > 0)
-          .map(([category, value]) => `
+          .map(([category, value]) => {
+            const categoryDescriptions = {
+              temporal: 'How long the job has been posted and seasonal hiring patterns',
+              content: 'Quality and specificity of the job description',
+              company: 'Company reputation, size, and staffing agency indicators',
+              behavioral: 'Application method, sponsored status, and applicant volume',
+              community: 'User reports and community feedback',
+              structural: 'Job posting structure and formatting'
+            };
+            return `
             <div style="background: #f8fafc; border-radius: 8px; padding: 12px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                 <span style="text-transform: capitalize; color: #334155; font-weight: 500;">${category}</span>
                 <span style="font-weight: 600; color: ${value > 50 ? '#ef4444' : value > 25 ? '#f59e0b' : '#10b981'};">
                   ${Math.round(value)}%
                 </span>
               </div>
+              <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">${categoryDescriptions[category] || 'Risk factors in this category'}</div>
               <div style="height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;">
                 <div style="
                   height: 100%;
@@ -742,7 +752,7 @@
                 "></div>
               </div>
             </div>
-          `).join('')}
+          `}).join('')}
       </div>
 
       <h3 style="font-size: 13px; color: #64748b; margin: 20px 0 12px; text-transform: uppercase; letter-spacing: 0.5px;">Detection Signals</h3>
