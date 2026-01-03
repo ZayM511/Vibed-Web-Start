@@ -136,6 +136,26 @@ function extractJobInfo() {
       }
     }
 
+    // Location selectors
+    const locationSelectors = [
+      '.jobs-unified-top-card__bullet',
+      '.job-details-jobs-unified-top-card__bullet',
+      '.jobs-details-top-card__bullet',
+      '.topcard__flavor--bullet',
+      '.job-details-jobs-unified-top-card__primary-description-container .t-black--light',
+      '[class*="job-details"] [class*="location"]'
+    ];
+
+    let location = null;
+    for (const selector of locationSelectors) {
+      const elem = document.querySelector(selector);
+      if (elem) {
+        location = elem.textContent.trim();
+        log(`Found location using selector: ${selector}`, location);
+        break;
+      }
+    }
+
     const descriptionSelectors = [
       '.jobs-description__content',
       '.jobs-box__html-content',
@@ -154,7 +174,7 @@ function extractJobInfo() {
       }
     }
 
-    const jobInfo = { url, title, company, description, platform: 'linkedin' };
+    const jobInfo = { url, title, company, location, description, platform: 'linkedin' };
     log('Extracted job info:', jobInfo);
     return jobInfo;
   } catch (error) {

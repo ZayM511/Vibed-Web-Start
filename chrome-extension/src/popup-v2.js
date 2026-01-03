@@ -1209,6 +1209,7 @@ function updateDetectedJobInfo(data) {
   if (data) {
     document.getElementById('detectedTitle').textContent = data.title || 'Not detected';
     document.getElementById('detectedCompany').textContent = data.company || 'Not detected';
+    document.getElementById('detectedLocation').textContent = data.location || 'Not detected';
     document.getElementById('detectedUrl').textContent = data.url || 'Not detected';
     document.getElementById('detectedUrl').title = data.url || '';
 
@@ -1217,6 +1218,7 @@ function updateDetectedJobInfo(data) {
   } else {
     document.getElementById('detectedTitle').textContent = 'Not detected';
     document.getElementById('detectedCompany').textContent = 'Not detected';
+    document.getElementById('detectedLocation').textContent = 'Not detected';
     document.getElementById('detectedUrl').textContent = 'Not on a job posting page';
 
     // Disable scan button
@@ -1464,13 +1466,23 @@ async function loadScanHistory() {
     scanHistory.forEach((scan, index) => {
       const historyItem = document.createElement('div');
       historyItem.className = 'history-item';
+
+      // Format date and time with timezone
+      const scanDate = new Date(scan.timestamp);
+      const dateStr = scanDate.toLocaleDateString();
+      const timeStr = scanDate.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZoneName: 'short'
+      });
+
       historyItem.innerHTML = `
         <div class="history-item-header">
           <span class="history-item-title">${scan.title || 'Unknown Job'}</span>
           <span class="history-item-score">${scan.legitimacyScore}/100</span>
         </div>
         <div class="history-item-company">${scan.company || 'Unknown Company'}</div>
-        <div class="history-item-date">${new Date(scan.timestamp).toLocaleDateString()}</div>
+        <div class="history-item-date">${dateStr} at ${timeStr}</div>
       `;
       historyList.appendChild(historyItem);
     });
