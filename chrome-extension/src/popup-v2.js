@@ -749,9 +749,24 @@ document.getElementById('resetFilters').addEventListener('click', async () => {
 
 // ===== SCANNER FUNCTIONALITY =====
 let currentJobData = null;
+let scannerRefreshInterval = null;
 
 async function initializeScanner() {
+  // Ensure we have the correct tab first
+  await detectCurrentSite();
   await detectCurrentJob();
+
+  // Start auto-refresh for scanner detection (every 2 seconds)
+  if (scannerRefreshInterval) {
+    clearInterval(scannerRefreshInterval);
+  }
+  scannerRefreshInterval = setInterval(async () => {
+    // Only refresh if scanner tab is active
+    const scannerTab = document.querySelector('.tab-button[data-tab="scanner"]');
+    if (scannerTab && scannerTab.classList.contains('active')) {
+      await detectCurrentJob();
+    }
+  }, 2000);
 }
 
 async function detectCurrentJob() {
@@ -824,32 +839,130 @@ document.getElementById('scanButton').addEventListener('click', async () => {
   document.querySelector('.loading-section').classList.remove('hidden');
 
   try {
-    // Call your backend API to analyze the job
-    const response = await fetch('https://your-backend-url.com/api/scan-job', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(currentJobData)
-    });
+    // Get the tab ID to send message to
+    let tabId = currentTabId;
+    if (!tabId) {
+      if (isPanelMode) {
+        const response = await chrome.runtime.sendMessage({ action: 'getActiveJobTab' });
+        tabId = response?.tab?.id;
+      } else {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        tabId = tab?.id;
+      }
+    }
 
-    const result = await response.json();
+    if (!tabId) {
+      throw new Error('No tab found for scanning');
+    }
+
+    // Send message to content script to perform ghost detection analysis
+    const result = await chrome.tabs.sendMessage(tabId, {
+      type: 'ANALYZE_GHOST_JOB',
+      jobData: currentJobData
+    });
 
     // Hide loading, show results
     document.querySelector('.loading-section').classList.add('hidden');
     document.querySelector('.scan-results').classList.remove('hidden');
 
-    displayScanResults(result);
-
-    // Save to history
-    await saveScanToHistory(result);
+    if (result && result.success) {
+      displayScanResults(result.data);
+      // Save to history
+      await saveScanToHistory(result.data);
+    } else {
+      // Fallback: perform local analysis if content script doesn't respond
+      const localResult = performLocalGhostAnalysis(currentJobData);
+      displayScanResults(localResult);
+      await saveScanToHistory(localResult);
+    }
 
   } catch (error) {
     console.error('Error scanning job:', error);
-    document.querySelector('.loading-section').classList.add('hidden');
-    alert('Error scanning job. Please try again.');
+    // Fallback: perform local analysis
+    try {
+      const localResult = performLocalGhostAnalysis(currentJobData);
+      document.querySelector('.loading-section').classList.add('hidden');
+      document.querySelector('.scan-results').classList.remove('hidden');
+      displayScanResults(localResult);
+      await saveScanToHistory(localResult);
+    } catch (fallbackError) {
+      document.querySelector('.loading-section').classList.add('hidden');
+      alert('Error scanning job. Please try again.');
+    }
   }
 });
+
+// Local ghost job analysis (fallback when content script unavailable)
+function performLocalGhostAnalysis(jobData) {
+  const redFlags = [];
+  let score = 100; // Start with perfect score, subtract for issues
+
+  // Check for staffing indicators
+  const staffingPatterns = [
+    /staffing|recruiting|talent|solutions|workforce/i,
+    /robert\s*half|randstad|adecco|manpower|kelly\s*services/i,
+    /teksystems|insight\s*global|aerotek|allegis/i,
+    /cybercoders|kforce|modis|judge|apex/i
+  ];
+
+  const companyLower = (jobData.company || '').toLowerCase();
+  for (const pattern of staffingPatterns) {
+    if (pattern.test(companyLower)) {
+      redFlags.push('Company appears to be a staffing agency');
+      score -= 20;
+      break;
+    }
+  }
+
+  // Check for vague descriptions
+  const vagueIndicators = [
+    'fast-paced', 'self-starter', 'team player', 'dynamic',
+    'exciting opportunity', 'competitive salary', 'rock star', 'ninja',
+    'guru', 'wear many hats', 'other duties as assigned'
+  ];
+
+  const descLower = (jobData.description || '').toLowerCase();
+  let vagueCount = 0;
+  for (const indicator of vagueIndicators) {
+    if (descLower.includes(indicator)) vagueCount++;
+  }
+
+  if (vagueCount >= 3) {
+    redFlags.push('Job description contains multiple vague/buzzword phrases');
+    score -= 15;
+  } else if (vagueCount >= 1) {
+    redFlags.push('Job description contains some vague language');
+    score -= 5;
+  }
+
+  // Check for salary transparency
+  if (!/\$[\d,]+/.test(jobData.description || '') && !/salary|pay|compensation/i.test(jobData.description || '')) {
+    redFlags.push('No salary information provided');
+    score -= 10;
+  }
+
+  // Check description length
+  if ((jobData.description || '').length < 200) {
+    redFlags.push('Job description is unusually short');
+    score -= 15;
+  }
+
+  // Check for remote work clarity issues
+  if (/remote/i.test(jobData.description || '') && /hybrid|on-?site|in-?office|commute/i.test(jobData.description || '')) {
+    redFlags.push('Conflicting remote/in-office requirements');
+    score -= 10;
+  }
+
+  // Clamp score
+  score = Math.max(0, Math.min(100, score));
+
+  return {
+    legitimacyScore: score,
+    redFlags: redFlags.length > 0 ? redFlags : ['No significant red flags detected'],
+    confidence: 0.75,
+    analyzedAt: Date.now()
+  };
+}
 
 function displayScanResults(result) {
   // Update result icon and badge

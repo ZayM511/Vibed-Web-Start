@@ -489,7 +489,33 @@ function addBenefitsBadgeToJob(jobCard, text) {
   const existingBadge = jobCard.querySelector('.jobfiltr-benefits-badge');
   if (existingBadge) existingBadge.remove();
 
-  const benefits = detectBenefits(text);
+  // Get job description from the detail panel if available (for selected job)
+  let fullText = text;
+
+  // Check if this job card is currently selected/active
+  const isSelected = jobCard.classList.contains('jobs-search-results-list__list-item--active') ||
+                     jobCard.querySelector('.job-card-container--active') ||
+                     jobCard.hasAttribute('data-occludable-job-id');
+
+  // Try to get the full job description from the detail panel
+  const descriptionSelectors = [
+    '.jobs-description__content',
+    '.jobs-description-content__text',
+    '.jobs-box__html-content',
+    '#job-details',
+    '.job-view-layout .description__text',
+    '.jobs-details__main-content .jobs-description'
+  ];
+
+  for (const selector of descriptionSelectors) {
+    const descEl = document.querySelector(selector);
+    if (descEl) {
+      fullText += ' ' + descEl.textContent.trim().toLowerCase();
+      break;
+    }
+  }
+
+  const benefits = detectBenefits(fullText);
   const badge = createBenefitsBadge(benefits);
 
   if (badge) {
@@ -498,6 +524,62 @@ function addBenefitsBadgeToJob(jobCard, text) {
     }
     jobCard.appendChild(badge);
     log('Added benefits badge to job card');
+  }
+}
+
+// Enhanced function to scan all visible jobs for benefits from description panel
+function updateBenefitsFromDetailPanel() {
+  if (!filterSettings.showBenefitsIndicator) return;
+
+  // Get the job description from the detail panel
+  const descriptionSelectors = [
+    '.jobs-description__content',
+    '.jobs-description-content__text',
+    '.jobs-box__html-content',
+    '#job-details',
+    '.job-view-layout .description__text'
+  ];
+
+  let descriptionText = '';
+  for (const selector of descriptionSelectors) {
+    const descEl = document.querySelector(selector);
+    if (descEl) {
+      descriptionText = descEl.textContent.trim().toLowerCase();
+      break;
+    }
+  }
+
+  if (!descriptionText) return;
+
+  // Find the currently selected job card
+  const selectedSelectors = [
+    '.jobs-search-results-list__list-item--active',
+    'li.jobs-search-results-list__list-item[class*="active"]',
+    '.scaffold-layout__list-item--active',
+    'div.job-card-container--active'
+  ];
+
+  for (const selector of selectedSelectors) {
+    const selectedCard = document.querySelector(selector);
+    if (selectedCard) {
+      // Remove old badge and add new one with full description info
+      const existingBadge = selectedCard.querySelector('.jobfiltr-benefits-badge');
+      if (existingBadge) existingBadge.remove();
+
+      const cardText = getJobCardText(selectedCard);
+      const fullText = cardText + ' ' + descriptionText;
+      const benefits = detectBenefits(fullText);
+      const badge = createBenefitsBadge(benefits);
+
+      if (badge) {
+        if (window.getComputedStyle(selectedCard).position === 'static') {
+          selectedCard.style.position = 'relative';
+        }
+        selectedCard.appendChild(badge);
+        log('Updated benefits badge from detail panel');
+      }
+      break;
+    }
   }
 }
 
@@ -851,8 +933,102 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'ANALYZE_GHOST_JOB') {
+    // Perform ghost job analysis using the job data
+    const result = performGhostAnalysis(message.jobData);
+    sendResponse({ success: true, data: result });
+    return true;
+  }
+
   return false;
 });
+
+// ===== GHOST JOB ANALYSIS =====
+function performGhostAnalysis(jobData) {
+  const redFlags = [];
+  let score = 100; // Start with perfect score, subtract for issues
+
+  // Check for staffing indicators
+  const staffingPatterns = [
+    /staffing|recruiting|talent|solutions|workforce/i,
+    /robert\s*half|randstad|adecco|manpower|kelly\s*services/i,
+    /teksystems|insight\s*global|aerotek|allegis/i,
+    /cybercoders|kforce|modis|judge|apex/i
+  ];
+
+  const companyLower = (jobData.company || '').toLowerCase();
+  for (const pattern of staffingPatterns) {
+    if (pattern.test(companyLower)) {
+      redFlags.push('Company appears to be a staffing agency');
+      score -= 20;
+      break;
+    }
+  }
+
+  // Check for vague descriptions
+  const vagueIndicators = [
+    'fast-paced', 'self-starter', 'team player', 'dynamic',
+    'exciting opportunity', 'competitive salary', 'rock star', 'ninja',
+    'guru', 'wear many hats', 'other duties as assigned'
+  ];
+
+  const descLower = (jobData.description || '').toLowerCase();
+  let vagueCount = 0;
+  for (const indicator of vagueIndicators) {
+    if (descLower.includes(indicator)) vagueCount++;
+  }
+
+  if (vagueCount >= 3) {
+    redFlags.push('Job description contains multiple vague/buzzword phrases');
+    score -= 15;
+  } else if (vagueCount >= 1) {
+    redFlags.push('Job description contains some vague language');
+    score -= 5;
+  }
+
+  // Check for salary transparency
+  const descText = jobData.description || '';
+  if (!/\$[\d,]+/.test(descText) && !/salary|pay|compensation/i.test(descText)) {
+    redFlags.push('No salary information provided');
+    score -= 10;
+  }
+
+  // Check description length
+  if (descText.length < 200) {
+    redFlags.push('Job description is unusually short');
+    score -= 15;
+  }
+
+  // Check for remote work clarity issues
+  if (/remote/i.test(descText) && /hybrid|on-?site|in-?office|commute/i.test(descText)) {
+    redFlags.push('Conflicting remote/in-office requirements');
+    score -= 10;
+  }
+
+  // Check posting age (if available from page)
+  const timeSelectors = ['time', '.job-card-container__listed-time'];
+  for (const selector of timeSelectors) {
+    const timeElem = document.querySelector(selector);
+    if (timeElem) {
+      const text = timeElem.textContent.trim().toLowerCase();
+      if (text.includes('month') && parseInt(text) >= 2) {
+        redFlags.push('Job has been posted for over 2 months');
+        score -= 15;
+        break;
+      }
+    }
+  }
+
+  // Clamp score
+  score = Math.max(0, Math.min(100, score));
+
+  return {
+    legitimacyScore: score,
+    redFlags: redFlags.length > 0 ? redFlags : ['No significant red flags detected'],
+    confidence: 0.8,
+    analyzedAt: Date.now()
+  };
+}
 
 // ===== CONTINUOUS SCANNING SYSTEM =====
 // Efficiently scans for new jobs without interrupting user actions
@@ -1168,12 +1344,29 @@ document.addEventListener('click', (e) => {
 lastPageUrl = location.href;
 currentPage = detectCurrentPage();
 
+// ===== JOB CARD CLICK LISTENER FOR BENEFITS =====
+// When a user clicks on a job card, update benefits badge from the detail panel
+document.addEventListener('click', (e) => {
+  const jobCard = e.target.closest('li.jobs-search-results__list-item, .scaffold-layout__list-item, div.job-card-container');
+  if (jobCard && filterSettings.showBenefitsIndicator) {
+    // Wait for the job description panel to load
+    setTimeout(() => {
+      updateBenefitsFromDetailPanel();
+    }, 500);
+  }
+}, true);
+
 // ===== PERIODIC FULL SCAN (Every 2 seconds) =====
 // Ensures filters are always applied to all visible jobs, including dynamically loaded content
 let periodicScanInterval = null;
 
 function performFullScan() {
   if (Object.keys(filterSettings).length === 0) return;
+
+  // Also update benefits from detail panel for selected job
+  if (filterSettings.showBenefitsIndicator) {
+    updateBenefitsFromDetailPanel();
+  }
 
   const jobCardSelectors = [
     '.jobs-search__results-list > li',
