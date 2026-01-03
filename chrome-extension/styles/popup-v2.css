@@ -796,6 +796,320 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 }
 
 /* ============================================
+   TEMPLATES SECTION
+   ============================================ */
+
+.templates-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  transition: all var(--transition-normal) var(--ease-out);
+}
+
+.templates-section:hover {
+  border-color: var(--accent);
+}
+
+.templates-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.templates-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  color: var(--text-secondary);
+}
+
+.templates-title-row svg {
+  color: var(--accent);
+}
+
+.templates-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.templates-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: var(--bg-tertiary);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast) var(--ease-out);
+}
+
+.templates-toggle:hover {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.templates-toggle .chevron-icon {
+  transition: transform var(--transition-normal) var(--ease-out);
+}
+
+.templates-section.collapsed .templates-toggle .chevron-icon {
+  transform: rotate(-90deg);
+}
+
+.templates-section.collapsed .templates-list,
+.templates-section.collapsed .save-template-modal {
+  display: none;
+}
+
+.btn-save-template {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-normal) var(--ease-out);
+}
+
+.btn-save-template:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.btn-save-template svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Save Template Modal */
+.save-template-modal {
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--border);
+  animation: fadeIn var(--transition-normal) var(--ease-out);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.save-template-input-row {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.template-name-input {
+  flex: 1;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--text-primary);
+  transition: all var(--transition-normal) var(--ease-out);
+}
+
+.template-name-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-secondary);
+}
+
+.template-name-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.btn-confirm-save,
+.btn-cancel-save {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast) var(--ease-out);
+}
+
+.btn-confirm-save {
+  background: var(--success);
+  color: white;
+}
+
+.btn-confirm-save:hover {
+  background: #059669;
+  transform: scale(1.05);
+}
+
+.btn-cancel-save {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.btn-cancel-save:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* Templates List */
+.templates-list {
+  margin-top: var(--spacing-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.templates-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-md);
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.templates-empty svg {
+  opacity: 0.5;
+}
+
+.templates-empty span {
+  font-size: 11px;
+}
+
+.templates-empty-hint {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
+
+/* Template Item */
+.template-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-normal) var(--ease-out);
+  animation: slideIn var(--transition-normal) var(--ease-out);
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.template-item:hover {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+}
+
+.template-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.template-item-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.template-item-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 9px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.template-filter-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  background: var(--accent);
+  color: white;
+  font-size: 8px;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+}
+
+.template-item-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--transition-fast) var(--ease-out);
+}
+
+.template-item:hover .template-item-actions {
+  opacity: 1;
+}
+
+.btn-load-template,
+.btn-delete-template {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast) var(--ease-out);
+}
+
+.btn-load-template {
+  background: var(--accent);
+  color: white;
+}
+
+.btn-load-template:hover {
+  background: var(--accent-hover);
+  transform: scale(1.1);
+}
+
+.btn-delete-template {
+  background: transparent;
+  color: var(--text-tertiary);
+}
+
+.btn-delete-template:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.btn-load-template svg,
+.btn-delete-template svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* ============================================
    FILTER ACTIONS
    ============================================ */
 

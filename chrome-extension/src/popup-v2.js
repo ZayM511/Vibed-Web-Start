@@ -662,6 +662,310 @@ document.getElementById('addExcludeKeyword').addEventListener('click', () => {
   input.focus();
 });
 
+// ===== TEMPLATES MANAGEMENT =====
+const TEMPLATES_STORAGE_KEY = 'jobfiltr_templates';
+let templates = [];
+
+async function loadTemplates() {
+  try {
+    const result = await chrome.storage.local.get(TEMPLATES_STORAGE_KEY);
+    templates = result[TEMPLATES_STORAGE_KEY] || [];
+    renderTemplates();
+  } catch (error) {
+    console.error('Error loading templates:', error);
+    templates = [];
+    renderTemplates();
+  }
+}
+
+async function saveTemplates() {
+  try {
+    await chrome.storage.local.set({ [TEMPLATES_STORAGE_KEY]: templates });
+  } catch (error) {
+    console.error('Error saving templates:', error);
+  }
+}
+
+function countActiveFilters(settings) {
+  const mainFilters = [
+    'hideStaffing', 'hideSponsored', 'filterApplicants', 'entryLevelAccuracy',
+    'trueRemoteAccuracy', 'filterIncludeKeywords', 'filterExcludeKeywords',
+    'filterSalary', 'showActiveRecruiting', 'showJobAge', 'hideApplied',
+    'visaOnly', 'easyApplyOnly', 'showBenefitsIndicator', 'showApplicantCount'
+  ];
+  return mainFilters.filter(key => settings[key] === true).length;
+}
+
+function getCurrentFilterSettings() {
+  return {
+    hideStaffing: document.getElementById('filterStaffing').checked,
+    hideSponsored: document.getElementById('filterSponsored').checked,
+    filterApplicants: document.getElementById('filterApplicants').checked,
+    applicantRange: document.getElementById('applicantRange').value,
+    entryLevelAccuracy: document.getElementById('filterEntryLevel').checked,
+    trueRemoteAccuracy: document.getElementById('filterTrueRemote').checked,
+    excludeHybrid: document.getElementById('excludeHybrid').checked,
+    excludeOnsite: document.getElementById('excludeOnsite').checked,
+    excludeInOffice: document.getElementById('excludeInOffice').checked,
+    excludeInPerson: document.getElementById('excludeInPerson').checked,
+    filterIncludeKeywords: document.getElementById('filterIncludeKeywords').checked,
+    filterExcludeKeywords: document.getElementById('filterExcludeKeywords').checked,
+    includeKeywords: [...includeKeywords],
+    excludeKeywords: [...excludeKeywords],
+    filterSalary: document.getElementById('filterSalary').checked,
+    minSalary: document.getElementById('minSalary').value,
+    maxSalary: document.getElementById('maxSalary').value,
+    showActiveRecruiting: document.getElementById('filterActiveRecruiting').checked,
+    showJobAge: document.getElementById('filterJobAge').checked,
+    hideApplied: document.getElementById('filterApplied').checked,
+    visaOnly: document.getElementById('filterVisa').checked,
+    easyApplyOnly: document.getElementById('filterEasyApply').checked,
+    showBenefitsIndicator: document.getElementById('showBenefitsIndicator').checked,
+    showApplicantCount: document.getElementById('showApplicantCount').checked
+  };
+}
+
+function applyTemplateSettings(settings) {
+  // Apply all settings to UI
+  document.getElementById('filterStaffing').checked = settings.hideStaffing || false;
+  document.getElementById('filterSponsored').checked = settings.hideSponsored || false;
+  document.getElementById('filterApplicants').checked = settings.filterApplicants || false;
+  document.getElementById('applicantRange').value = settings.applicantRange || 'under10';
+  document.getElementById('filterEntryLevel').checked = settings.entryLevelAccuracy || false;
+  document.getElementById('filterTrueRemote').checked = settings.trueRemoteAccuracy || false;
+  document.getElementById('excludeHybrid').checked = settings.excludeHybrid !== false;
+  document.getElementById('excludeOnsite').checked = settings.excludeOnsite !== false;
+  document.getElementById('excludeInOffice').checked = settings.excludeInOffice !== false;
+  document.getElementById('excludeInPerson').checked = settings.excludeInPerson !== false;
+  document.getElementById('filterIncludeKeywords').checked = settings.filterIncludeKeywords || false;
+  document.getElementById('filterExcludeKeywords').checked = settings.filterExcludeKeywords || false;
+  document.getElementById('filterSalary').checked = settings.filterSalary || false;
+  document.getElementById('minSalary').value = settings.minSalary || '';
+  document.getElementById('maxSalary').value = settings.maxSalary || '';
+  document.getElementById('filterActiveRecruiting').checked = settings.showActiveRecruiting || false;
+  document.getElementById('filterJobAge').checked = settings.showJobAge || false;
+  document.getElementById('filterApplied').checked = settings.hideApplied || false;
+  document.getElementById('filterVisa').checked = settings.visaOnly || false;
+  document.getElementById('filterEasyApply').checked = settings.easyApplyOnly || false;
+  document.getElementById('showBenefitsIndicator').checked = settings.showBenefitsIndicator || false;
+  document.getElementById('showApplicantCount').checked = settings.showApplicantCount || false;
+
+  // Apply keywords
+  includeKeywords = settings.includeKeywords || [];
+  excludeKeywords = settings.excludeKeywords || [];
+  renderKeywordChips();
+
+  // Update benefits legend visibility
+  updateBenefitsLegend(settings.showBenefitsIndicator || false);
+
+  // Update filter stats
+  filterSettings = settings;
+  updateFilterStats();
+}
+
+async function saveTemplate(name) {
+  const settings = getCurrentFilterSettings();
+  const template = {
+    id: Date.now().toString(),
+    name: name.trim(),
+    createdAt: Date.now(),
+    settings: settings,
+    filterCount: countActiveFilters(settings)
+  };
+
+  templates.unshift(template);
+
+  // Limit to 10 templates
+  if (templates.length > 10) {
+    templates.pop();
+  }
+
+  await saveTemplates();
+  renderTemplates();
+}
+
+async function deleteTemplate(id) {
+  templates = templates.filter(t => t.id !== id);
+  await saveTemplates();
+  renderTemplates();
+}
+
+function loadTemplate(id) {
+  const template = templates.find(t => t.id === id);
+  if (template) {
+    applyTemplateSettings(template.settings);
+
+    // Show feedback
+    const saveBtn = document.getElementById('saveTemplateBtn');
+    const originalHTML = saveBtn.innerHTML;
+    saveBtn.innerHTML = `
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M5 12l5 5L20 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Loaded!
+    `;
+    saveBtn.style.background = 'var(--success)';
+
+    setTimeout(() => {
+      saveBtn.innerHTML = originalHTML;
+      saveBtn.style.background = '';
+    }, 1500);
+  }
+}
+
+function formatDate(timestamp) {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return date.toLocaleDateString();
+}
+
+function renderTemplates() {
+  const templatesList = document.getElementById('templatesList');
+  const templatesEmpty = document.getElementById('templatesEmpty');
+
+  // Clear existing template items (but keep empty state element)
+  const existingItems = templatesList.querySelectorAll('.template-item');
+  existingItems.forEach(item => item.remove());
+
+  if (templates.length === 0) {
+    templatesEmpty.classList.remove('hidden');
+    return;
+  }
+
+  templatesEmpty.classList.add('hidden');
+
+  templates.forEach(template => {
+    const item = document.createElement('div');
+    item.className = 'template-item';
+    item.dataset.id = template.id;
+    item.innerHTML = `
+      <div class="template-item-info">
+        <div class="template-item-name">${escapeHtml(template.name)}</div>
+        <div class="template-item-meta">
+          <span class="template-filter-count">${template.filterCount} filters</span>
+          <span>${formatDate(template.createdAt)}</span>
+        </div>
+      </div>
+      <div class="template-item-actions">
+        <button class="btn-load-template" title="Load template" data-id="${template.id}">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M5 12l5 5L20 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="btn-delete-template" title="Delete template" data-id="${template.id}">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    `;
+
+    // Click on item to load template
+    item.addEventListener('click', (e) => {
+      if (!e.target.closest('.btn-delete-template')) {
+        loadTemplate(template.id);
+      }
+    });
+
+    // Load button handler
+    item.querySelector('.btn-load-template').addEventListener('click', (e) => {
+      e.stopPropagation();
+      loadTemplate(template.id);
+    });
+
+    // Delete button handler
+    item.querySelector('.btn-delete-template').addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteTemplate(template.id);
+    });
+
+    templatesList.appendChild(item);
+  });
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Templates toggle (expand/collapse)
+document.getElementById('templatesToggle')?.addEventListener('click', () => {
+  const section = document.getElementById('templatesSection');
+  section.classList.toggle('collapsed');
+
+  // Save preference
+  chrome.storage.local.set({
+    templatesCollapsed: section.classList.contains('collapsed')
+  });
+});
+
+// Load templates collapsed state
+async function loadTemplatesCollapsedState() {
+  try {
+    const result = await chrome.storage.local.get('templatesCollapsed');
+    if (result.templatesCollapsed) {
+      document.getElementById('templatesSection')?.classList.add('collapsed');
+    }
+  } catch (error) {
+    // Ignore errors
+  }
+}
+
+// Save template button - show input
+document.getElementById('saveTemplateBtn')?.addEventListener('click', () => {
+  const modal = document.getElementById('saveTemplateModal');
+  modal.classList.remove('hidden');
+  const input = document.getElementById('templateNameInput');
+  input.value = '';
+  input.focus();
+});
+
+// Confirm save template
+document.getElementById('confirmSaveTemplate')?.addEventListener('click', async () => {
+  const input = document.getElementById('templateNameInput');
+  const name = input.value.trim();
+
+  if (name) {
+    await saveTemplate(name);
+    document.getElementById('saveTemplateModal').classList.add('hidden');
+    input.value = '';
+  }
+});
+
+// Cancel save template
+document.getElementById('cancelSaveTemplate')?.addEventListener('click', () => {
+  document.getElementById('saveTemplateModal').classList.add('hidden');
+  document.getElementById('templateNameInput').value = '';
+});
+
+// Enter key to confirm save
+document.getElementById('templateNameInput')?.addEventListener('keypress', async (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const name = e.target.value.trim();
+    if (name) {
+      await saveTemplate(name);
+      document.getElementById('saveTemplateModal').classList.add('hidden');
+      e.target.value = '';
+    }
+  }
+});
+
+// Escape key to cancel
+document.getElementById('templateNameInput')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.getElementById('saveTemplateModal').classList.add('hidden');
+    e.target.value = '';
+  }
+});
+
 // Apply Filters Button
 document.getElementById('applyFilters').addEventListener('click', async () => {
   await saveFilterSettings();
@@ -1155,6 +1459,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize filters tab by default
   initializeFilters();
   loadScanHistory();
+
+  // Load templates
+  loadTemplates();
+  loadTemplatesCollapsedState();
 });
 
 // Listen for messages from content script
