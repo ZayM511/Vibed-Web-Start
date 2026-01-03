@@ -8,6 +8,13 @@
 </head>
 <body>
   <div class="container">
+    <!-- Drag Handle Area (for panel mode) -->
+    <div class="drag-handle" id="dragHandle" title="Drag to move">
+      <div class="drag-dots">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+
     <!-- Header -->
     <header class="header">
       <div class="logo-section">
@@ -19,6 +26,29 @@
         </div>
         <h1 class="logo-text">JobFiltr</h1>
       </div>
+
+      <!-- Pin Controls -->
+      <div class="pin-controls">
+        <button class="pin-btn" id="pinLeftBtn" title="Pin to left side">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="3" width="7" height="18" rx="1" stroke="currentColor" stroke-width="2"/>
+            <path d="M14 12h6M17 9l3 3-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="pin-btn" id="unpinBtn" title="Unpin (popup mode)" style="display: none;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
+            <path d="M9 9h6v6H9z" fill="currentColor"/>
+          </svg>
+        </button>
+        <button class="pin-btn" id="pinRightBtn" title="Pin to right side">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="14" y="3" width="7" height="18" rx="1" stroke="currentColor" stroke-width="2"/>
+            <path d="M10 12H4M7 9l-3 3 3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+
       <div class="status-badge" id="statusBadge">
         <span class="status-dot"></span>
         <span id="statusText">Ready</span>

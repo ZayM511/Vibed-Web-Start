@@ -62,6 +62,48 @@ body {
   overflow-y: auto;
 }
 
+/* Panel Mode - when opened as separate window */
+body.panel-mode {
+  width: 100%;
+  min-height: 100vh;
+  max-height: none;
+}
+
+body.panel-mode .drag-handle {
+  display: flex;
+}
+
+/* Drag Handle */
+.drag-handle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  cursor: grab;
+  user-select: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.drag-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.drag-dots span {
+  width: 4px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+}
+
+.drag-handle:hover .drag-dots span {
+  background: rgba(255, 255, 255, 0.9);
+}
+
 .container {
   display: flex;
   flex-direction: column;
@@ -101,6 +143,68 @@ body {
   font-weight: 700;
   color: var(--gray-900);
   letter-spacing: -0.5px;
+}
+
+/* Pin Controls */
+.pin-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  margin-right: var(--spacing-sm);
+}
+
+.pin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--gray-100);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  color: var(--gray-500);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.pin-btn:hover {
+  background: var(--gray-200);
+  color: var(--gray-700);
+  border-color: var(--gray-300);
+}
+
+.pin-btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.pin-btn.active:hover {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+
+.pin-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Panel mode pin button states */
+body.panel-mode .pin-btn#unpinBtn {
+  display: flex;
+}
+
+body.panel-mode.docked-left .pin-btn#pinLeftBtn {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+body.panel-mode.docked-right .pin-btn#pinRightBtn {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
 }
 
 .status-badge {

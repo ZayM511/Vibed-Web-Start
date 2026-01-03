@@ -1,5 +1,174 @@
 // JobFiltr Chrome Extension - Popup Script
-// Handles tab switching, filters, and scanner functionality
+// Handles tab switching, filters, scanner functionality, and panel mode
+
+// ===== PANEL MODE DETECTION & MANAGEMENT =====
+let isPanelMode = false;
+let currentDockSide = null;
+let panelWindowId = null;
+
+function detectPanelMode() {
+  const urlParams = new URLSearchParams(window.location.search);
+  isPanelMode = urlParams.get('mode') === 'panel';
+  currentDockSide = urlParams.get('dock') || 'left';
+
+  if (isPanelMode) {
+    document.body.classList.add('panel-mode');
+    document.body.classList.add(`docked-${currentDockSide}`);
+    document.getElementById('unpinBtn').style.display = 'flex';
+    initDragHandle();
+  }
+
+  return isPanelMode;
+}
+
+// Pin to left side
+document.getElementById('pinLeftBtn').addEventListener('click', async () => {
+  if (isPanelMode) {
+    // Already in panel mode, switch to left dock
+    await chrome.runtime.sendMessage({
+      action: 'repositionPanel',
+      dock: 'left'
+    });
+    document.body.classList.remove('docked-right');
+    document.body.classList.add('docked-left');
+    currentDockSide = 'left';
+  } else {
+    // Open as panel window docked to left
+    await chrome.runtime.sendMessage({
+      action: 'openPanel',
+      dock: 'left'
+    });
+    window.close(); // Close popup
+  }
+});
+
+// Pin to right side
+document.getElementById('pinRightBtn').addEventListener('click', async () => {
+  if (isPanelMode) {
+    // Already in panel mode, switch to right dock
+    await chrome.runtime.sendMessage({
+      action: 'repositionPanel',
+      dock: 'right'
+    });
+    document.body.classList.remove('docked-left');
+    document.body.classList.add('docked-right');
+    currentDockSide = 'right';
+  } else {
+    // Open as panel window docked to right
+    await chrome.runtime.sendMessage({
+      action: 'openPanel',
+      dock: 'right'
+    });
+    window.close(); // Close popup
+  }
+});
+
+// Unpin button (only visible in panel mode)
+document.getElementById('unpinBtn').addEventListener('click', async () => {
+  if (isPanelMode) {
+    // Close the panel window
+    await chrome.runtime.sendMessage({
+      action: 'closePanel'
+    });
+  }
+});
+
+// ===== DRAG FUNCTIONALITY =====
+let isDragging = false;
+let dragStartX = 0;
+let windowStartLeft = 0;
+
+function initDragHandle() {
+  const dragHandle = document.getElementById('dragHandle');
+
+  dragHandle.addEventListener('mousedown', async (e) => {
+    isDragging = true;
+    dragStartX = e.screenX;
+
+    // Get current window position
+    const windowInfo = await chrome.runtime.sendMessage({ action: 'getWindowInfo' });
+    if (windowInfo) {
+      windowStartLeft = windowInfo.left;
+    }
+
+    document.body.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', async (e) => {
+    if (!isDragging) return;
+
+    const deltaX = e.screenX - dragStartX;
+    const newLeft = windowStartLeft + deltaX;
+
+    // Update window position
+    await chrome.runtime.sendMessage({
+      action: 'movePanel',
+      left: newLeft
+    });
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false;
+      document.body.style.cursor = '';
+
+      // Update dock state based on final position
+      updateDockStateFromPosition();
+    }
+  });
+
+  // Also make header draggable (dead space)
+  const header = document.querySelector('.header');
+  header.addEventListener('mousedown', async (e) => {
+    // Only drag if clicking on header background, not buttons
+    if (e.target.closest('.pin-btn') || e.target.closest('.status-badge') || e.target.closest('.logo-section')) {
+      return;
+    }
+
+    isDragging = true;
+    dragStartX = e.screenX;
+
+    const windowInfo = await chrome.runtime.sendMessage({ action: 'getWindowInfo' });
+    if (windowInfo) {
+      windowStartLeft = windowInfo.left;
+    }
+
+    document.body.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+}
+
+async function updateDockStateFromPosition() {
+  const windowInfo = await chrome.runtime.sendMessage({ action: 'getWindowInfo' });
+  if (!windowInfo) return;
+
+  const screenWidth = window.screen.availWidth;
+  const panelWidth = 380;
+  const snapThreshold = 50;
+
+  // Check if near left edge
+  if (windowInfo.left < snapThreshold) {
+    document.body.classList.remove('docked-right');
+    document.body.classList.add('docked-left');
+    currentDockSide = 'left';
+    // Snap to edge
+    await chrome.runtime.sendMessage({ action: 'movePanel', left: 0 });
+  }
+  // Check if near right edge
+  else if (windowInfo.left > screenWidth - panelWidth - snapThreshold) {
+    document.body.classList.remove('docked-left');
+    document.body.classList.add('docked-right');
+    currentDockSide = 'right';
+    // Snap to edge
+    await chrome.runtime.sendMessage({ action: 'movePanel', left: screenWidth - panelWidth });
+  }
+  // Floating in middle
+  else {
+    document.body.classList.remove('docked-left', 'docked-right');
+    currentDockSide = 'float';
+  }
+}
 
 // ===== TAB SWITCHING =====
 document.querySelectorAll('.tab-button').forEach(button => {
@@ -552,6 +721,9 @@ document.getElementById('openWebApp').addEventListener('click', () => {
 
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', () => {
+  // Detect if in panel mode first
+  detectPanelMode();
+
   // Initialize filters tab by default
   initializeFilters();
   loadScanHistory();

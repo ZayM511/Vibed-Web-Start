@@ -9,7 +9,8 @@
     "tabs",
     "scripting",
     "contextMenus",
-    "notifications"
+    "notifications",
+    "system.display"
   ],
   "options_page": "settings.html",
   "host_permissions": [
