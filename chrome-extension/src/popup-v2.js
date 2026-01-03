@@ -1,6 +1,36 @@
 // JobFiltr Chrome Extension - Popup Script
 // Handles tab switching, filters, scanner functionality, and panel mode
 
+// ===== THEME MANAGEMENT =====
+function initTheme() {
+  chrome.storage.local.get(['theme'], (result) => {
+    if (result.theme) {
+      setTheme(result.theme);
+    } else {
+      // Check system preference
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setTheme(prefersDark ? 'dark' : 'light');
+    }
+  });
+}
+
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  chrome.storage.local.set({ theme });
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  setTheme(newTheme);
+}
+
+// Initialize theme immediately to prevent flash
+initTheme();
+
+// Theme toggle button
+document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
+
 // ===== PANEL MODE DETECTION & MANAGEMENT =====
 let isPanelMode = false;
 let currentDockSide = null;
@@ -122,7 +152,7 @@ function initDragHandle() {
   const header = document.querySelector('.header');
   header.addEventListener('mousedown', async (e) => {
     // Only drag if clicking on header background, not buttons
-    if (e.target.closest('.pin-btn') || e.target.closest('.status-badge') || e.target.closest('.logo-section')) {
+    if (e.target.closest('.pin-btn') || e.target.closest('.status-badge') || e.target.closest('.logo-section') || e.target.closest('.theme-toggle')) {
       return;
     }
 
