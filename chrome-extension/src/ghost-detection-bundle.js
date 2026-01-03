@@ -634,6 +634,8 @@
 
     // Use darker track for inline badge (size 56), lighter track for modal (size 100)
     const trackColor = size <= 60 ? 'rgba(255,255,255,0.15)' : '#e2e8f0';
+    // Use white text for inline preview badge (navy background), score color for modal
+    const textColor = size <= 60 ? '#ffffff' : color;
 
     return `
       <svg class="jobfiltr-progress-ring" width="${size}" height="${size}">
@@ -672,7 +674,7 @@
           style="
             font-size: ${size > 80 ? '24px' : '16px'};
             font-weight: 700;
-            fill: ${color};
+            fill: ${textColor};
             transform: rotate(90deg);
             transform-origin: center;
           "
@@ -819,6 +821,35 @@
     return true;
   }
 
+  // Detect if dark mode is enabled
+  function isDarkMode() {
+    // Check for JobFiltr popup theme setting stored in localStorage
+    try {
+      const storedTheme = localStorage.getItem('jobfiltr_theme');
+      if (storedTheme) return storedTheme === 'dark';
+    } catch (e) {}
+
+    // Check document data-theme attribute
+    const docTheme = document.documentElement.getAttribute('data-theme');
+    if (docTheme) return docTheme === 'dark';
+
+    // Check body data-theme attribute
+    const bodyTheme = document.body.getAttribute('data-theme');
+    if (bodyTheme) return bodyTheme === 'dark';
+
+    // Check system preference
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return true;
+    }
+
+    // Check if LinkedIn is in dark mode (LinkedIn specific)
+    const linkedInDark = document.body.classList.contains('theme--dark') ||
+                         document.documentElement.classList.contains('theme--dark');
+    if (linkedInDark) return true;
+
+    return false;
+  }
+
   function showDetails() {
     if (!currentJob || !currentScore) return;
 
@@ -831,6 +862,25 @@
     const getLabel = (cat) => SCORE_LABELS[cat] || 'Unknown';
     const color = getColor(currentScore.category);
 
+    // Detect dark mode
+    const darkMode = isDarkMode();
+
+    // Theme-aware colors
+    const theme = {
+      modalBg: darkMode ? '#18181b' : 'white',
+      modalText: darkMode ? '#fafafa' : '#1e293b',
+      modalTextSecondary: darkMode ? '#a1a1aa' : '#64748b',
+      cardBg: darkMode ? '#27272a' : '#f8fafc',
+      cardBorder: darkMode ? '#3f3f46' : '#e2e8f0',
+      headerText: darkMode ? '#fafafa' : '#1e293b',
+      closeBtn: darkMode ? '#71717a' : '#94a3b8',
+      closeBtnHover: darkMode ? '#fafafa' : '#1e293b',
+      closeBtnHoverBg: darkMode ? '#3f3f46' : '#f1f5f9',
+      progressBarBg: darkMode ? '#3f3f46' : '#e2e8f0',
+      ghostIconFill: darkMode ? '#a1a1aa' : '#64748b',
+      ghostEyeFill: darkMode ? '#27272a' : 'white'
+    };
+
     const modal = document.createElement('div');
     modal.className = 'jobfiltr-modal';
     modal.style.cssText = `
@@ -839,7 +889,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0,0,0,0.5);
+      background: rgba(0,0,0,${darkMode ? '0.7' : '0.5'});
       display: flex;
       align-items: center;
       justify-content: center;
@@ -850,19 +900,37 @@
     const content = document.createElement('div');
     content.className = 'jobfiltr-modal-content';
     content.style.cssText = `
-      background: white;
+      background: ${theme.modalBg};
       border-radius: 16px;
       padding: 24px;
       max-width: 500px;
       width: 90%;
       max-height: 80vh;
       overflow-y: auto;
-      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,${darkMode ? '0.5' : '0.25'});
+      ${darkMode ? 'border: 1px solid #3f3f46;' : ''}
     `;
+
+    // SVG ghost icon (regular ghost without tongue) - theme aware
+    const ghostIconSvg = `
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle; margin-right: 8px;">
+        <path d="M12 2C7.58 2 4 5.58 4 10v10.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19c0-.55.45-1 1-1s1 .45 1 1v1.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19c0-.55.45-1 1-1s1 .45 1 1v1.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V10c0-4.42-3.58-8-8-8z" fill="${theme.ghostIconFill}"/>
+        <circle cx="9" cy="10" r="1.5" fill="${theme.ghostEyeFill}"/>
+        <circle cx="15" cy="10" r="1.5" fill="${theme.ghostEyeFill}"/>
+      </svg>
+    `;
+
+    // Score section background - navy for safe, theme-aware for others
+    const scoreSectionBg = currentScore.category === 'safe'
+      ? 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)'
+      : (darkMode ? 'linear-gradient(135deg, #27272a 0%, #18181b 100%)' : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)');
+
+    const scoreLabelColor = currentScore.category === 'safe' ? '#ffffff' : theme.modalText;
+    const scoreConfidenceColor = currentScore.category === 'safe' ? '#94a3b8' : theme.modalTextSecondary;
 
     content.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h2 style="margin: 0; font-size: 20px; color: #1e293b; font-weight: 700;">👻 Ghost Job Analysis</h2>
+        <h2 style="margin: 0; font-size: 20px; color: ${theme.headerText}; font-weight: 700; display: flex; align-items: center;">${ghostIconSvg}Ghost Job Analysis</h2>
         <button class="jobfiltr-close-btn" style="
           background: none;
           border: none;
@@ -871,25 +939,25 @@
           border-radius: 8px;
           font-size: 20px;
           cursor: pointer;
-          color: #94a3b8;
+          color: ${theme.closeBtn};
           display: flex;
           align-items: center;
           justify-content: center;
           transition: all 0.2s;
-        ">✕</button>
+        " onmouseover="this.style.color='${theme.closeBtnHover}';this.style.background='${theme.closeBtnHoverBg}'" onmouseout="this.style.color='${theme.closeBtn}';this.style.background='none'">✕</button>
       </div>
 
-      <div style="text-align: center; padding: 24px; background: ${currentScore.category === 'safe' ? 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)' : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)'}; border-radius: 12px; margin-bottom: 20px;">
+      <div style="text-align: center; padding: 24px; background: ${scoreSectionBg}; border-radius: 12px; margin-bottom: 20px;">
         <div style="display: inline-block; margin-bottom: 12px;">
           ${createCircularProgress(currentScore.overall, currentScore.category === 'safe' ? '#4ade80' : color, 100, true, 'jobfiltr-modal-score')}
         </div>
-        <div style="font-size: 18px; font-weight: 600; color: ${currentScore.category === 'safe' ? '#ffffff' : '#334155'}; margin-bottom: 4px;">${getLabel(currentScore.category)}</div>
-        <div id="jobfiltr-modal-confidence" style="font-size: 13px; color: ${currentScore.category === 'safe' ? '#94a3b8' : '#64748b'};">
+        <div style="font-size: 18px; font-weight: 600; color: ${scoreLabelColor}; margin-bottom: 4px;">${getLabel(currentScore.category)}</div>
+        <div id="jobfiltr-modal-confidence" style="font-size: 13px; color: ${scoreConfidenceColor};">
           Confidence: 0%
         </div>
       </div>
 
-      <h3 style="font-size: 13px; color: #64748b; margin: 20px 0 12px; text-transform: uppercase; letter-spacing: 0.5px;">Risk Breakdown</h3>
+      <h3 style="font-size: 13px; color: ${theme.modalTextSecondary}; margin: 20px 0 12px; text-transform: uppercase; letter-spacing: 0.5px;">Risk Breakdown</h3>
       <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
         ${Object.entries(currentScore.breakdown)
           .filter(([_, value]) => value > 0)
@@ -903,15 +971,15 @@
               structural: 'Job posting structure and formatting'
             };
             return `
-            <div style="background: #f8fafc; border-radius: 8px; padding: 12px;">
+            <div style="background: ${theme.cardBg}; border-radius: 8px; padding: 12px; ${darkMode ? 'border: 1px solid ' + theme.cardBorder + ';' : ''}">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                <span style="text-transform: capitalize; color: #334155; font-weight: 500;">${category}</span>
+                <span style="text-transform: capitalize; color: ${theme.modalText}; font-weight: 500;">${category}</span>
                 <span style="font-weight: 600; color: ${value > 50 ? '#ef4444' : value > 25 ? '#f59e0b' : '#10b981'};">
                   ${Math.round(value)}%
                 </span>
               </div>
-              <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">${categoryDescriptions[category] || 'Risk factors in this category'}</div>
-              <div style="height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;">
+              <div style="font-size: 11px; color: ${theme.modalTextSecondary}; margin-bottom: 8px;">${categoryDescriptions[category] || 'Risk factors in this category'}</div>
+              <div style="height: 4px; background: ${theme.progressBarBg}; border-radius: 2px; overflow: hidden;">
                 <div style="
                   height: 100%;
                   width: ${value}%;
@@ -924,24 +992,24 @@
           `}).join('')}
       </div>
 
-      <h3 style="font-size: 13px; color: #64748b; margin: 20px 0 12px; text-transform: uppercase; letter-spacing: 0.5px;">Detection Signals</h3>
+      <h3 style="font-size: 13px; color: ${theme.modalTextSecondary}; margin: 20px 0 12px; text-transform: uppercase; letter-spacing: 0.5px;">Detection Signals</h3>
       <div style="display: flex; flex-direction: column; gap: 8px;">
         ${currentScore.signals
           .filter((s) => s.normalizedValue > 0.1)
           .slice(0, 5)
           .map((s) => `
-            <div style="padding: 12px; background: #f8fafc; border-radius: 8px; border-left: 3px solid ${s.normalizedValue > 0.5 ? '#ef4444' : s.normalizedValue > 0.25 ? '#f59e0b' : '#10b981'};">
+            <div style="padding: 12px; background: ${theme.cardBg}; border-radius: 8px; border-left: 3px solid ${s.normalizedValue > 0.5 ? '#ef4444' : s.normalizedValue > 0.25 ? '#f59e0b' : '#10b981'}; ${darkMode ? 'border: 1px solid ' + theme.cardBorder + '; border-left: 3px solid ' + (s.normalizedValue > 0.5 ? '#ef4444' : s.normalizedValue > 0.25 ? '#f59e0b' : '#10b981') + ';' : ''}">
               <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                <span style="font-weight: 500; color: #334155;">${s.name}</span>
+                <span style="font-weight: 500; color: ${theme.modalText};">${s.name}</span>
                 <span style="font-size: 12px; font-weight: 600; color: ${s.normalizedValue > 0.5 ? '#ef4444' : s.normalizedValue > 0.25 ? '#f59e0b' : '#10b981'};">${Math.round(s.normalizedValue * 100)}%</span>
               </div>
-              <div style="font-size: 12px; color: #64748b;">${s.description}</div>
+              <div style="font-size: 12px; color: ${theme.modalTextSecondary};">${s.description}</div>
             </div>
           `).join('')}
       </div>
 
-      <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center;">
-        <span style="font-size: 11px; color: #94a3b8;">Powered by JobFiltr Ghost Detection</span>
+      <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid ${theme.cardBorder}; text-align: center;">
+        <span style="font-size: 11px; color: ${theme.modalTextSecondary};">Powered by JobFiltr Ghost Detection</span>
       </div>
     `;
 

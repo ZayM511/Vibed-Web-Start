@@ -515,6 +515,59 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   background: var(--warning);
 }
 
+/* Filter Tooltip */
+.filter-tooltip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--text-tertiary);
+  cursor: help;
+  position: relative;
+  margin-left: var(--spacing-xs);
+  border-radius: 50%;
+  transition: all var(--transition-fast) var(--ease-out);
+}
+
+.filter-tooltip:hover {
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.filter-tooltip[title] {
+  position: relative;
+}
+
+.filter-tooltip[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  width: 220px;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.5;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  white-space: normal;
+}
+
+.filter-tooltip[title]:hover::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 2px);
+  right: 6px;
+  border: 6px solid transparent;
+  border-top-color: var(--border);
+  z-index: 1001;
+}
+
 .filter-description {
   font-size: 10px;
   color: var(--text-tertiary);

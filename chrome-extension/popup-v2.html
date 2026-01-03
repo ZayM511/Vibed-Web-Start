@@ -161,9 +161,14 @@
               <input type="checkbox" id="showApplicantCount" class="filter-checkbox">
               <span class="filter-title">Show Applicant Count</span>
             </label>
-            <span class="filter-badge badge-new">New</span>
+            <div class="filter-tooltip" title="LinkedIn only shows applicant counts in the job detail panel, not on job cards. This badge will appear when you click on a job.">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
           </div>
-          <p class="filter-description">Display exact applicant count on each job posting</p>
+          <p class="filter-description">Shows applicant count in job detail panel (selected job only)</p>
         </div>
 
         <!-- Filter: Entry Level Accuracy -->

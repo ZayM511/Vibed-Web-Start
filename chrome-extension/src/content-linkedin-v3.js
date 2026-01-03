@@ -354,62 +354,93 @@ function getDetailPanelApplicantCount() {
   }
 }
 
-// Add applicant count badge to job card
-function addApplicantCountBadge(jobCard, count) {
-  const existingBadge = jobCard.querySelector('.jobfiltr-applicant-badge');
+// Add applicant count badge to the job detail panel (not job cards)
+function addApplicantCountBadgeToDetailPanel(count) {
+  // Remove any existing badge in the detail panel
+  const existingBadge = document.querySelector('.jobfiltr-detail-applicant-badge');
   if (existingBadge) existingBadge.remove();
 
   if (count === null) return;
 
   // Determine color based on count
-  let bgColor, textColor, icon;
+  let bgColor, textColor, icon, oddsText;
   if (count <= 10) {
-    bgColor = '#dcfce7'; // Light green
-    textColor = '#166534'; // Dark green
+    bgColor = 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)';
+    textColor = '#166534';
     icon = '🟢';
+    oddsText = 'Excellent odds';
   } else if (count <= 50) {
-    bgColor = '#dbeafe'; // Light blue
-    textColor = '#1e40af'; // Dark blue
+    bgColor = 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)';
+    textColor = '#1e40af';
     icon = '🔵';
+    oddsText = 'Good odds';
   } else if (count <= 200) {
-    bgColor = '#fef3c7'; // Light yellow
-    textColor = '#92400e'; // Dark amber
+    bgColor = 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)';
+    textColor = '#92400e';
     icon = '🟡';
+    oddsText = 'Moderate competition';
   } else if (count <= 500) {
-    bgColor = '#fed7aa'; // Light orange
-    textColor = '#9a3412'; // Dark orange
+    bgColor = 'linear-gradient(135deg, #fed7aa 0%, #fdba74 100%)';
+    textColor = '#9a3412';
     icon = '🟠';
+    oddsText = 'High competition';
   } else {
-    bgColor = '#fecaca'; // Light red
-    textColor = '#991b1b'; // Dark red
+    bgColor = 'linear-gradient(135deg, #fecaca 0%, #fca5a5 100%)';
+    textColor = '#991b1b';
     icon = '🔴';
+    oddsText = 'Very competitive';
   }
 
   const badge = document.createElement('div');
-  badge.className = 'jobfiltr-applicant-badge';
-  badge.innerHTML = `${icon} ${count}${count >= 100 ? '+' : ''} applicants`;
+  badge.className = 'jobfiltr-detail-applicant-badge';
+  badge.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 18px;">${icon}</span>
+      <div>
+        <div style="font-weight: 700; font-size: 14px;">${count}${count >= 100 ? '+' : ''} applicants</div>
+        <div style="font-size: 11px; opacity: 0.8;">${oddsText}</div>
+      </div>
+    </div>
+  `;
   badge.style.cssText = `
-    position: absolute;
-    top: 36px;
-    right: 8px;
     background: ${bgColor};
     color: ${textColor};
-    padding: 3px 8px;
-    border-radius: 10px;
-    font-size: 10px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 12px;
     font-weight: 600;
-    z-index: 999;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin: 12px 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     border: 1px solid ${textColor}30;
-    display: flex;
-    align-items: center;
-    gap: 2px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   `;
 
-  if (window.getComputedStyle(jobCard).position === 'static') {
-    jobCard.style.position = 'relative';
+  // Find the best place to insert in the detail panel
+  const insertTargets = [
+    '.job-details-jobs-unified-top-card__primary-description-container',
+    '.jobs-unified-top-card__primary-description',
+    '.jobs-details-top-card__content-container',
+    '.jobs-unified-top-card__content--two-pane',
+    '.jobs-details__main-content header',
+    '.job-view-layout header'
+  ];
+
+  for (const selector of insertTargets) {
+    const target = document.querySelector(selector);
+    if (target) {
+      target.insertAdjacentElement('afterend', badge);
+      log('Added applicant count badge to detail panel');
+      return;
+    }
   }
-  jobCard.appendChild(badge);
+}
+
+// Update applicant count in detail panel when job is selected
+function updateApplicantCountInDetailPanel() {
+  if (!filterSettings.showApplicantCount) return;
+
+  const count = getDetailPanelApplicantCount();
+  addApplicantCountBadgeToDetailPanel(count);
 }
 
 // ===== GET JOB CARD TEXT (INCLUDING LOCATION) =====
@@ -1201,13 +1232,8 @@ function applyFilters(settings) {
       }
     }
 
-    // Applicant Count Display (display only, doesn't hide)
-    if (settings.showApplicantCount && !shouldHide) {
-      const applicantCount = getApplicantCount(jobCard);
-      if (applicantCount !== null) {
-        addApplicantCountBadge(jobCard, applicantCount);
-      }
-    }
+    // Note: Applicant Count is now shown in the detail panel only (not on job cards)
+    // This is because LinkedIn doesn't expose applicant counts on most job cards
 
     // Apply hiding
     if (shouldHide) {
@@ -1272,6 +1298,10 @@ function resetFilters() {
     const badges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge, .jobfiltr-age-badge');
     badges.forEach(badge => badge.remove());
   });
+
+  // Also remove detail panel badges
+  const detailBadges = document.querySelectorAll('.jobfiltr-detail-applicant-badge');
+  detailBadges.forEach(badge => badge.remove());
 
   hiddenJobsCount = 0;
 
@@ -1726,14 +1756,21 @@ document.addEventListener('click', (e) => {
 lastPageUrl = location.href;
 currentPage = detectCurrentPage();
 
-// ===== JOB CARD CLICK LISTENER FOR BENEFITS =====
-// When a user clicks on a job card, update benefits badge from the detail panel
+// ===== JOB CARD CLICK LISTENER FOR DETAIL PANEL UPDATES =====
+// When a user clicks on a job card, update badges from the detail panel
 document.addEventListener('click', (e) => {
   const jobCard = e.target.closest('li.jobs-search-results__list-item, .scaffold-layout__list-item, div.job-card-container');
-  if (jobCard && filterSettings.showBenefitsIndicator) {
+  if (jobCard) {
     // Wait for the job description panel to load
     setTimeout(() => {
-      updateBenefitsFromDetailPanel();
+      // Update benefits badge from detail panel
+      if (filterSettings.showBenefitsIndicator) {
+        updateBenefitsFromDetailPanel();
+      }
+      // Update applicant count in detail panel
+      if (filterSettings.showApplicantCount) {
+        updateApplicantCountInDetailPanel();
+      }
     }, 500);
   }
 }, true);
@@ -1748,6 +1785,11 @@ function performFullScan() {
   // Also update benefits from detail panel for selected job
   if (filterSettings.showBenefitsIndicator) {
     updateBenefitsFromDetailPanel();
+  }
+
+  // Update applicant count in detail panel for selected job
+  if (filterSettings.showApplicantCount) {
+    updateApplicantCountInDetailPanel();
   }
 
   const jobCardSelectors = [
@@ -1869,15 +1911,7 @@ function performFullScan() {
         }
       }
 
-      // Applicant Count Display (display only, on visible jobs)
-      if (filterSettings.showApplicantCount) {
-        if (!jobCard.querySelector('.jobfiltr-applicant-badge')) {
-          const applicantCount = getApplicantCount(jobCard);
-          if (applicantCount !== null) {
-            addApplicantCountBadge(jobCard, applicantCount);
-          }
-        }
-      }
+      // Note: Applicant Count is shown in detail panel only (not on job cards)
 
       // Entry Level Warning Badge (display on visible jobs if mismatch detected but not hiding)
       if (filterSettings.entryLevelAccuracy) {
