@@ -135,6 +135,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  // Get active tab from main browser window (for panel mode site detection)
+  if (request.action === 'getActiveJobTab') {
+    getActiveJobTab()
+      .then(tab => sendResponse({ tab }))
+      .catch(error => {
+        console.error('Error getting active job tab:', error);
+        sendResponse({ tab: null });
+      });
+    return true;
+  }
+
   // ===== EXISTING HANDLERS =====
   if (request.action === 'scanJob') {
     handleJobScan(request.data, sender.tab?.id)
@@ -260,6 +271,53 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 });
 
 // ===== PANEL WINDOW MANAGEMENT FUNCTIONS =====
+
+// Get the active tab from the main browser window (not the panel) for site detection
+async function getActiveJobTab() {
+  try {
+    // Get all windows
+    const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+
+    // Filter out the panel window and find the last focused normal window
+    let targetWindow = null;
+
+    for (const win of windows) {
+      // Skip the panel window
+      if (win.id === panelWindowId) continue;
+
+      // Prefer focused window, otherwise take any normal window
+      if (win.focused) {
+        targetWindow = win;
+        break;
+      }
+
+      if (!targetWindow) {
+        targetWindow = win;
+      }
+    }
+
+    if (!targetWindow) {
+      console.log('No suitable browser window found');
+      return null;
+    }
+
+    // Get the active tab in this window
+    const tabs = await chrome.tabs.query({ active: true, windowId: targetWindow.id });
+
+    if (tabs.length === 0) {
+      console.log('No active tab in target window');
+      return null;
+    }
+
+    const tab = tabs[0];
+    console.log('Found active job tab:', tab.url);
+
+    return tab;
+  } catch (error) {
+    console.error('Error in getActiveJobTab:', error);
+    return null;
+  }
+}
 
 // Helper function to find which display a window is on based on its position
 function findDisplayForWindow(windowInfo, displays) {

@@ -46,9 +46,45 @@ function detectPanelMode() {
     document.body.classList.add(`docked-${currentDockSide}`);
     document.getElementById('unpinBtn').style.display = 'flex';
     initDragHandle();
+    initPanelModeListeners(); // Set up tab/window change listeners
   }
 
   return isPanelMode;
+}
+
+// Set up listeners for tab/window changes in panel mode
+function initPanelModeListeners() {
+  // Listen for tab activation changes
+  chrome.tabs.onActivated.addListener((activeInfo) => {
+    console.log('Tab activated:', activeInfo);
+    // Re-detect the site when user switches tabs
+    detectCurrentSite();
+  });
+
+  // Listen for tab URL changes (navigation)
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete' || changeInfo.url) {
+      console.log('Tab updated:', tabId, changeInfo);
+      // Re-detect when a tab finishes loading or URL changes
+      detectCurrentSite();
+    }
+  });
+
+  // Listen for window focus changes
+  chrome.windows.onFocusChanged.addListener((windowId) => {
+    if (windowId !== chrome.windows.WINDOW_ID_NONE) {
+      console.log('Window focus changed:', windowId);
+      // Small delay to let Chrome update the active tab
+      setTimeout(() => {
+        detectCurrentSite();
+      }, 100);
+    }
+  });
+
+  // Periodically refresh detection (backup in case listeners miss something)
+  setInterval(() => {
+    detectCurrentSite();
+  }, 3000);
 }
 
 // Pin to left side
@@ -250,11 +286,43 @@ document.querySelectorAll('.tab-button').forEach(button => {
 
 // ===== SITE DETECTION =====
 let currentSite = null;
+let currentTabId = null; // Track the active job site tab ID
 
 async function detectCurrentSite() {
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    let tab;
+
+    if (isPanelMode) {
+      // In panel mode, we need to get the active tab from the last focused browser window
+      // Ask background script to find it for us
+      const response = await chrome.runtime.sendMessage({ action: 'getActiveJobTab' });
+      if (response && response.tab) {
+        tab = response.tab;
+      } else {
+        // Fallback: query all windows for active tabs
+        const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+        // Filter out extension pages
+        tab = tabs.find(t => t.url && !t.url.startsWith('chrome-extension://'));
+        if (!tab && tabs.length > 0) {
+          // Try to find any tab in a normal window
+          const allTabs = await chrome.tabs.query({ active: true });
+          tab = allTabs.find(t => t.url && !t.url.startsWith('chrome-extension://'));
+        }
+      }
+    } else {
+      // Normal popup mode - get active tab in current window
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      tab = activeTab;
+    }
+
+    if (!tab || !tab.url) {
+      currentSite = null;
+      updateSiteStatus(null);
+      return null;
+    }
+
     const url = tab.url;
+    currentTabId = tab.id; // Store the tab ID for sending messages
 
     let site = null;
     if (url.includes('linkedin.com')) {
