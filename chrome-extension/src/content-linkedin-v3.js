@@ -327,6 +327,118 @@ function matchesExcludeKeywords(jobCard, keywords) {
   return keywords.some(keyword => text.includes(keyword.toLowerCase()));
 }
 
+// ===== ENTRY LEVEL ACCURACY CHECK =====
+function checkEntryLevelAccuracy(jobCard) {
+  try {
+    // Get the job card text and check for "entry level" label
+    const cardText = getJobCardText(jobCard).toLowerCase();
+
+    // Check job card for entry level indicators
+    const entryLevelSelectors = [
+      '.job-card-container__footer-item',
+      '.job-card-container__metadata-item',
+      '.artdeco-entity-lockup__caption',
+      '.job-card-list__insight',
+      '.jobs-unified-top-card__job-insight'
+    ];
+
+    let isLabeledEntryLevel = cardText.includes('entry level') || cardText.includes('entry-level');
+
+    // Also check specific seniority elements
+    for (const selector of entryLevelSelectors) {
+      const elem = jobCard.querySelector(selector);
+      if (elem && elem.textContent.toLowerCase().includes('entry level')) {
+        isLabeledEntryLevel = true;
+        break;
+      }
+    }
+
+    // If not labeled as entry level, skip this check
+    if (!isLabeledEntryLevel) {
+      return null;
+    }
+
+    // Get the full job description from the detail panel if available
+    let descriptionText = cardText;
+    const descriptionSelectors = [
+      '.jobs-description__content',
+      '.jobs-description-content__text',
+      '.jobs-box__html-content',
+      '#job-details',
+      '.job-view-layout .description__text'
+    ];
+
+    for (const selector of descriptionSelectors) {
+      const descEl = document.querySelector(selector);
+      if (descEl) {
+        descriptionText += ' ' + descEl.textContent.toLowerCase();
+        break;
+      }
+    }
+
+    // Look for experience requirements that contradict "entry level"
+    const experiencePatterns = [
+      /(\d+)\+?\s*years?\s+(?:of\s+)?experience/gi,
+      /minimum\s+(?:of\s+)?(\d+)\s+years?/gi,
+      /(\d+)\s+years?\s+(?:minimum|required)/gi,
+      /at\s+least\s+(\d+)\s+years?/gi,
+      /(\d+)\s*-\s*\d+\s+years?\s+(?:of\s+)?experience/gi,
+      /requires?\s+(\d+)\+?\s+years?/gi
+    ];
+
+    for (const pattern of experiencePatterns) {
+      const matches = [...descriptionText.matchAll(pattern)];
+      for (const match of matches) {
+        const years = parseInt(match[1]);
+        // Entry level should be 0-2 years max; 3+ years is a mismatch
+        if (years >= 3) {
+          return {
+            mismatch: true,
+            years,
+            message: `⚠️ Labeled Entry Level but requires ${years}+ years`
+          };
+        }
+      }
+    }
+
+    return { mismatch: false };
+  } catch (error) {
+    log('Error checking entry level accuracy:', error);
+    return null;
+  }
+}
+
+// Add entry level mismatch warning badge
+function addEntryLevelWarningBadge(jobCard, message) {
+  const existingBadge = jobCard.querySelector('.jobfiltr-entry-level-badge');
+  if (existingBadge) existingBadge.remove();
+
+  const badge = document.createElement('div');
+  badge.className = 'jobfiltr-entry-level-badge';
+  badge.innerHTML = `⚠️ ${message}`;
+  badge.style.cssText = `
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: #fef3c7;
+    color: #92400e;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    z-index: 1000;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 1px solid #f59e0b40;
+    max-width: 180px;
+    line-height: 1.3;
+  `;
+
+  if (window.getComputedStyle(jobCard).position === 'static') {
+    jobCard.style.position = 'relative';
+  }
+  jobCard.appendChild(badge);
+}
+
 // ===== TRUE REMOTE ACCURACY DETECTION =====
 const nonRemotePatterns = {
   hybrid: [
@@ -887,7 +999,18 @@ function applyFilters(settings) {
       }
     }
 
-    // Filter 5: Include Keywords
+    // Filter 5: Entry Level Accuracy
+    if (settings.entryLevelAccuracy) {
+      const entryCheck = checkEntryLevelAccuracy(jobCard);
+      if (entryCheck && entryCheck.mismatch) {
+        shouldHide = true;
+        reasons.push(`Entry Level mismatch: requires ${entryCheck.years}+ years`);
+        // Also add a warning badge for visibility
+        addEntryLevelWarningBadge(jobCard, `Requires ${entryCheck.years}+ years exp`);
+      }
+    }
+
+    // Filter 6: Include Keywords
     if (settings.filterIncludeKeywords && settings.includeKeywords && settings.includeKeywords.length > 0) {
       if (!matchesIncludeKeywords(jobCard, settings.includeKeywords)) {
         shouldHide = true;
@@ -895,7 +1018,7 @@ function applyFilters(settings) {
       }
     }
 
-    // Filter 6: Exclude Keywords
+    // Filter 7: Exclude Keywords
     if (settings.filterExcludeKeywords && settings.excludeKeywords && settings.excludeKeywords.length > 0) {
       if (matchesExcludeKeywords(jobCard, settings.excludeKeywords)) {
         shouldHide = true;
@@ -1515,7 +1638,20 @@ function performFullScan() {
       }
     }
 
-    // Filter 5: Include Keywords
+    // Filter 5: Entry Level Accuracy
+    if (filterSettings.entryLevelAccuracy) {
+      const entryCheck = checkEntryLevelAccuracy(jobCard);
+      if (entryCheck && entryCheck.mismatch) {
+        shouldHide = true;
+        reasons.push(`Entry Level mismatch`);
+        // Add warning badge
+        if (!jobCard.querySelector('.jobfiltr-entry-level-badge')) {
+          addEntryLevelWarningBadge(jobCard, `Requires ${entryCheck.years}+ years exp`);
+        }
+      }
+    }
+
+    // Filter 6: Include Keywords
     if (filterSettings.filterIncludeKeywords && filterSettings.includeKeywords?.length > 0) {
       if (!matchesIncludeKeywords(jobCard, filterSettings.includeKeywords)) {
         shouldHide = true;
@@ -1523,7 +1659,7 @@ function performFullScan() {
       }
     }
 
-    // Filter 6: Exclude Keywords
+    // Filter 7: Exclude Keywords
     if (filterSettings.filterExcludeKeywords && filterSettings.excludeKeywords?.length > 0) {
       if (matchesExcludeKeywords(jobCard, filterSettings.excludeKeywords)) {
         shouldHide = true;
@@ -1561,6 +1697,14 @@ function performFullScan() {
           if (jobAge !== null) {
             addJobAgeBadge(jobCard, jobAge);
           }
+        }
+      }
+
+      // Entry Level Warning Badge (display on visible jobs if mismatch detected but not hiding)
+      if (filterSettings.entryLevelAccuracy) {
+        const entryCheck = checkEntryLevelAccuracy(jobCard);
+        if (entryCheck && entryCheck.mismatch && !jobCard.querySelector('.jobfiltr-entry-level-badge')) {
+          addEntryLevelWarningBadge(jobCard, `Requires ${entryCheck.years}+ years exp`);
         }
       }
     }
