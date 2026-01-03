@@ -5,6 +5,8 @@ console.log('JobFiltr V3: LinkedIn content script loaded');
 
 let filterSettings = {};
 let hiddenJobsCount = 0;
+let currentPage = 1;
+let lastPageUrl = '';
 
 // ===== IMPROVED LOGGING =====
 function log(message, data = null) {
@@ -16,70 +18,112 @@ function log(message, data = null) {
   }
 }
 
-// ===== JOB INFORMATION EXTRACTION (UPDATED 2025) =====
+// ===== PAGE DETECTION =====
+function detectCurrentPage() {
+  // Try to get page from URL parameter (start=25 means page 2, etc.)
+  const url = new URL(window.location.href);
+  const start = url.searchParams.get('start');
+
+  if (start) {
+    const startNum = parseInt(start, 10);
+    if (!isNaN(startNum)) {
+      return Math.floor(startNum / 25) + 1;
+    }
+  }
+
+  // Try to get from pagination element
+  const paginationSelectors = [
+    '.artdeco-pagination__indicator--number.active',
+    '.jobs-search-pagination__indicator--active',
+    'li.artdeco-pagination__indicator--number.selected button',
+    '.artdeco-pagination__indicator--number.selected'
+  ];
+
+  for (const selector of paginationSelectors) {
+    const elem = document.querySelector(selector);
+    if (elem) {
+      const pageNum = parseInt(elem.textContent.trim(), 10);
+      if (!isNaN(pageNum)) {
+        return pageNum;
+      }
+    }
+  }
+
+  return 1;
+}
+
+function checkForPageChange() {
+  const currentUrl = window.location.href;
+  const newPage = detectCurrentPage();
+
+  if (currentUrl !== lastPageUrl || newPage !== currentPage) {
+    const wasPageChange = currentUrl !== lastPageUrl;
+    lastPageUrl = currentUrl;
+    currentPage = newPage;
+
+    if (wasPageChange) {
+      log(`Page changed to page ${currentPage}`);
+      // Reset hidden count for new page
+      hiddenJobsCount = 0;
+
+      // Send page change notification
+      sendPageUpdate();
+
+      return true;
+    }
+  }
+  return false;
+}
+
+function sendPageUpdate() {
+  try {
+    chrome.runtime.sendMessage({
+      type: 'PAGE_UPDATE',
+      page: currentPage,
+      hiddenCount: hiddenJobsCount,
+      site: 'linkedin'
+    });
+  } catch (error) {
+    log('Failed to send page update:', error);
+  }
+}
+
+// ===== JOB INFORMATION EXTRACTION =====
 function extractJobInfo() {
   try {
     const url = window.location.href;
     log('Extracting job info from URL:', url);
 
-    // Check if we're on a job posting page
     if (!url.includes('/jobs/')) {
-      log('Not on a jobs page');
+      log('Not on a job posting page');
       return null;
     }
 
-    // Updated selectors for 2025 LinkedIn - ordered by likelihood
     const titleSelectors = [
-      'h1.job-details-jobs-unified-top-card__job-title',
-      'h1.jobs-unified-top-card__job-title',
-      '.job-details-jobs-unified-top-card__job-title h1',
-      '.jobs-unified-top-card__job-title h1',
-      'h1.t-24.t-bold',
-      'h2.t-24.t-bold',
-      '.job-details-jobs-unified-top-card__job-title',
       '.jobs-unified-top-card__job-title',
-      '[data-job-title]',
-      '.jobs-unified-top-card__job-title-link',
+      '.job-details-jobs-unified-top-card__job-title',
+      'h1.job-title',
+      '.jobs-details-top-card__job-title',
       'h1[class*="job-title"]',
-      'h2[class*="job-title"]'
+      '.topcard__title'
     ];
 
     let title = null;
     for (const selector of titleSelectors) {
       const elem = document.querySelector(selector);
       if (elem) {
-        // Get text content, handling nested elements
-        title = elem.textContent.trim();
-        // Remove extra whitespace and newlines
-        title = title.replace(/\s+/g, ' ').trim();
+        title = elem.textContent.trim().replace(/\s+/g, ' ').trim();
         log(`Found title using selector: ${selector}`, title);
         break;
       }
     }
 
-    if (!title) {
-      log('Title not found, trying alternative methods');
-      // Try to find any heading with job title patterns
-      const headings = document.querySelectorAll('h1, h2, h3');
-      for (const heading of headings) {
-        const text = heading.textContent.trim();
-        if (text.length > 5 && text.length < 200) {
-          title = text;
-          log('Found title via heading search:', title);
-          break;
-        }
-      }
-    }
-
-    // Extract company name with updated selectors
     const companySelectors = [
-      '.job-details-jobs-unified-top-card__company-name',
       '.jobs-unified-top-card__company-name',
-      'a.job-details-jobs-unified-top-card__company-name',
-      'a.jobs-unified-top-card__company-name',
-      '.jobs-unified-top-card__subtitle-primary-grouping a',
-      '[data-company-name]',
-      'a.app-aware-link[href*="/company/"]'
+      '.job-details-jobs-unified-top-card__company-name',
+      '.jobs-details-top-card__company-info a',
+      'a[href*="/company/"]',
+      '.topcard__org-name-link'
     ];
 
     let company = null;
@@ -92,13 +136,12 @@ function extractJobInfo() {
       }
     }
 
-    // Extract full job description for analysis
     const descriptionSelectors = [
       '.jobs-description__content',
       '.jobs-box__html-content',
-      '#job-details',
       '.jobs-description-content__text',
-      'article.jobs-description'
+      '#job-details',
+      '.job-view-layout .description__text'
     ];
 
     let description = '';
@@ -106,19 +149,12 @@ function extractJobInfo() {
       const elem = document.querySelector(selector);
       if (elem) {
         description = elem.textContent.trim();
-        log(`Found description using selector: ${selector}, length: ${description.length}`);
+        log(`Found description, length: ${description.length}`);
         break;
       }
     }
 
-    const jobInfo = {
-      url,
-      title,
-      company,
-      description,
-      platform: 'linkedin'
-    };
-
+    const jobInfo = { url, title, company, description, platform: 'linkedin' };
     log('Extracted job info:', jobInfo);
     return jobInfo;
   } catch (error) {
@@ -127,13 +163,12 @@ function extractJobInfo() {
   }
 }
 
-// ===== STAFFING FIRM DETECTION (EXPANDED) =====
+// ===== STAFFING FIRM DETECTION =====
 const staffingIndicators = [
   /staffing|recruiting|talent|solutions|workforce/i,
   /\b(tek|pro|consulting|systems|global|services)\b/i,
   /robert\s*half|randstad|adecco|manpower|kelly\s*services/i,
   /apex|insight|cybercoders|kforce|modis|judge/i,
-  /\b(consulting|staffing|recruiting|talent|workforce)\b/i,
   /teksystems|tek\s*systems/i,
   /insight\s*global/i,
   /aerotek|allegis/i
@@ -141,13 +176,11 @@ const staffingIndicators = [
 
 function isStaffingFirm(jobCard) {
   try {
-    // Multiple selector strategies for company name
     const companySelectors = [
-      '.base-search-card__subtitle',
       '.job-card-container__company-name',
       '.artdeco-entity-lockup__subtitle',
-      'a[href*="/company/"]',
-      '.job-card-list__entity-lockup .artdeco-entity-lockup__subtitle'
+      '.job-card-list__company-name',
+      'a[data-tracking-control-name="public_jobs_topcard-org-name"]'
     ];
 
     let companyName = '';
@@ -160,265 +193,72 @@ function isStaffingFirm(jobCard) {
     }
 
     if (!companyName) return false;
-
-    const isStaffing = staffingIndicators.some(pattern => pattern.test(companyName));
-    if (isStaffing) {
-      log('Detected staffing firm:', companyName);
-    }
-    return isStaffing;
+    return staffingIndicators.some(pattern => pattern.test(companyName));
   } catch (error) {
     return false;
   }
 }
 
-// ===== SPONSORED POST DETECTION (UPDATED) =====
+// ===== SPONSORED/PROMOTED POST DETECTION =====
 function isSponsored(jobCard) {
   try {
-    // Check for promoted/sponsored indicators
-    const sponsoredSelectors = [
-      '[data-is-promoted="true"]',
-      '.job-card-container__footer-job-type',
-      '.job-card-container__footer-item',
-      'li-icon[type="external-link-icon"]',
-      '.job-card-container__footer-wrapper .job-card-container__footer-item:first-child'
+    const sponsoredIndicators = [
+      jobCard.hasAttribute('data-is-promoted'),
+      jobCard.querySelector('[data-promoted-badge]'),
+      jobCard.querySelector('.job-card-container__footer-job-state'),
+      jobCard.classList.contains('promoted')
     ];
 
-    for (const selector of sponsoredSelectors) {
-      const elem = jobCard.querySelector(selector);
-      if (elem) {
-        const text = elem.textContent.toLowerCase();
-        if (text.includes('promoted') || text.includes('sponsored')) {
-          log('Detected sponsored job');
-          return true;
-        }
-      }
+    // Check text content for "Promoted" label
+    const footerText = jobCard.querySelector('.job-card-list__footer-wrapper');
+    if (footerText && footerText.textContent.toLowerCase().includes('promoted')) {
+      return true;
     }
 
-    return false;
+    return sponsoredIndicators.some(indicator => indicator);
   } catch (error) {
     return false;
   }
 }
 
-// ===== APPLICANT COUNT EXTRACTION (IMPROVED) =====
+// ===== APPLICANT COUNT EXTRACTION =====
 function getApplicantCount(jobCard) {
   try {
     const applicantSelectors = [
-      '.job-card-container__applicant-count',
       '.jobs-unified-top-card__applicant-count',
-      '[data-test-applicant-count]',
-      '.job-card-container__footer-item'
+      '.job-card-container__applicant-count',
+      '.jobs-details-top-card__bullet'
     ];
 
     for (const selector of applicantSelectors) {
       const elem = jobCard.querySelector(selector);
       if (elem) {
-        const text = elem.textContent.trim();
-        // Extract number from various formats
-        const patterns = [
-          /(\d+)\+?\s*applicants?/i,
-          /be among the first (\d+)/i,
-          /over (\d+)\s*applicants?/i
-        ];
+        const text = elem.textContent.trim().toLowerCase();
 
-        for (const pattern of patterns) {
-          const match = text.match(pattern);
-          if (match) {
-            const count = parseInt(match[1]);
-            log(`Found applicant count: ${count}`);
-            return count;
-          }
+        if (text.includes('be among the first') || text.includes('be an early applicant')) {
+          return 5;
+        }
+
+        const match = text.match(/(\d+)\+?\s*applicants?/i);
+        if (match) {
+          return parseInt(match[1]);
         }
       }
     }
-
     return null;
   } catch (error) {
     return null;
   }
 }
 
-// ===== JOB AGE DETECTION (COMPREHENSIVE) =====
-function getJobAge(jobCard) {
-  try {
-    // Multiple selectors for time elements
-    const timeSelectors = [
-      'time',
-      '.job-card-container__listed-time',
-      '.job-card-list__date',
-      '.jobs-unified-top-card__posted-date',
-      '[data-job-posted-date]',
-      '.artdeco-entity-lockup__caption'
-    ];
-
-    let timeElem = null;
-    for (const selector of timeSelectors) {
-      timeElem = jobCard.querySelector(selector);
-      if (timeElem) break;
-    }
-
-    if (!timeElem) return null;
-
-    // Try datetime attribute first (most accurate)
-    const datetime = timeElem.getAttribute('datetime');
-    if (datetime) {
-      const postDate = new Date(datetime);
-      const now = new Date();
-      const diffMs = now - postDate;
-      const diffMinutes = Math.floor(diffMs / (1000 * 60));
-      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-      log(`Job age from datetime: ${diffDays} days, ${diffHours % 24} hours, ${diffMinutes % 60} minutes`);
-
-      return {
-        minutes: diffMinutes,
-        hours: diffHours,
-        days: diffDays,
-        formatted: formatJobAge(diffMinutes, diffHours, diffDays)
-      };
-    }
-
-    // Fallback: parse text like "2 weeks ago", "3 days ago", "5 hours ago"
-    const text = timeElem.textContent.trim().toLowerCase();
-    log(`Parsing job age from text: "${text}"`);
-
-    // Minutes
-    if (text.includes('minute')) {
-      const match = text.match(/(\d+)\s*minute/);
-      const minutes = match ? parseInt(match[1]) : 1;
-      return {
-        minutes,
-        hours: 0,
-        days: 0,
-        formatted: `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`
-      };
-    }
-
-    // Hours
-    if (text.includes('hour')) {
-      const match = text.match(/(\d+)\s*hour/);
-      const hours = match ? parseInt(match[1]) : 1;
-      return {
-        minutes: hours * 60,
-        hours,
-        days: 0,
-        formatted: `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`
-      };
-    }
-
-    // Days
-    if (text.includes('day')) {
-      const match = text.match(/(\d+)\s*day/);
-      const days = match ? parseInt(match[1]) : 1;
-      return {
-        minutes: days * 1440,
-        hours: days * 24,
-        days,
-        formatted: `${days} ${days === 1 ? 'day' : 'days'} ago`
-      };
-    }
-
-    // Weeks
-    if (text.includes('week')) {
-      const match = text.match(/(\d+)\s*week/);
-      const weeks = match ? parseInt(match[1]) : 1;
-      const days = weeks * 7;
-      return {
-        minutes: days * 1440,
-        hours: days * 24,
-        days,
-        formatted: `${days} days ago`
-      };
-    }
-
-    // Months
-    if (text.includes('month')) {
-      const match = text.match(/(\d+)\s*month/);
-      const months = match ? parseInt(match[1]) : 1;
-      const days = months * 30;
-      return {
-        minutes: days * 1440,
-        hours: days * 24,
-        days,
-        formatted: `${days}+ days ago`
-      };
-    }
-
-    return null;
-  } catch (error) {
-    log('Error getting job age:', error);
-    return null;
-  }
-}
-
-// ===== FORMAT JOB AGE =====
-function formatJobAge(minutes, hours, days) {
-  if (days >= 1) {
-    return `${days} ${days === 1 ? 'day' : 'days'} ago`;
-  } else if (hours >= 1) {
-    return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
-  } else {
-    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
-  }
-}
-
-// ===== ADD BADGE TO JOB CARD =====
-function addBadgeToJob(jobCard, message, type = 'info') {
-  try {
-    // Remove existing JobFiltr badge if any
-    const existingBadge = jobCard.querySelector('.jobfiltr-badge');
-    if (existingBadge) {
-      existingBadge.remove();
-    }
-
-    const badge = document.createElement('div');
-    badge.className = `jobfiltr-badge jobfiltr-badge-${type}`;
-    badge.textContent = message;
-
-    // Color based on type
-    let bgColor = '#3b82f6'; // blue for info
-    if (type === 'warning') bgColor = '#f59e0b'; // orange
-    if (type === 'danger') bgColor = '#ef4444'; // red
-    if (type === 'success') bgColor = '#10b981'; // green
-
-    badge.style.cssText = `
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      background: ${bgColor};
-      color: white;
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 11px;
-      font-weight: 600;
-      z-index: 1000;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      backdrop-filter: blur(4px);
-      pointer-events: none;
-    `;
-
-    // Ensure parent has position relative
-    if (window.getComputedStyle(jobCard).position === 'static') {
-      jobCard.style.position = 'relative';
-    }
-
-    jobCard.appendChild(badge);
-    log(`Added ${type} badge: ${message}`);
-  } catch (error) {
-    log('Error adding badge:', error);
-  }
-}
-
-// ===== KEYWORD FILTERING =====
+// ===== GET JOB CARD TEXT (INCLUDING LOCATION) =====
 function getJobCardText(jobCard) {
   // Get title
   const titleSelectors = [
     '.job-card-list__title',
+    '.job-card-container__link',
     '.artdeco-entity-lockup__title',
-    'a[data-control-name="job_card_title"]',
-    '.base-search-card__title',
-    '.job-card-container__link'
+    'a[data-control-name="job_card_title"]'
   ];
 
   let title = '';
@@ -432,9 +272,9 @@ function getJobCardText(jobCard) {
 
   // Get company
   const companySelectors = [
-    '.base-search-card__subtitle',
     '.job-card-container__company-name',
-    '.artdeco-entity-lockup__subtitle'
+    '.artdeco-entity-lockup__subtitle',
+    '.job-card-list__company-name'
   ];
 
   let company = '';
@@ -446,35 +286,370 @@ function getJobCardText(jobCard) {
     }
   }
 
-  // Get snippet/description if available
-  const snippetElem = jobCard.querySelector('.job-card-list__snippet, .base-search-card__metadata');
-  const snippet = snippetElem ? snippetElem.textContent.trim().toLowerCase() : '';
+  // Get location - CRITICAL for remote detection
+  const locationSelectors = [
+    '.job-card-container__metadata-item',
+    '.artdeco-entity-lockup__caption',
+    '.job-card-list__location',
+    '.job-card-container__metadata-wrapper'
+  ];
 
-  return `${title} ${company} ${snippet}`;
+  let location = '';
+  for (const selector of locationSelectors) {
+    const elem = jobCard.querySelector(selector);
+    if (elem) {
+      location = elem.textContent.trim().toLowerCase();
+      break;
+    }
+  }
+
+  // Get all metadata text from the card
+  const metadataWrapper = jobCard.querySelector('.job-card-container__metadata-wrapper');
+  const metadata = metadataWrapper ? metadataWrapper.textContent.trim().toLowerCase() : '';
+
+  // Get any insight text
+  const insightElem = jobCard.querySelector('.job-card-list__insight');
+  const insight = insightElem ? insightElem.textContent.trim().toLowerCase() : '';
+
+  return `${title} ${company} ${location} ${metadata} ${insight}`;
 }
 
+// ===== KEYWORD MATCHING =====
 function matchesIncludeKeywords(jobCard, keywords) {
   if (!keywords || keywords.length === 0) return true;
-
   const text = getJobCardText(jobCard);
   return keywords.some(keyword => text.includes(keyword.toLowerCase()));
 }
 
 function matchesExcludeKeywords(jobCard, keywords) {
   if (!keywords || keywords.length === 0) return false;
-
   const text = getJobCardText(jobCard);
   return keywords.some(keyword => text.includes(keyword.toLowerCase()));
 }
 
-// ===== FILTER APPLICATION WITH IMPROVED SELECTORS =====
+// ===== TRUE REMOTE ACCURACY DETECTION =====
+const nonRemotePatterns = {
+  hybrid: [
+    /\bhybrid\b/i,
+    /\b\d+\s*days?\s*(in[-\s]?office|on[-\s]?site|in[-\s]?person)\b/i,
+    /\b(some|occasional)\s*(in[-\s]?office|on[-\s]?site)\b/i
+  ],
+  onsite: [
+    /\bon[-\s]?site\b/i,
+    /\bonsite\b/i,
+    /\bon[-\s]?location\b/i,
+    /\boffice[-\s]?based\b/i,
+    /\bwork\s+from\s+(the\s+)?office\b/i
+  ],
+  inOffice: [
+    /\bin[-\s]?office\b/i,
+    /\boffice\s+required\b/i,
+    /\bmust\s+(work\s+)?(in|from)\s+(the\s+)?office\b/i
+  ],
+  inPerson: [
+    /\bin[-\s]?person\b/i,
+    /\bface[-\s]?to[-\s]?face\b/i,
+    /\bphysical\s+presence\b/i,
+    /\bcommute\b/i,
+    /\blocal\s+candidates?\s+(only|preferred)\b/i,
+    /\bmust\s+be\s+(located|local|able\s+to\s+commute)\b/i,
+    /\brelocation\s+required\b/i
+  ]
+};
+
+function detectNonRemoteIndicators(jobCard, settings) {
+  const text = getJobCardText(jobCard);
+  log('Checking for non-remote indicators in text:', text.substring(0, 200));
+
+  const detected = {
+    hybrid: false,
+    onsite: false,
+    inOffice: false,
+    inPerson: false
+  };
+
+  if (settings.excludeHybrid !== false) {
+    detected.hybrid = nonRemotePatterns.hybrid.some(pattern => pattern.test(text));
+  }
+  if (settings.excludeOnsite !== false) {
+    detected.onsite = nonRemotePatterns.onsite.some(pattern => pattern.test(text));
+  }
+  if (settings.excludeInOffice !== false) {
+    detected.inOffice = nonRemotePatterns.inOffice.some(pattern => pattern.test(text));
+  }
+  if (settings.excludeInPerson !== false) {
+    detected.inPerson = nonRemotePatterns.inPerson.some(pattern => pattern.test(text));
+  }
+
+  const hasNonRemote = detected.hybrid || detected.onsite || detected.inOffice || detected.inPerson;
+
+  if (hasNonRemote) {
+    const types = [];
+    if (detected.hybrid) types.push('Hybrid');
+    if (detected.onsite) types.push('On-site');
+    if (detected.inOffice) types.push('In-office');
+    if (detected.inPerson) types.push('In-person');
+    log(`Non-remote indicators found: ${types.join(', ')}`);
+  }
+
+  return hasNonRemote;
+}
+
+// ===== BENEFITS DETECTION =====
+const benefitsPatterns = {
+  health: [
+    /\b(health|medical|dental|vision)\s*(insurance|coverage|plan|benefits?)\b/i,
+    /\bhealthcare\b/i,
+    /\bHSA\b/i,
+    /\bFSA\b/i
+  ],
+  retirement: [
+    /\b401\s*\(?\s*k\s*\)?\b/i,
+    /\b401k\b/i,
+    /\bpension\b/i,
+    /\bretirement\s+(plan|benefits?|savings)\b/i,
+    /\bcompany\s+match(ing)?\b/i
+  ],
+  pto: [
+    /\bPTO\b/,
+    /\bpaid\s+time\s+off\b/i,
+    /\bvacation\s+(days?|time|policy)\b/i,
+    /\bunlimited\s+(PTO|vacation|time\s+off)\b/i,
+    /\bsick\s+(leave|days?|time)\b/i,
+    /\bpaid\s+(holidays?|leave)\b/i
+  ],
+  equity: [
+    /\bstock\s+options?\b/i,
+    /\bequity\b/i,
+    /\bRSU\s*s?\b/i,
+    /\bESPP\b/i
+  ],
+  other: [
+    /\bbonus(es)?\b/i,
+    /\btuition\s+(reimbursement|assistance)\b/i,
+    /\bremote\s+(work\s+)?stipend\b/i,
+    /\blife\s+insurance\b/i,
+    /\bparental\s+leave\b/i,
+    /\bwellness\b/i
+  ]
+};
+
+function detectBenefits(text) {
+  const detected = { health: false, retirement: false, pto: false, equity: false, other: false };
+  for (const [category, patterns] of Object.entries(benefitsPatterns)) {
+    detected[category] = patterns.some(pattern => pattern.test(text));
+  }
+  return detected;
+}
+
+function createBenefitsBadge(benefits) {
+  const detectedCategories = Object.entries(benefits)
+    .filter(([_, detected]) => detected)
+    .map(([category]) => category);
+
+  if (detectedCategories.length === 0) return null;
+
+  const badge = document.createElement('div');
+  badge.className = 'jobfiltr-benefits-badge';
+
+  const categoryLabels = { health: 'Health', retirement: '401k', pto: 'PTO', equity: 'Equity', other: '+More' };
+  const categoryColors = { health: '#ef4444', retirement: '#22c55e', pto: '#3b82f6', equity: '#a855f7', other: '#6b7280' };
+
+  badge.style.cssText = `
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    max-width: 200px;
+    z-index: 1000;
+  `;
+
+  detectedCategories.slice(0, 4).forEach(category => {
+    const tag = document.createElement('span');
+    tag.textContent = categoryLabels[category];
+    tag.style.cssText = `
+      display: inline-block;
+      padding: 2px 6px;
+      font-size: 9px;
+      font-weight: 600;
+      border-radius: 9999px;
+      background: ${categoryColors[category]}20;
+      color: ${categoryColors[category]};
+      border: 1px solid ${categoryColors[category]}40;
+    `;
+    badge.appendChild(tag);
+  });
+
+  return badge;
+}
+
+function addBenefitsBadgeToJob(jobCard, text) {
+  const existingBadge = jobCard.querySelector('.jobfiltr-benefits-badge');
+  if (existingBadge) existingBadge.remove();
+
+  const benefits = detectBenefits(text);
+  const badge = createBenefitsBadge(benefits);
+
+  if (badge) {
+    if (window.getComputedStyle(jobCard).position === 'static') {
+      jobCard.style.position = 'relative';
+    }
+    jobCard.appendChild(badge);
+    log('Added benefits badge to job card');
+  }
+}
+
+// ===== JOB AGE DETECTION =====
+function getJobAge(jobCard) {
+  try {
+    // Try multiple selectors for time/date elements
+    const timeSelectors = [
+      'time',
+      '.job-card-container__listed-time',
+      '.job-card-list__footer-wrapper time',
+      '.artdeco-entity-lockup__caption',
+      '.job-card-container__metadata-item--workplace-type',
+      '.job-card-container__footer-item'
+    ];
+
+    for (const selector of timeSelectors) {
+      const timeElem = jobCard.querySelector(selector);
+      if (!timeElem) continue;
+
+      // Try datetime attribute first
+      const datetime = timeElem.getAttribute('datetime');
+      if (datetime) {
+        const postDate = new Date(datetime);
+        const now = new Date();
+        const daysAgo = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
+        if (!isNaN(daysAgo) && daysAgo >= 0) {
+          return daysAgo;
+        }
+      }
+
+      // Fallback: parse text
+      const text = timeElem.textContent.trim().toLowerCase();
+
+      // Match patterns like "1 hour ago", "2 days ago", "3 weeks ago", "1 month ago"
+      if (text.includes('just now') || text.includes('moment')) return 0;
+      if (text.includes('hour') || text.includes('minute') || text.includes('second')) return 0;
+
+      if (text.includes('day')) {
+        const match = text.match(/(\d+)/);
+        return match ? parseInt(match[1]) : 1;
+      }
+      if (text.includes('week')) {
+        const match = text.match(/(\d+)/);
+        return match ? parseInt(match[1]) * 7 : 7;
+      }
+      if (text.includes('month')) {
+        const match = text.match(/(\d+)/);
+        return match ? parseInt(match[1]) * 30 : 30;
+      }
+    }
+
+    // Also check the full job card text for time references
+    const fullText = jobCard.textContent.toLowerCase();
+    const timePatterns = [
+      { pattern: /(\d+)\s*(?:hours?|hr)\s*ago/i, multiplier: 0 },
+      { pattern: /(\d+)\s*(?:days?|d)\s*ago/i, multiplier: 1 },
+      { pattern: /(\d+)\s*(?:weeks?|wk)\s*ago/i, multiplier: 7 },
+      { pattern: /(\d+)\s*(?:months?|mo)\s*ago/i, multiplier: 30 }
+    ];
+
+    for (const { pattern, multiplier } of timePatterns) {
+      const match = fullText.match(pattern);
+      if (match) {
+        return parseInt(match[1]) * multiplier;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    log('Error getting job age:', error);
+    return null;
+  }
+}
+
+// Format job age for display - shows exact age
+function formatJobAge(days) {
+  if (days === 0) return 'Today';
+  if (days === 1) return '1 day';
+  return `${days} days`;
+}
+
+// Add job age badge to job card (positioned on the RIGHT side)
+function addJobAgeBadge(jobCard, days) {
+  // Remove existing job age badge if any
+  const existingBadge = jobCard.querySelector('.jobfiltr-age-badge');
+  if (existingBadge) existingBadge.remove();
+
+  const ageText = formatJobAge(days);
+
+  // Determine color based on age
+  let bgColor, textColor, icon;
+  if (days <= 3) {
+    bgColor = '#dcfce7'; // Light green
+    textColor = '#166534'; // Dark green
+    icon = '🟢';
+  } else if (days <= 7) {
+    bgColor = '#dbeafe'; // Light blue
+    textColor = '#1e40af'; // Dark blue
+    icon = '🔵';
+  } else if (days <= 14) {
+    bgColor = '#fef3c7'; // Light yellow
+    textColor = '#92400e'; // Dark amber
+    icon = '🟡';
+  } else if (days <= 30) {
+    bgColor = '#fed7aa'; // Light orange
+    textColor = '#9a3412'; // Dark orange
+    icon = '🟠';
+  } else {
+    bgColor = '#fecaca'; // Light red
+    textColor = '#991b1b'; // Dark red
+    icon = '🔴';
+  }
+
+  const badge = document.createElement('div');
+  badge.className = 'jobfiltr-age-badge';
+  badge.innerHTML = `<span style="margin-right: 4px;">${icon}</span>${ageText}`;
+  badge.style.cssText = `
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: ${bgColor};
+    color: ${textColor};
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    z-index: 1000;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 1px solid ${textColor}30;
+    display: flex;
+    align-items: center;
+  `;
+
+  if (window.getComputedStyle(jobCard).position === 'static') {
+    jobCard.style.position = 'relative';
+  }
+  jobCard.appendChild(badge);
+}
+
+// ===== MAIN FILTER APPLICATION =====
 function applyFilters(settings) {
   filterSettings = settings;
   hiddenJobsCount = 0;
 
+  // Clear processed cache to force re-evaluation of all jobs
+  if (typeof processedJobCards !== 'undefined') {
+    processedJobCards = new WeakSet();
+  }
+
   log('Applying filters with settings:', settings);
 
-  // Updated job card selectors for 2025
   const jobCardSelectors = [
     '.jobs-search__results-list > li',
     '.scaffold-layout__list-item',
@@ -498,15 +673,13 @@ function applyFilters(settings) {
     return;
   }
 
-  jobCards.forEach((jobCard, index) => {
+  jobCards.forEach((jobCard) => {
     let shouldHide = false;
     const reasons = [];
 
-    // Remove any existing badges first (for clean re-application)
-    const existingBadge = jobCard.querySelector('.jobfiltr-badge');
-    if (existingBadge) {
-      existingBadge.remove();
-    }
+    // Remove existing badges first
+    const existingBadges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge');
+    existingBadges.forEach(b => b.remove());
 
     // Filter 1: Hide Staffing Firms
     if (settings.hideStaffing && isStaffingFirm(jobCard)) {
@@ -530,12 +703,19 @@ function applyFilters(settings) {
         if (range === '50-200' && (applicantCount < 50 || applicantCount > 200)) shouldHide = true;
         if (range === 'over200' && applicantCount < 200) shouldHide = true;
         if (range === 'over500' && applicantCount < 500) shouldHide = true;
-
         if (shouldHide) reasons.push(`Applicants: ${applicantCount}`);
       }
     }
 
-    // Filter: Include Keywords (must contain at least one)
+    // Filter 4: True Remote Accuracy
+    if (settings.trueRemoteAccuracy) {
+      if (detectNonRemoteIndicators(jobCard, settings)) {
+        shouldHide = true;
+        reasons.push('Non-remote indicators detected');
+      }
+    }
+
+    // Filter 5: Include Keywords
     if (settings.filterIncludeKeywords && settings.includeKeywords && settings.includeKeywords.length > 0) {
       if (!matchesIncludeKeywords(jobCard, settings.includeKeywords)) {
         shouldHide = true;
@@ -543,7 +723,7 @@ function applyFilters(settings) {
       }
     }
 
-    // Filter: Exclude Keywords (hide if contains any)
+    // Filter 6: Exclude Keywords
     if (settings.filterExcludeKeywords && settings.excludeKeywords && settings.excludeKeywords.length > 0) {
       if (matchesExcludeKeywords(jobCard, settings.excludeKeywords)) {
         shouldHide = true;
@@ -551,22 +731,17 @@ function applyFilters(settings) {
       }
     }
 
-    // Filter: Job Age Display (ALWAYS DISPLAY WHEN ENABLED - DON'T HIDE)
+    // Benefits Indicator (display only, doesn't hide)
+    if (settings.showBenefitsIndicator && !shouldHide) {
+      const text = getJobCardText(jobCard);
+      addBenefitsBadgeToJob(jobCard, text);
+    }
+
+    // Job Age Display (display only, doesn't hide)
     if (settings.showJobAge && !shouldHide) {
       const jobAge = getJobAge(jobCard);
-      if (jobAge) {
-        // Determine badge type based on age
-        let badgeType = 'info';
-        if (jobAge.days > 30) {
-          badgeType = 'danger'; // Red for old jobs
-        } else if (jobAge.days > 14) {
-          badgeType = 'warning'; // Orange for 2+ weeks
-        } else if (jobAge.days < 1 && jobAge.hours < 24) {
-          badgeType = 'success'; // Green for fresh jobs
-        }
-
-        // Add badge to show age
-        addBadgeToJob(jobCard, `Posted ${jobAge.formatted}`, badgeType);
+      if (jobAge !== null) {
+        addJobAgeBadge(jobCard, jobAge);
       }
     }
 
@@ -576,34 +751,48 @@ function applyFilters(settings) {
       jobCard.dataset.jobfiltrHidden = 'true';
       jobCard.dataset.jobfiltrReasons = reasons.join(', ');
       hiddenJobsCount++;
+      log(`Hidden job card: ${reasons.join(', ')}`);
     } else {
       jobCard.style.display = '';
       delete jobCard.dataset.jobfiltrHidden;
     }
   });
 
-  // Send stats update to popup
+  // Send stats update with page info
   try {
     chrome.runtime.sendMessage({
       type: 'FILTER_STATS_UPDATE',
-      hiddenCount: hiddenJobsCount
+      hiddenCount: hiddenJobsCount,
+      page: currentPage,
+      site: 'linkedin'
     });
   } catch (error) {
     log('Failed to send stats update:', error);
   }
 
-  log(`Filtered ${hiddenJobsCount} jobs out of ${jobCards.length}`);
+  log(`Filtered ${hiddenJobsCount} jobs out of ${jobCards.length} on page ${currentPage}`);
+
+  // Start periodic scanning to catch dynamically loaded jobs
+  if (typeof startPeriodicScan === 'function') {
+    startPeriodicScan();
+  }
 }
 
 // ===== RESET FILTERS =====
 function resetFilters() {
+  // Stop periodic scanning
+  if (typeof stopPeriodicScan === 'function') {
+    stopPeriodicScan();
+  }
+
+  // Clear filter settings
+  filterSettings = {};
+
   const jobCardSelectors = [
     '.jobs-search__results-list > li',
     '.scaffold-layout__list-item',
     'li.jobs-search-results__list-item',
-    'div.job-card-container',
-    'div[data-job-id]',
-    'li[data-occludable-job-id]'
+    'div.job-card-container'
   ];
 
   let jobCards = [];
@@ -616,23 +805,19 @@ function resetFilters() {
     jobCard.style.display = '';
     delete jobCard.dataset.jobfiltrHidden;
     delete jobCard.dataset.jobfiltrReasons;
-
-    const badges = jobCard.querySelectorAll('.jobfiltr-badge');
+    const badges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge, .jobfiltr-age-badge');
     badges.forEach(badge => badge.remove());
   });
 
   hiddenJobsCount = 0;
 
   try {
-    chrome.runtime.sendMessage({
-      type: 'FILTER_STATS_UPDATE',
-      hiddenCount: 0
-    });
+    chrome.runtime.sendMessage({ type: 'FILTER_STATS_UPDATE', hiddenCount: 0 });
   } catch (error) {
     log('Failed to send reset update:', error);
   }
 
-  log('Filters reset');
+  log('Filters reset on LinkedIn');
 }
 
 // ===== MESSAGE LISTENER =====
@@ -657,60 +842,484 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'GET_PAGE_INFO') {
+    sendResponse({
+      page: currentPage,
+      hiddenCount: hiddenJobsCount,
+      site: 'linkedin'
+    });
+    return true;
+  }
+
   return false;
 });
 
-// ===== MUTATION OBSERVER FOR DYNAMIC CONTENT =====
-let observerTimeout;
-const observer = new MutationObserver((mutations) => {
-  if (Object.keys(filterSettings).length > 0) {
-    // Debounce re-application
-    clearTimeout(observerTimeout);
-    observerTimeout = setTimeout(() => {
-      log('Re-applying filters due to DOM changes');
-      applyFilters(filterSettings);
-    }, 500);
+// ===== CONTINUOUS SCANNING SYSTEM =====
+// Efficiently scans for new jobs without interrupting user actions
+
+let processedJobCards = new WeakSet();
+let scanDebounceTimer = null;
+let isScanning = false;
+
+// Debounced filter application - prevents excessive re-runs
+function scheduleFilterScan(immediate = false) {
+  if (Object.keys(filterSettings).length === 0) return;
+
+  clearTimeout(scanDebounceTimer);
+
+  if (immediate) {
+    performIncrementalScan();
+  } else {
+    scanDebounceTimer = setTimeout(() => {
+      performIncrementalScan();
+    }, 300);
+  }
+}
+
+// Only process new/unprocessed job cards
+function performIncrementalScan() {
+  if (isScanning || Object.keys(filterSettings).length === 0) return;
+  isScanning = true;
+
+  const jobCardSelectors = [
+    '.jobs-search__results-list > li',
+    '.scaffold-layout__list-item',
+    'li.jobs-search-results__list-item',
+    'div.job-card-container',
+    'div[data-job-id]',
+    'li[data-occludable-job-id]'
+  ];
+
+  let jobCards = [];
+  for (const selector of jobCardSelectors) {
+    jobCards = document.querySelectorAll(selector);
+    if (jobCards.length > 0) break;
+  }
+
+  let newJobsProcessed = 0;
+
+  jobCards.forEach((jobCard) => {
+    // Skip already processed cards (unless settings changed)
+    if (processedJobCards.has(jobCard) && !jobCard.dataset.jobfiltrSettingsHash) {
+      return;
+    }
+
+    // Mark as processed
+    processedJobCards.add(jobCard);
+
+    let shouldHide = false;
+    const reasons = [];
+
+    // Remove existing badges first
+    const existingBadges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge');
+    existingBadges.forEach(b => b.remove());
+
+    // Apply all filters
+    if (filterSettings.hideStaffing && isStaffingFirm(jobCard)) {
+      shouldHide = true;
+      reasons.push('Staffing Firm');
+    }
+
+    if (filterSettings.hideSponsored && isSponsored(jobCard)) {
+      shouldHide = true;
+      reasons.push('Sponsored');
+    }
+
+    if (filterSettings.filterApplicants) {
+      const applicantCount = getApplicantCount(jobCard);
+      if (applicantCount !== null) {
+        const range = filterSettings.applicantRange;
+        if (range === 'under10' && applicantCount >= 10) shouldHide = true;
+        if (range === '10-50' && (applicantCount < 10 || applicantCount > 50)) shouldHide = true;
+        if (range === '50-200' && (applicantCount < 50 || applicantCount > 200)) shouldHide = true;
+        if (range === 'over200' && applicantCount < 200) shouldHide = true;
+        if (range === 'over500' && applicantCount < 500) shouldHide = true;
+        if (shouldHide && !reasons.includes('Applicants')) reasons.push(`Applicants: ${applicantCount}`);
+      }
+    }
+
+    if (filterSettings.trueRemoteAccuracy) {
+      if (detectNonRemoteIndicators(jobCard, filterSettings)) {
+        shouldHide = true;
+        reasons.push('Non-remote indicators detected');
+      }
+    }
+
+    if (filterSettings.filterIncludeKeywords && filterSettings.includeKeywords?.length > 0) {
+      if (!matchesIncludeKeywords(jobCard, filterSettings.includeKeywords)) {
+        shouldHide = true;
+        reasons.push('Missing required keywords');
+      }
+    }
+
+    if (filterSettings.filterExcludeKeywords && filterSettings.excludeKeywords?.length > 0) {
+      if (matchesExcludeKeywords(jobCard, filterSettings.excludeKeywords)) {
+        shouldHide = true;
+        reasons.push('Contains excluded keywords');
+      }
+    }
+
+    // Benefits Indicator (display only)
+    if (filterSettings.showBenefitsIndicator && !shouldHide) {
+      const text = getJobCardText(jobCard);
+      addBenefitsBadgeToJob(jobCard, text);
+    }
+
+    // Apply hiding
+    if (shouldHide) {
+      jobCard.style.display = 'none';
+      jobCard.dataset.jobfiltrHidden = 'true';
+      jobCard.dataset.jobfiltrReasons = reasons.join(', ');
+      hiddenJobsCount++;
+    } else {
+      jobCard.style.display = '';
+      delete jobCard.dataset.jobfiltrHidden;
+    }
+
+    newJobsProcessed++;
+  });
+
+  if (newJobsProcessed > 0) {
+    log(`Incremental scan: processed ${newJobsProcessed} job cards, ${hiddenJobsCount} total hidden on page ${currentPage}`);
+    try {
+      chrome.runtime.sendMessage({
+        type: 'FILTER_STATS_UPDATE',
+        hiddenCount: hiddenJobsCount,
+        page: currentPage,
+        site: 'linkedin'
+      });
+    } catch (error) {}
+  }
+
+  isScanning = false;
+}
+
+// Clear processed cache when settings change (force re-evaluation)
+function clearProcessedCache() {
+  processedJobCards = new WeakSet();
+  hiddenJobsCount = 0;
+}
+
+// ===== MUTATION OBSERVER FOR NEW JOB CARDS =====
+const jobListObserver = new MutationObserver((mutations) => {
+  let hasNewNodes = false;
+
+  for (const mutation of mutations) {
+    if (mutation.addedNodes.length > 0) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          hasNewNodes = true;
+          break;
+        }
+      }
+    }
+    if (hasNewNodes) break;
+  }
+
+  if (hasNewNodes) {
+    scheduleFilterScan();
   }
 });
 
-// Observe multiple possible containers
-const possibleContainers = [
-  '.jobs-search__results-list',
-  '.scaffold-layout__list',
-  '.jobs-search-results-list',
-  'main.scaffold-layout__main'
-];
+// ===== INTERSECTION OBSERVER FOR SCROLL VISIBILITY =====
+const visibilityObserver = new IntersectionObserver((entries) => {
+  let hasVisibleNew = false;
 
-let observerStarted = false;
-for (const selector of possibleContainers) {
-  const container = document.querySelector(selector);
-  if (container && !observerStarted) {
-    log(`Starting mutation observer on: ${selector}`);
-    observer.observe(container, {
-      childList: true,
-      subtree: true
-    });
-    observerStarted = true;
-    break;
+  entries.forEach(entry => {
+    if (entry.isIntersecting && !processedJobCards.has(entry.target)) {
+      hasVisibleNew = true;
+    }
+  });
+
+  if (hasVisibleNew && Object.keys(filterSettings).length > 0) {
+    scheduleFilterScan();
+  }
+}, {
+  rootMargin: '200px', // Pre-process jobs about to scroll into view
+  threshold: 0.1
+});
+
+// ===== SCROLL LISTENER FOR INFINITE SCROLL =====
+let scrollDebounceTimer = null;
+function handleScroll() {
+  clearTimeout(scrollDebounceTimer);
+  scrollDebounceTimer = setTimeout(() => {
+    if (Object.keys(filterSettings).length > 0) {
+      scheduleFilterScan();
+    }
+  }, 150);
+}
+
+// ===== INITIALIZE OBSERVERS =====
+function initializeObservers() {
+  const possibleContainers = [
+    '.jobs-search__results-list',
+    '.scaffold-layout__list',
+    '.jobs-search-results-list',
+    '.jobs-search-two-pane__results'
+  ];
+
+  let observerStarted = false;
+
+  for (const selector of possibleContainers) {
+    const container = document.querySelector(selector);
+    if (container && !observerStarted) {
+      log(`Starting continuous scan observer on: ${selector}`);
+      jobListObserver.observe(container, { childList: true, subtree: true });
+      observerStarted = true;
+
+      // Also observe existing job cards for visibility
+      const jobCards = container.querySelectorAll('li, div[data-job-id]');
+      jobCards.forEach(card => visibilityObserver.observe(card));
+
+      break;
+    }
+  }
+
+  // Add scroll listener for infinite scroll detection
+  window.addEventListener('scroll', handleScroll, { passive: true });
+
+  return observerStarted;
+}
+
+// Try to initialize immediately
+let observerInitialized = initializeObservers();
+
+// Retry on load if not found
+if (!observerInitialized) {
+  window.addEventListener('load', () => {
+    if (!observerInitialized) {
+      observerInitialized = initializeObservers();
+    }
+  });
+
+  // Also retry after a short delay (LinkedIn loads content dynamically)
+  setTimeout(() => {
+    if (!observerInitialized) {
+      observerInitialized = initializeObservers();
+    }
+  }, 2000);
+}
+
+// ===== AUTO-LOAD SAVED FILTERS ON PAGE LOAD =====
+async function loadAndApplyFilters() {
+  try {
+    const result = await chrome.storage.local.get('filterSettings');
+    if (result.filterSettings && Object.keys(result.filterSettings).length > 0) {
+      filterSettings = result.filterSettings;
+      log('Auto-loaded saved filter settings');
+      // Give page time to render initial jobs
+      setTimeout(() => {
+        applyFilters(filterSettings);
+      }, 1000);
+    }
+  } catch (error) {
+    log('Error loading saved filters:', error);
   }
 }
 
-// If no container found initially, try again after page load
-if (!observerStarted) {
-  window.addEventListener('load', () => {
-    for (const selector of possibleContainers) {
-      const container = document.querySelector(selector);
-      if (container && !observerStarted) {
-        log(`Starting mutation observer on (after load): ${selector}`);
-        observer.observe(container, {
-          childList: true,
-          subtree: true
-        });
-        observerStarted = true;
-        break;
+// Load saved filters when script initializes
+loadAndApplyFilters();
+
+// Also re-apply on navigation within LinkedIn (SPA behavior)
+let lastUrl = location.href;
+const urlObserver = new MutationObserver(() => {
+  if (location.href !== lastUrl) {
+    lastUrl = location.href;
+    log('URL changed, re-initializing observers');
+
+    // Check for page change and update page number
+    const pageChanged = checkForPageChange();
+
+    // Always clear cache and re-apply on URL change
+    clearProcessedCache();
+
+    setTimeout(() => {
+      // Re-detect page after DOM settles
+      currentPage = detectCurrentPage();
+
+      initializeObservers();
+      if (Object.keys(filterSettings).length > 0) {
+        log(`Re-applying filters on page ${currentPage}`);
+        applyFilters(filterSettings);
+      }
+    }, 1000);
+  }
+});
+urlObserver.observe(document.body, { childList: true, subtree: true });
+
+// Also watch for pagination clicks
+document.addEventListener('click', (e) => {
+  const paginationBtn = e.target.closest('.artdeco-pagination__indicator, .jobs-search-pagination__button');
+  if (paginationBtn) {
+    log('Pagination click detected');
+    // Wait for page to load then re-apply
+    setTimeout(() => {
+      checkForPageChange();
+      clearProcessedCache();
+      if (Object.keys(filterSettings).length > 0) {
+        applyFilters(filterSettings);
+      }
+    }, 1500);
+  }
+}, true);
+
+// Initialize page tracking
+lastPageUrl = location.href;
+currentPage = detectCurrentPage();
+
+// ===== PERIODIC FULL SCAN (Every 2 seconds) =====
+// Ensures filters are always applied to all visible jobs, including dynamically loaded content
+let periodicScanInterval = null;
+
+function performFullScan() {
+  if (Object.keys(filterSettings).length === 0) return;
+
+  const jobCardSelectors = [
+    '.jobs-search__results-list > li',
+    '.scaffold-layout__list-item',
+    'li.jobs-search-results__list-item',
+    'div.job-card-container',
+    'div[data-job-id]',
+    'li[data-occludable-job-id]'
+  ];
+
+  let jobCards = [];
+  for (const selector of jobCardSelectors) {
+    jobCards = document.querySelectorAll(selector);
+    if (jobCards.length > 0) break;
+  }
+
+  if (jobCards.length === 0) return;
+
+  let hiddenCount = 0;
+
+  jobCards.forEach((jobCard) => {
+    let shouldHide = false;
+    const reasons = [];
+
+    // Filter 1: Hide Staffing Firms
+    if (filterSettings.hideStaffing && isStaffingFirm(jobCard)) {
+      shouldHide = true;
+      reasons.push('Staffing Firm');
+    }
+
+    // Filter 2: Hide Sponsored
+    if (filterSettings.hideSponsored && isSponsored(jobCard)) {
+      shouldHide = true;
+      reasons.push('Sponsored');
+    }
+
+    // Filter 3: Applicant Count
+    if (filterSettings.filterApplicants) {
+      const applicantCount = getApplicantCount(jobCard);
+      if (applicantCount !== null) {
+        const range = filterSettings.applicantRange;
+        if (range === 'under10' && applicantCount >= 10) shouldHide = true;
+        if (range === '10-50' && (applicantCount < 10 || applicantCount > 50)) shouldHide = true;
+        if (range === '50-200' && (applicantCount < 50 || applicantCount > 200)) shouldHide = true;
+        if (range === 'over200' && applicantCount < 200) shouldHide = true;
+        if (range === 'over500' && applicantCount < 500) shouldHide = true;
+        if (shouldHide && !reasons.includes('Applicants')) reasons.push(`Applicants: ${applicantCount}`);
+      }
+    }
+
+    // Filter 4: True Remote Accuracy
+    if (filterSettings.trueRemoteAccuracy) {
+      if (detectNonRemoteIndicators(jobCard, filterSettings)) {
+        shouldHide = true;
+        reasons.push('Non-remote');
+      }
+    }
+
+    // Filter 5: Include Keywords
+    if (filterSettings.filterIncludeKeywords && filterSettings.includeKeywords?.length > 0) {
+      if (!matchesIncludeKeywords(jobCard, filterSettings.includeKeywords)) {
+        shouldHide = true;
+        reasons.push('Missing keywords');
+      }
+    }
+
+    // Filter 6: Exclude Keywords
+    if (filterSettings.filterExcludeKeywords && filterSettings.excludeKeywords?.length > 0) {
+      if (matchesExcludeKeywords(jobCard, filterSettings.excludeKeywords)) {
+        shouldHide = true;
+        reasons.push('Excluded keywords');
+      }
+    }
+
+    // Apply hiding
+    if (shouldHide) {
+      if (jobCard.style.display !== 'none') {
+        jobCard.style.display = 'none';
+        jobCard.dataset.jobfiltrHidden = 'true';
+        jobCard.dataset.jobfiltrReasons = reasons.join(', ');
+      }
+      hiddenCount++;
+    } else {
+      if (jobCard.style.display === 'none' && jobCard.dataset.jobfiltrHidden) {
+        jobCard.style.display = '';
+        delete jobCard.dataset.jobfiltrHidden;
+        delete jobCard.dataset.jobfiltrReasons;
+      }
+
+      // Benefits Indicator (display only, on visible jobs)
+      if (filterSettings.showBenefitsIndicator) {
+        if (!jobCard.querySelector('.jobfiltr-benefits-badge')) {
+          const text = getJobCardText(jobCard);
+          addBenefitsBadgeToJob(jobCard, text);
+        }
+      }
+
+      // Job Age Display (display only, on visible jobs)
+      if (filterSettings.showJobAge) {
+        if (!jobCard.querySelector('.jobfiltr-age-badge')) {
+          const jobAge = getJobAge(jobCard);
+          if (jobAge !== null) {
+            addJobAgeBadge(jobCard, jobAge);
+          }
+        }
       }
     }
   });
+
+  // Update count if changed
+  if (hiddenCount !== hiddenJobsCount) {
+    hiddenJobsCount = hiddenCount;
+    try {
+      chrome.runtime.sendMessage({
+        type: 'FILTER_STATS_UPDATE',
+        hiddenCount: hiddenJobsCount,
+        page: currentPage,
+        site: 'linkedin'
+      });
+    } catch (error) {}
+  }
 }
 
-log('LinkedIn content script ready');
+function startPeriodicScan() {
+  if (periodicScanInterval) return; // Already running
+
+  log('Starting periodic filter scan (every 2s)');
+  periodicScanInterval = setInterval(() => {
+    performFullScan();
+  }, 2000);
+
+  // Also run immediately
+  performFullScan();
+}
+
+function stopPeriodicScan() {
+  if (periodicScanInterval) {
+    clearInterval(periodicScanInterval);
+    periodicScanInterval = null;
+    log('Stopped periodic filter scan');
+  }
+}
+
+// Start periodic scan if we have active filters
+if (Object.keys(filterSettings).length > 0) {
+  startPeriodicScan();
+}
+
+log(`LinkedIn content script ready with continuous scanning (Page ${currentPage})`);

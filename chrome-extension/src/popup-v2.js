@@ -360,6 +360,7 @@ async function detectCurrentSite() {
 function updateSiteStatus(site) {
   const siteStatus = document.querySelector('.site-status');
   const currentSiteText = document.getElementById('currentSite');
+  const pageIndicator = document.getElementById('pageIndicator');
 
   if (site) {
     siteStatus.classList.add('active');
@@ -369,9 +370,43 @@ function updateSiteStatus(site) {
       'google-jobs': 'Google Jobs'
     };
     currentSiteText.textContent = `Active on ${siteNames[site]}`;
+
+    // Show page indicator for LinkedIn, request current page info
+    if (site === 'linkedin') {
+      requestPageInfo();
+    } else {
+      pageIndicator?.classList.add('hidden');
+    }
   } else {
     siteStatus.classList.remove('active');
     currentSiteText.textContent = 'Not on a supported job site';
+    pageIndicator?.classList.add('hidden');
+  }
+}
+
+// Request current page info from content script
+async function requestPageInfo() {
+  try {
+    let tabId = currentTabId;
+    if (!tabId) {
+      if (isPanelMode) {
+        const response = await chrome.runtime.sendMessage({ action: 'getActiveJobTab' });
+        tabId = response?.tab?.id;
+      } else {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        tabId = tab?.id;
+      }
+    }
+
+    if (tabId) {
+      chrome.tabs.sendMessage(tabId, { type: 'GET_PAGE_INFO' }, (response) => {
+        if (response && response.page) {
+          updatePageIndicator(response.page, response.hiddenCount);
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error requesting page info:', error);
   }
 }
 
@@ -397,6 +432,14 @@ async function loadFilterSettings() {
     document.getElementById('filterApplicants').checked = filterSettings.filterApplicants || false;
     document.getElementById('applicantRange').value = filterSettings.applicantRange || 'under10';
     document.getElementById('filterEntryLevel').checked = filterSettings.entryLevelAccuracy || false;
+
+    // True Remote Accuracy settings
+    document.getElementById('filterTrueRemote').checked = filterSettings.trueRemoteAccuracy || false;
+    document.getElementById('excludeHybrid').checked = filterSettings.excludeHybrid !== false; // Default true
+    document.getElementById('excludeOnsite').checked = filterSettings.excludeOnsite !== false; // Default true
+    document.getElementById('excludeInOffice').checked = filterSettings.excludeInOffice !== false; // Default true
+    document.getElementById('excludeInPerson').checked = filterSettings.excludeInPerson !== false; // Default true
+
     document.getElementById('filterIncludeKeywords').checked = filterSettings.filterIncludeKeywords || false;
     document.getElementById('filterExcludeKeywords').checked = filterSettings.filterExcludeKeywords || false;
     document.getElementById('filterSalary').checked = filterSettings.filterSalary || false;
@@ -408,6 +451,10 @@ async function loadFilterSettings() {
     document.getElementById('filterVisa').checked = filterSettings.visaOnly || false;
     document.getElementById('filterEasyApply').checked = filterSettings.easyApplyOnly || false;
 
+    // Benefits Indicator
+    document.getElementById('showBenefitsIndicator').checked = filterSettings.showBenefitsIndicator || false;
+    updateBenefitsLegend(filterSettings.showBenefitsIndicator || false);
+
     // Load keywords
     includeKeywords = filterSettings.includeKeywords || [];
     excludeKeywords = filterSettings.excludeKeywords || [];
@@ -418,6 +465,18 @@ async function loadFilterSettings() {
   }
 }
 
+// Benefits legend toggle
+function updateBenefitsLegend(show) {
+  const legend = document.getElementById('benefitsLegend');
+  if (legend) {
+    legend.classList.toggle('hidden', !show);
+  }
+}
+
+document.getElementById('showBenefitsIndicator')?.addEventListener('change', (e) => {
+  updateBenefitsLegend(e.target.checked);
+});
+
 async function saveFilterSettings() {
   filterSettings = {
     hideStaffing: document.getElementById('filterStaffing').checked,
@@ -425,6 +484,12 @@ async function saveFilterSettings() {
     filterApplicants: document.getElementById('filterApplicants').checked,
     applicantRange: document.getElementById('applicantRange').value,
     entryLevelAccuracy: document.getElementById('filterEntryLevel').checked,
+    // True Remote Accuracy settings
+    trueRemoteAccuracy: document.getElementById('filterTrueRemote').checked,
+    excludeHybrid: document.getElementById('excludeHybrid').checked,
+    excludeOnsite: document.getElementById('excludeOnsite').checked,
+    excludeInOffice: document.getElementById('excludeInOffice').checked,
+    excludeInPerson: document.getElementById('excludeInPerson').checked,
     filterIncludeKeywords: document.getElementById('filterIncludeKeywords').checked,
     filterExcludeKeywords: document.getElementById('filterExcludeKeywords').checked,
     includeKeywords: includeKeywords,
@@ -436,14 +501,39 @@ async function saveFilterSettings() {
     showJobAge: document.getElementById('filterJobAge').checked,
     hideApplied: document.getElementById('filterApplied').checked,
     visaOnly: document.getElementById('filterVisa').checked,
-    easyApplyOnly: document.getElementById('filterEasyApply').checked
+    easyApplyOnly: document.getElementById('filterEasyApply').checked,
+    // Benefits Indicator
+    showBenefitsIndicator: document.getElementById('showBenefitsIndicator').checked
   };
 
   await chrome.storage.local.set({ filterSettings });
 }
 
 function updateFilterStats() {
-  const activeCount = Object.values(filterSettings).filter(v => v === true).length;
+  // Count main filters (excluding trueRemoteAccuracy and showBenefitsIndicator)
+  const mainFilters = [
+    'hideStaffing',
+    'hideSponsored',
+    'filterApplicants',
+    'entryLevelAccuracy',
+    'filterIncludeKeywords',
+    'filterExcludeKeywords',
+    'filterSalary',
+    'showActiveRecruiting',
+    'showJobAge',
+    'hideApplied',
+    'visaOnly',
+    'easyApplyOnly'
+  ];
+
+  let activeCount = mainFilters.filter(key => filterSettings[key] === true).length;
+
+  // Only count True Remote sub-checkboxes when trueRemoteAccuracy is enabled
+  if (filterSettings.trueRemoteAccuracy) {
+    const remoteSubFilters = ['excludeHybrid', 'excludeOnsite', 'excludeInOffice', 'excludeInPerson'];
+    activeCount += remoteSubFilters.filter(key => filterSettings[key] === true).length;
+  }
+
   document.getElementById('activeFiltersCount').textContent = activeCount;
 }
 
@@ -569,8 +659,26 @@ document.getElementById('applyFilters').addEventListener('click', async () => {
 
   // Send message to content script to apply filters
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    await chrome.tabs.sendMessage(tab.id, {
+    // In panel mode, use the stored currentTabId from detectCurrentSite()
+    // Otherwise, query the active tab in current window
+    let tabId = currentTabId;
+    if (!tabId) {
+      if (isPanelMode) {
+        // In panel mode, get tab from background script
+        const response = await chrome.runtime.sendMessage({ action: 'getActiveJobTab' });
+        tabId = response?.tab?.id;
+      } else {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        tabId = tab?.id;
+      }
+    }
+
+    if (!tabId) {
+      console.error('No tab found to apply filters');
+      return;
+    }
+
+    await chrome.tabs.sendMessage(tabId, {
       type: 'APPLY_FILTERS',
       settings: filterSettings,
       site: currentSite
@@ -615,10 +723,23 @@ document.getElementById('resetFilters').addEventListener('click', async () => {
 
   // Send reset message to content script
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    await chrome.tabs.sendMessage(tab.id, {
-      type: 'RESET_FILTERS'
-    });
+    // In panel mode, use the stored currentTabId or get from background
+    let tabId = currentTabId;
+    if (!tabId) {
+      if (isPanelMode) {
+        const response = await chrome.runtime.sendMessage({ action: 'getActiveJobTab' });
+        tabId = response?.tab?.id;
+      } else {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        tabId = tab?.id;
+      }
+    }
+
+    if (tabId) {
+      await chrome.tabs.sendMessage(tabId, {
+        type: 'RESET_FILTERS'
+      });
+    }
   } catch (error) {
     console.error('Error resetting filters:', error);
   }
@@ -635,10 +756,25 @@ async function initializeScanner() {
 
 async function detectCurrentJob() {
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    // In panel mode, use the stored currentTabId or get from background
+    let tabId = currentTabId;
+    if (!tabId) {
+      if (isPanelMode) {
+        const response = await chrome.runtime.sendMessage({ action: 'getActiveJobTab' });
+        tabId = response?.tab?.id;
+      } else {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        tabId = tab?.id;
+      }
+    }
+
+    if (!tabId) {
+      updateDetectedJobInfo(null);
+      return;
+    }
 
     // Send message to content script to extract job info
-    const response = await chrome.tabs.sendMessage(tab.id, {
+    const response = await chrome.tabs.sendMessage(tabId, {
       type: 'EXTRACT_JOB_INFO'
     });
 
@@ -857,5 +993,37 @@ document.addEventListener('DOMContentLoaded', () => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'FILTER_STATS_UPDATE') {
     document.getElementById('hiddenJobsCount').textContent = message.hiddenCount || 0;
+
+    // Update page indicator if on LinkedIn
+    if (message.site === 'linkedin' && message.page) {
+      updatePageIndicator(message.page, message.hiddenCount);
+    }
+  }
+
+  if (message.type === 'PAGE_UPDATE') {
+    if (message.site === 'linkedin') {
+      updatePageIndicator(message.page, message.hiddenCount);
+    }
   }
 });
+
+// Update page indicator display
+function updatePageIndicator(page, hiddenCount) {
+  const pageIndicator = document.getElementById('pageIndicator');
+  const currentPageText = document.getElementById('currentPageText');
+  const pageHiddenCount = document.getElementById('pageHiddenCount');
+
+  if (pageIndicator && currentSite === 'linkedin') {
+    pageIndicator.classList.remove('hidden');
+    currentPageText.textContent = `Page ${page}`;
+    pageHiddenCount.textContent = hiddenCount || 0;
+  }
+}
+
+// Hide page indicator when not on LinkedIn
+function hidePageIndicator() {
+  const pageIndicator = document.getElementById('pageIndicator');
+  if (pageIndicator) {
+    pageIndicator.classList.add('hidden');
+  }
+}
