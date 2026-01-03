@@ -71,16 +71,29 @@
   // ============================================
 
   const LINKEDIN_SELECTORS = {
-    jobDetail: '.job-view-layout, .jobs-details, .jobs-unified-top-card, .jobs-search__job-details',
-    title: '.job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title, .t-24.t-bold',
-    company: '.job-details-jobs-unified-top-card__company-name, .jobs-unified-top-card__company-name a',
-    location: '.job-details-jobs-unified-top-card__bullet, .jobs-unified-top-card__bullet',
-    posted: '.job-details-jobs-unified-top-card__posted-date, .jobs-unified-top-card__posted-date',
-    applicants: '.jobs-unified-top-card__applicant-count, .jobs-details-top-card__bullet',
-    description: '.jobs-description__content, .jobs-description-content__text, .jobs-box__html-content',
-    easyApply: '.jobs-apply-button--top-card, .jobs-apply-button',
+    jobDetail: '.job-view-layout, .jobs-details, .jobs-unified-top-card, .jobs-search__job-details, .scaffold-layout__detail, .jobs-details__main-content',
+    title: '.job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title, .t-24.t-bold, .job-details-jobs-unified-top-card__job-title-link, h1.t-24, .jobs-details-top-card__job-title',
+    company: '.job-details-jobs-unified-top-card__company-name, .jobs-unified-top-card__company-name a, .job-details-jobs-unified-top-card__primary-description-container a, .jobs-details-top-card__company-url',
+    location: '.job-details-jobs-unified-top-card__bullet, .jobs-unified-top-card__bullet, .job-details-jobs-unified-top-card__primary-description-container .t-black--light',
+    posted: '.job-details-jobs-unified-top-card__posted-date, .jobs-unified-top-card__posted-date, .jobs-details-top-card__bullet',
+    applicants: '.jobs-unified-top-card__applicant-count, .jobs-details-top-card__bullet, .job-details-jobs-unified-top-card__bullet',
+    description: '.jobs-description__content, .jobs-description-content__text, .jobs-box__html-content, .jobs-description',
+    easyApply: '.jobs-apply-button--top-card, .jobs-apply-button, .jobs-s-apply button',
     promoted: '.job-card-container__footer-job-state, .promoted-badge',
-    scoreTarget: '.job-details-jobs-unified-top-card__primary-description, .jobs-unified-top-card__primary-description',
+    // Multiple fallback targets for score injection
+    scoreTargets: [
+      '.job-details-jobs-unified-top-card__primary-description-container',
+      '.job-details-jobs-unified-top-card__primary-description',
+      '.jobs-unified-top-card__primary-description',
+      '.jobs-details-top-card__content-container',
+      '.jobs-unified-top-card__content--two-pane',
+      '.jobs-details__main-content header',
+      '.jobs-search__job-details--container header',
+      '.scaffold-layout__detail-item header',
+      '.job-view-layout header',
+      '.jobs-unified-top-card',
+      '.jobs-details-top-card',
+    ],
   };
 
   // ============================================
@@ -97,7 +110,15 @@
     salary: '#salaryInfoAndJobType',
     applyButton: '.jobsearch-IndeedApplyButton, #indeedApplyButton',
     sponsored: '.sponsoredJob',
-    scoreTarget: '.jobsearch-JobInfoHeader-subtitle, [data-testid="jobsearch-JobInfoHeader-subtitle"]',
+    // Multiple fallback targets for score injection
+    scoreTargets: [
+      '.jobsearch-JobInfoHeader-subtitle',
+      '[data-testid="jobsearch-JobInfoHeader-subtitle"]',
+      '.jobsearch-JobInfoHeader-title',
+      '.jobsearch-ViewJobLayout header',
+      '.jobsearch-JobComponent header',
+      '#jobDescriptionText',
+    ],
   };
 
   // ============================================
@@ -457,14 +478,30 @@
   // UI INJECTION
   // ============================================
 
-  function injectScoreUI(score, category, scoreTarget, onClick) {
+  function injectScoreUI(score, category, scoreTargets, onClick) {
     document.querySelector('.jobfiltr-ghost-score')?.remove();
 
-    const target = document.querySelector(scoreTarget);
-    if (!target) {
-      console.warn('[GhostDetection] Could not find injection target');
-      return;
+    // Handle both single selector (string) and array of selectors
+    const selectors = Array.isArray(scoreTargets) ? scoreTargets : [scoreTargets];
+
+    let target = null;
+    let usedSelector = null;
+
+    // Try each selector until we find a valid target
+    for (const selector of selectors) {
+      target = document.querySelector(selector);
+      if (target) {
+        usedSelector = selector;
+        break;
+      }
     }
+
+    if (!target) {
+      console.warn('[GhostDetection] Could not find injection target. Tried:', selectors.join(', '));
+      return false;
+    }
+
+    console.log('[GhostDetection] Found injection target:', usedSelector);
 
     const color = SCORE_COLORS[category] || SCORE_COLORS.medium_risk;
     const label = SCORE_LABELS[category] || 'Unknown';
@@ -496,6 +533,7 @@
 
     badge.addEventListener('click', onClick);
     target.insertAdjacentElement('afterend', badge);
+    return true;
   }
 
   function showDetails() {
@@ -667,7 +705,8 @@
       console.log(`[GhostDetection] Score: ${score.overall} (${score.category})`);
 
       if (config.showScores) {
-        injectScoreUI(score.overall, score.category, LINKEDIN_SELECTORS.scoreTarget, showDetails);
+        // Use scoreTargets array for multiple fallback injection points
+        injectScoreUI(score.overall, score.category, LINKEDIN_SELECTORS.scoreTargets, showDetails);
       }
     } catch (e) {
       console.error('[GhostDetection] LinkedIn analysis error:', e);
@@ -690,7 +729,8 @@
       console.log(`[GhostDetection] Score: ${score.overall} (${score.category})`);
 
       if (config.showScores) {
-        injectScoreUI(score.overall, score.category, INDEED_SELECTORS.scoreTarget, showDetails);
+        // Use scoreTargets array for multiple fallback injection points
+        injectScoreUI(score.overall, score.category, INDEED_SELECTORS.scoreTargets, showDetails);
       }
     } catch (e) {
       console.error('[GhostDetection] Indeed analysis error:', e);
