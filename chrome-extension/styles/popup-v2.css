@@ -2033,6 +2033,102 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   text-transform: uppercase;
 }
 
+/* Excel placeholder styling */
+.doc-thumbnail-placeholder.excel {
+  color: #217346;
+}
+
+[data-theme="dark"] .doc-thumbnail-placeholder.excel {
+  color: #33a867;
+}
+
+/* Image placeholder styling */
+.doc-thumbnail-placeholder.image {
+  color: var(--accent);
+}
+
+/* File types badge in category headers */
+.file-types-badge {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  margin-left: 4px;
+}
+
+.file-types-badge.portfolio {
+  background: linear-gradient(135deg, var(--accent-subtle), var(--bg-tertiary));
+  color: var(--accent);
+}
+
+/* Image preview container */
+.image-preview-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: var(--spacing-md);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.image-preview {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+
+/* Excel preview placeholder */
+.excel-preview-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  width: 100%;
+  height: 100%;
+  padding: var(--spacing-xl);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.excel-preview-placeholder svg {
+  color: #217346;
+  width: 64px;
+  height: 64px;
+}
+
+[data-theme="dark"] .excel-preview-placeholder svg {
+  color: #33a867;
+}
+
+.excel-preview-placeholder h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.excel-preview-placeholder p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0;
+  word-break: break-all;
+}
+
+.excel-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
 .doc-name {
   font-size: 10px;
   font-weight: 500;

@@ -1577,6 +1577,36 @@ const DOCUMENT_LIMITS = {
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
 
+// Accepted file types per category
+const ACCEPTED_FILE_TYPES = {
+  resumes: {
+    mimeTypes: ['application/pdf'],
+    extensions: ['.pdf'],
+    accept: '.pdf',
+    description: 'PDF files only'
+  },
+  coverLetters: {
+    mimeTypes: ['application/pdf'],
+    extensions: ['.pdf'],
+    accept: '.pdf',
+    description: 'PDF files only'
+  },
+  portfolio: {
+    mimeTypes: [
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'image/gif',
+      'image/webp',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ],
+    extensions: ['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.xls', '.xlsx'],
+    accept: '.pdf,.png,.jpg,.jpeg,.gif,.webp,.xls,.xlsx',
+    description: 'PDF, Images, Excel'
+  }
+};
+
 let documents = {
   resumes: [],
   coverLetters: [],
@@ -1656,7 +1686,10 @@ function triggerFileUpload(category) {
     return;
   }
   currentUploadCategory = category;
-  document.getElementById('fileInput').click();
+  // Set accept attribute based on category
+  const fileInput = document.getElementById('fileInput');
+  fileInput.setAttribute('accept', ACCEPTED_FILE_TYPES[category].accept);
+  fileInput.click();
 }
 
 // Handle file selection
@@ -1664,9 +1697,16 @@ async function handleFileSelect(event) {
   const file = event.target.files[0];
   if (!file) return;
 
-  // Validate file type
-  if (file.type !== 'application/pdf') {
-    alert('Only PDF files are allowed.');
+  const category = currentUploadCategory;
+  const acceptedTypes = ACCEPTED_FILE_TYPES[category];
+
+  // Validate file type based on category
+  const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+  const isValidType = acceptedTypes.mimeTypes.includes(file.type) ||
+                      acceptedTypes.extensions.includes(fileExtension);
+
+  if (!isValidType) {
+    alert(`Invalid file type. Accepted: ${acceptedTypes.description}`);
     event.target.value = '';
     return;
   }
@@ -1682,26 +1722,43 @@ async function handleFileSelect(event) {
     // Read file as base64
     const base64Data = await readFileAsBase64(file);
 
-    // Generate thumbnail
-    const thumbnail = await generatePDFThumbnail(base64Data);
+    // Generate thumbnail based on file type
+    let thumbnail = null;
+    if (file.type.startsWith('image/')) {
+      thumbnail = base64Data; // Use image itself as thumbnail
+    } else if (file.type === 'application/pdf') {
+      thumbnail = await generatePDFThumbnail(base64Data);
+    }
+    // Excel files get no thumbnail (will use placeholder)
+
+    // Determine file type category for display
+    let fileType = 'pdf';
+    if (file.type.startsWith('image/')) {
+      fileType = 'image';
+    } else if (file.type.includes('excel') || file.type.includes('spreadsheet') ||
+               fileExtension === '.xls' || fileExtension === '.xlsx') {
+      fileType = 'excel';
+    }
 
     // Create document object
     const doc = {
       id: Date.now().toString(),
       name: file.name,
       size: file.size,
+      type: file.type,
+      fileType: fileType,
       data: base64Data,
       thumbnail: thumbnail,
       createdAt: Date.now()
     };
 
     // Add to category
-    documents[currentUploadCategory].push(doc);
+    documents[category].push(doc);
 
     // Save and render
     await saveDocuments();
-    renderDocuments(currentUploadCategory);
-    updateDocumentCount(currentUploadCategory);
+    renderDocuments(category);
+    updateDocumentCount(category);
 
   } catch (error) {
     console.error('Error uploading file:', error);
@@ -1787,38 +1844,70 @@ function renderDocuments(category) {
   }
 
   // Render document cards
-  grid.innerHTML = docs.map(doc => `
-    <div class="doc-card"
-         data-id="${doc.id}"
-         data-category="${category}"
-         draggable="true"
-         title="${doc.name}">
-      <div class="doc-drag-handle">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-          <circle cx="9" cy="6" r="1.5" fill="currentColor"/>
-          <circle cx="15" cy="6" r="1.5" fill="currentColor"/>
-          <circle cx="9" cy="12" r="1.5" fill="currentColor"/>
-          <circle cx="15" cy="12" r="1.5" fill="currentColor"/>
-          <circle cx="9" cy="18" r="1.5" fill="currentColor"/>
-          <circle cx="15" cy="18" r="1.5" fill="currentColor"/>
-        </svg>
+  grid.innerHTML = docs.map(doc => {
+    const fileType = doc.fileType || 'pdf';
+    let thumbnailHTML = '';
+
+    if (doc.thumbnail) {
+      // Use thumbnail if available (PDF generated or image file)
+      thumbnailHTML = `<img src="${doc.thumbnail}" alt="${doc.name}">`;
+    } else if (fileType === 'excel') {
+      // Excel file placeholder
+      thumbnailHTML = `
+        <div class="doc-thumbnail-placeholder excel">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+            <path d="M3 9h18M9 3v18" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 12l3 3M15 12l-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span>Excel</span>
+        </div>`;
+    } else if (fileType === 'image') {
+      // Image without thumbnail (fallback)
+      thumbnailHTML = `
+        <div class="doc-thumbnail-placeholder image">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
+            <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span>Image</span>
+        </div>`;
+    } else {
+      // PDF placeholder
+      thumbnailHTML = `
+        <div class="doc-thumbnail-placeholder">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="2"/>
+            <path d="M14 2v6h6" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          <span>PDF</span>
+        </div>`;
+    }
+
+    return `
+      <div class="doc-card"
+           data-id="${doc.id}"
+           data-category="${category}"
+           data-file-type="${fileType}"
+           draggable="true"
+           title="${doc.name}">
+        <div class="doc-drag-handle">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <circle cx="9" cy="6" r="1.5" fill="currentColor"/>
+            <circle cx="15" cy="6" r="1.5" fill="currentColor"/>
+            <circle cx="9" cy="12" r="1.5" fill="currentColor"/>
+            <circle cx="15" cy="12" r="1.5" fill="currentColor"/>
+            <circle cx="9" cy="18" r="1.5" fill="currentColor"/>
+            <circle cx="15" cy="18" r="1.5" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="doc-thumbnail">${thumbnailHTML}</div>
+        <div class="doc-name">${truncateName(doc.name)}</div>
+        <div class="doc-size">${formatFileSize(doc.size)}</div>
       </div>
-      <div class="doc-thumbnail">
-        ${doc.thumbnail
-          ? `<img src="${doc.thumbnail}" alt="${doc.name}">`
-          : `<div class="doc-thumbnail-placeholder">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="2"/>
-                <path d="M14 2v6h6" stroke="currentColor" stroke-width="2"/>
-              </svg>
-              <span>PDF</span>
-            </div>`
-        }
-      </div>
-      <div class="doc-name">${truncateName(doc.name)}</div>
-      <div class="doc-size">${formatFileSize(doc.size)}</div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   // Add click listeners to doc cards
   grid.querySelectorAll('.doc-card').forEach(card => {
@@ -1913,8 +2002,54 @@ function openPreviewModal(docId, category) {
   document.getElementById('previewDocName').textContent = doc.name;
   document.getElementById('docPreviewModal').classList.remove('hidden');
 
-  // Render PDF preview
-  renderPDFPreview(doc.data);
+  // Render preview based on file type
+  const fileType = doc.fileType || 'pdf';
+  if (fileType === 'image') {
+    renderImagePreview(doc.data, doc.name);
+  } else if (fileType === 'excel') {
+    renderExcelPreview(doc.name);
+  } else {
+    renderPDFPreview(doc.data);
+  }
+}
+
+// Render image preview
+function renderImagePreview(base64Data, name) {
+  const previewContent = document.getElementById('docPreviewContent');
+
+  previewContent.innerHTML = `
+    <div class="image-preview-container">
+      <img src="${base64Data}" alt="${name}" class="image-preview" />
+    </div>
+  `;
+
+  // Hide page navigation for images
+  document.getElementById('previewPageInfo').textContent = 'Image preview';
+  document.getElementById('prevPageBtn').style.display = 'none';
+  document.getElementById('nextPageBtn').style.display = 'none';
+}
+
+// Render Excel preview (placeholder since we can't preview Excel in browser)
+function renderExcelPreview(name) {
+  const previewContent = document.getElementById('docPreviewContent');
+
+  previewContent.innerHTML = `
+    <div class="excel-preview-placeholder">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+        <path d="M3 9h18M9 3v18" stroke="currentColor" stroke-width="2"/>
+        <path d="M12 12l3 3M15 12l-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <h4>Excel File</h4>
+      <p>${name}</p>
+      <span class="excel-hint">Preview not available for Excel files.<br>Click Download to open in Excel.</span>
+    </div>
+  `;
+
+  // Hide page navigation for Excel
+  document.getElementById('previewPageInfo').textContent = 'Excel file';
+  document.getElementById('prevPageBtn').style.display = 'none';
+  document.getElementById('nextPageBtn').style.display = 'none';
 }
 
 // Render PDF preview using iframe
@@ -2010,9 +2145,12 @@ function handleDragStart(event) {
 
   if (!doc) return;
 
+  // Determine MIME type based on file type
+  const mimeType = doc.type || 'application/pdf';
+
   // Set drag data - the file data for dropping into other applications
   event.dataTransfer.setData('text/plain', doc.name);
-  event.dataTransfer.setData('application/pdf', doc.data);
+  event.dataTransfer.setData(mimeType, doc.data);
 
   // Create a file from the base64 data for drag-and-drop
   try {
@@ -2022,7 +2160,7 @@ function handleDragStart(event) {
       byteNumbers[i] = byteCharacters.charCodeAt(i);
     }
     const byteArray = new Uint8Array(byteNumbers);
-    const file = new File([byteArray], doc.name, { type: 'application/pdf' });
+    const file = new File([byteArray], doc.name, { type: mimeType });
 
     // For some browsers, we can set the file directly
     if (event.dataTransfer.items) {
