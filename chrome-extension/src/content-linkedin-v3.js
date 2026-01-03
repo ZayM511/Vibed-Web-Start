@@ -1000,65 +1000,138 @@ function updateBenefitsFromDetailPanel() {
 // ===== JOB AGE DETECTION =====
 function getJobAge(jobCard) {
   try {
-    // Try multiple selectors for time/date elements
+    // Try multiple selectors for time/date elements - comprehensive list
     const timeSelectors = [
       'time',
       '.job-card-container__listed-time',
       '.job-card-list__footer-wrapper time',
       '.artdeco-entity-lockup__caption',
       '.job-card-container__metadata-item--workplace-type',
-      '.job-card-container__footer-item'
+      '.job-card-container__footer-item',
+      '.job-card-list__footer-wrapper',
+      '.jobs-unified-top-card__posted-date',
+      '.job-card-container__footer-job-state',
+      '.job-card-list__insight',
+      '.job-card-container__primary-description',
+      '.job-card-container__metadata-wrapper',
+      // Selectors for visited/viewed jobs
+      '.job-card-container--visited time',
+      '.job-card-container--visited .job-card-container__footer-item',
+      '.scaffold-layout__list-item--is-viewed time',
+      '.jobs-search-results-list__list-item--visited time',
+      // More general selectors
+      '[class*="listed"]',
+      '[class*="posted"]',
+      '[class*="time"]',
+      'li[class*="job"] time',
+      'div[class*="job-card"] time'
     ];
 
     for (const selector of timeSelectors) {
-      const timeElem = jobCard.querySelector(selector);
-      if (!timeElem) continue;
-
-      // Try datetime attribute first
-      const datetime = timeElem.getAttribute('datetime');
-      if (datetime) {
-        const postDate = new Date(datetime);
-        const now = new Date();
-        const daysAgo = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
-        if (!isNaN(daysAgo) && daysAgo >= 0) {
-          return daysAgo;
+      const timeElems = jobCard.querySelectorAll(selector);
+      for (const timeElem of timeElems) {
+        // Try datetime attribute first
+        const datetime = timeElem.getAttribute('datetime');
+        if (datetime) {
+          const postDate = new Date(datetime);
+          const now = new Date();
+          const daysAgo = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
+          if (!isNaN(daysAgo) && daysAgo >= 0) {
+            return daysAgo;
+          }
         }
-      }
 
-      // Fallback: parse text
-      const text = timeElem.textContent.trim().toLowerCase();
+        // Fallback: parse text
+        const text = timeElem.textContent.trim().toLowerCase();
 
-      // Match patterns like "1 hour ago", "2 days ago", "3 weeks ago", "1 month ago"
-      if (text.includes('just now') || text.includes('moment')) return 0;
-      if (text.includes('hour') || text.includes('minute') || text.includes('second')) return 0;
+        // Match patterns like "1 hour ago", "2 days ago", "3 weeks ago", "1 month ago"
+        if (text.includes('just now') || text.includes('moment') || text.includes('today')) return 0;
+        if (text.includes('hour') || text.includes('minute') || text.includes('second')) return 0;
 
-      if (text.includes('day')) {
-        const match = text.match(/(\d+)/);
-        return match ? parseInt(match[1]) : 1;
-      }
-      if (text.includes('week')) {
-        const match = text.match(/(\d+)/);
-        return match ? parseInt(match[1]) * 7 : 7;
-      }
-      if (text.includes('month')) {
-        const match = text.match(/(\d+)/);
-        return match ? parseInt(match[1]) * 30 : 30;
+        // Check for "Xd" or "Xw" or "Xmo" shorthand
+        const shortMatch = text.match(/\b(\d+)\s*(d|w|mo|m)\b/i);
+        if (shortMatch) {
+          const num = parseInt(shortMatch[1]);
+          const unit = shortMatch[2].toLowerCase();
+          if (unit === 'd') return num;
+          if (unit === 'w') return num * 7;
+          if (unit === 'mo' || unit === 'm') return num * 30;
+        }
+
+        if (text.includes('day')) {
+          const match = text.match(/(\d+)/);
+          if (match) return parseInt(match[1]);
+        }
+        if (text.includes('week')) {
+          const match = text.match(/(\d+)/);
+          if (match) return parseInt(match[1]) * 7;
+          return 7; // Default to 1 week if no number found
+        }
+        if (text.includes('month')) {
+          const match = text.match(/(\d+)/);
+          if (match) return parseInt(match[1]) * 30;
+          return 30; // Default to 1 month if no number found
+        }
       }
     }
 
-    // Also check the full job card text for time references
+    // Check the full job card text for time references - more comprehensive patterns
     const fullText = jobCard.textContent.toLowerCase();
+
+    // Check for "just now", "today", etc.
+    if (fullText.includes('just now') || fullText.includes('posted today') || fullText.includes('just posted')) {
+      return 0;
+    }
+
     const timePatterns = [
-      { pattern: /(\d+)\s*(?:hours?|hr)\s*ago/i, multiplier: 0 },
+      // With "ago"
+      { pattern: /(\d+)\s*(?:hours?|hr|h)\s*ago/i, multiplier: 0 },
       { pattern: /(\d+)\s*(?:days?|d)\s*ago/i, multiplier: 1 },
-      { pattern: /(\d+)\s*(?:weeks?|wk)\s*ago/i, multiplier: 7 },
-      { pattern: /(\d+)\s*(?:months?|mo)\s*ago/i, multiplier: 30 }
+      { pattern: /(\d+)\s*(?:weeks?|wk|w)\s*ago/i, multiplier: 7 },
+      { pattern: /(\d+)\s*(?:months?|mo)\s*ago/i, multiplier: 30 },
+      // Without "ago" (e.g., "Posted 3 days", "Reposted 1 week")
+      { pattern: /(?:posted|reposted|listed)\s*(\d+)\s*(?:days?|d)/i, multiplier: 1 },
+      { pattern: /(?:posted|reposted|listed)\s*(\d+)\s*(?:weeks?|wk|w)/i, multiplier: 7 },
+      { pattern: /(?:posted|reposted|listed)\s*(\d+)\s*(?:months?|mo)/i, multiplier: 30 },
+      // Shorthand format (e.g., "2d", "1w", "3mo")
+      { pattern: /\b(\d+)\s*d\b/i, multiplier: 1 },
+      { pattern: /\b(\d+)\s*w\b/i, multiplier: 7 },
+      { pattern: /\b(\d+)\s*mo\b/i, multiplier: 30 }
     ];
 
     for (const { pattern, multiplier } of timePatterns) {
       const match = fullText.match(pattern);
       if (match) {
-        return parseInt(match[1]) * multiplier;
+        const value = parseInt(match[1]) * multiplier;
+        // Sanity check - job age should be reasonable (0-365 days)
+        if (value >= 0 && value <= 365) {
+          return value;
+        }
+      }
+    }
+
+    // Last resort: check for time element anywhere in the card's parent list item
+    const parentListItem = jobCard.closest('li');
+    if (parentListItem && parentListItem !== jobCard) {
+      const parentTime = parentListItem.querySelector('time');
+      if (parentTime) {
+        const datetime = parentTime.getAttribute('datetime');
+        if (datetime) {
+          const postDate = new Date(datetime);
+          const now = new Date();
+          const daysAgo = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
+          if (!isNaN(daysAgo) && daysAgo >= 0 && daysAgo <= 365) {
+            return daysAgo;
+          }
+        }
+
+        const timeText = parentTime.textContent.trim().toLowerCase();
+        for (const { pattern, multiplier } of timePatterns) {
+          const match = timeText.match(pattern);
+          if (match) {
+            return parseInt(match[1]) * multiplier;
+          }
+        }
       }
     }
 
@@ -1146,35 +1219,45 @@ function applyFilters(settings) {
 
   log('Applying filters with settings:', settings);
 
+  // Comprehensive job card selectors - includes viewed/visited jobs
   const jobCardSelectors = [
     '.jobs-search__results-list > li',
     '.scaffold-layout__list-item',
     'li.jobs-search-results__list-item',
     'div.job-card-container',
     'div[data-job-id]',
-    'li[data-occludable-job-id]'
+    'li[data-occludable-job-id]',
+    // Viewed/visited job selectors
+    '.job-card-container--visited',
+    '.scaffold-layout__list-item--is-viewed',
+    '.jobs-search-results-list__list-item--visited',
+    'li.ember-view.jobs-search-results__list-item',
+    // Additional selectors for edge cases
+    '.jobs-search-results__list-item',
+    '.job-card-list__entity-lockup'
   ];
 
-  let jobCards = [];
+  let jobCards = new Set();
   for (const selector of jobCardSelectors) {
-    jobCards = document.querySelectorAll(selector);
-    if (jobCards.length > 0) {
-      log(`Found ${jobCards.length} job cards using selector: ${selector}`);
-      break;
-    }
+    const cards = document.querySelectorAll(selector);
+    cards.forEach(card => jobCards.add(card));
   }
+
+  jobCards = Array.from(jobCards);
 
   if (jobCards.length === 0) {
     log('No job cards found with any selector');
     return;
   }
 
+  log(`Found ${jobCards.length} job cards (including viewed jobs)`);
+
   jobCards.forEach((jobCard) => {
     let shouldHide = false;
     const reasons = [];
 
     // Remove existing badges first
-    const existingBadges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge');
+    const existingBadges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge, .jobfiltr-age-badge');
     existingBadges.forEach(b => b.remove());
 
     // Filter 1: Hide Staffing Firms
@@ -1298,24 +1381,36 @@ function resetFilters() {
   // Clear filter settings
   filterSettings = {};
 
+  // Comprehensive job card selectors - includes viewed/visited jobs
   const jobCardSelectors = [
     '.jobs-search__results-list > li',
     '.scaffold-layout__list-item',
     'li.jobs-search-results__list-item',
-    'div.job-card-container'
+    'div.job-card-container',
+    'div[data-job-id]',
+    'li[data-occludable-job-id]',
+    // Viewed/visited job selectors
+    '.job-card-container--visited',
+    '.scaffold-layout__list-item--is-viewed',
+    '.jobs-search-results-list__list-item--visited',
+    'li.ember-view.jobs-search-results__list-item',
+    '.jobs-search-results__list-item'
   ];
 
-  let jobCards = [];
+  // Use Set to avoid duplicates
+  let jobCardsSet = new Set();
   for (const selector of jobCardSelectors) {
-    jobCards = document.querySelectorAll(selector);
-    if (jobCards.length > 0) break;
+    const cards = document.querySelectorAll(selector);
+    cards.forEach(card => jobCardsSet.add(card));
   }
+
+  const jobCards = Array.from(jobCardsSet);
 
   jobCards.forEach(jobCard => {
     jobCard.style.display = '';
     delete jobCard.dataset.jobfiltrHidden;
     delete jobCard.dataset.jobfiltrReasons;
-    const badges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge, .jobfiltr-age-badge');
+    const badges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge, .jobfiltr-age-badge, .jobfiltr-entry-level-badge');
     badges.forEach(badge => badge.remove());
   });
 
@@ -1489,20 +1584,32 @@ function performIncrementalScan() {
   if (isScanning || Object.keys(filterSettings).length === 0) return;
   isScanning = true;
 
+  // Comprehensive job card selectors - includes viewed/visited jobs
   const jobCardSelectors = [
     '.jobs-search__results-list > li',
     '.scaffold-layout__list-item',
     'li.jobs-search-results__list-item',
     'div.job-card-container',
     'div[data-job-id]',
-    'li[data-occludable-job-id]'
+    'li[data-occludable-job-id]',
+    // Viewed/visited job selectors
+    '.job-card-container--visited',
+    '.scaffold-layout__list-item--is-viewed',
+    '.jobs-search-results-list__list-item--visited',
+    'li.ember-view.jobs-search-results__list-item',
+    // Additional selectors
+    '.jobs-search-results__list-item',
+    '.job-card-list__entity-lockup'
   ];
 
-  let jobCards = [];
+  // Use Set to avoid duplicates
+  let jobCardsSet = new Set();
   for (const selector of jobCardSelectors) {
-    jobCards = document.querySelectorAll(selector);
-    if (jobCards.length > 0) break;
+    const cards = document.querySelectorAll(selector);
+    cards.forEach(card => jobCardsSet.add(card));
   }
+
+  const jobCards = Array.from(jobCardsSet);
 
   let newJobsProcessed = 0;
 
@@ -1519,7 +1626,7 @@ function performIncrementalScan() {
     const reasons = [];
 
     // Remove existing badges first
-    const existingBadges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge');
+    const existingBadges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge, .jobfiltr-age-badge');
     existingBadges.forEach(b => b.remove());
 
     // Apply all filters
@@ -1571,6 +1678,14 @@ function performIncrementalScan() {
     if (filterSettings.showBenefitsIndicator && !shouldHide) {
       const text = getJobCardText(jobCard);
       addBenefitsBadgeToJob(jobCard, text);
+    }
+
+    // Job Age Display (display only)
+    if (filterSettings.showJobAge && !shouldHide) {
+      const jobAge = getJobAge(jobCard);
+      if (jobAge !== null) {
+        addJobAgeBadge(jobCard, jobAge);
+      }
     }
 
     // Apply hiding
@@ -1812,20 +1927,32 @@ function performFullScan() {
     updateApplicantCountInDetailPanel();
   }
 
+  // Comprehensive job card selectors - includes viewed/visited jobs
   const jobCardSelectors = [
     '.jobs-search__results-list > li',
     '.scaffold-layout__list-item',
     'li.jobs-search-results__list-item',
     'div.job-card-container',
     'div[data-job-id]',
-    'li[data-occludable-job-id]'
+    'li[data-occludable-job-id]',
+    // Viewed/visited job selectors
+    '.job-card-container--visited',
+    '.scaffold-layout__list-item--is-viewed',
+    '.jobs-search-results-list__list-item--visited',
+    'li.ember-view.jobs-search-results__list-item',
+    // Additional selectors for edge cases
+    '.jobs-search-results__list-item',
+    '.job-card-list__entity-lockup'
   ];
 
-  let jobCards = [];
+  // Use Set to avoid duplicates when using multiple selectors
+  let jobCardsSet = new Set();
   for (const selector of jobCardSelectors) {
-    jobCards = document.querySelectorAll(selector);
-    if (jobCards.length > 0) break;
+    const cards = document.querySelectorAll(selector);
+    cards.forEach(card => jobCardsSet.add(card));
   }
+
+  const jobCards = Array.from(jobCardsSet);
 
   if (jobCards.length === 0) return;
 
