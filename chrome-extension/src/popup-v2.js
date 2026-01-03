@@ -1567,3 +1567,549 @@ function hidePageIndicator() {
     pageIndicator.classList.add('hidden');
   }
 }
+
+// ===== DOCUMENTS TAB =====
+const DOCUMENT_LIMITS = {
+  resumes: 10,
+  coverLetters: 10,
+  portfolio: 10
+};
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
+
+let documents = {
+  resumes: [],
+  coverLetters: [],
+  portfolio: []
+};
+
+let currentUploadCategory = null;
+let currentPreviewDoc = null;
+let currentPreviewPage = 1;
+let pdfDoc = null;
+
+// Initialize documents tab
+async function initializeDocuments() {
+  await loadDocuments();
+  renderAllDocuments();
+  updateStorageInfo();
+  setupDocumentEventListeners();
+}
+
+// Load documents from storage
+async function loadDocuments() {
+  try {
+    const result = await chrome.storage.local.get('userDocuments');
+    if (result.userDocuments) {
+      documents = result.userDocuments;
+    }
+  } catch (error) {
+    console.error('Error loading documents:', error);
+  }
+}
+
+// Save documents to storage
+async function saveDocuments() {
+  try {
+    await chrome.storage.local.set({ userDocuments: documents });
+    updateStorageInfo();
+  } catch (error) {
+    console.error('Error saving documents:', error);
+  }
+}
+
+// Setup event listeners for documents tab
+function setupDocumentEventListeners() {
+  // Add document buttons
+  document.getElementById('addResumeBtn').addEventListener('click', () => triggerFileUpload('resumes'));
+  document.getElementById('addCoverLetterBtn').addEventListener('click', () => triggerFileUpload('coverLetters'));
+  document.getElementById('addPortfolioBtn').addEventListener('click', () => triggerFileUpload('portfolio'));
+
+  // File input change
+  document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+
+  // Preview modal controls
+  document.getElementById('closePreviewBtn').addEventListener('click', closePreviewModal);
+  document.getElementById('docPreviewOverlay').addEventListener('click', closePreviewModal);
+  document.getElementById('downloadDocBtn').addEventListener('click', downloadCurrentDoc);
+  document.getElementById('deleteDocBtn').addEventListener('click', deleteCurrentDoc);
+  document.getElementById('prevPageBtn').addEventListener('click', () => changePage(-1));
+  document.getElementById('nextPageBtn').addEventListener('click', () => changePage(1));
+
+  // Cloud sync toggle
+  document.getElementById('cloudSyncToggle').addEventListener('change', handleCloudSyncToggle);
+
+  // Keyboard shortcuts for modal
+  document.addEventListener('keydown', (e) => {
+    if (!document.getElementById('docPreviewModal').classList.contains('hidden')) {
+      if (e.key === 'Escape') closePreviewModal();
+      if (e.key === 'ArrowLeft') changePage(-1);
+      if (e.key === 'ArrowRight') changePage(1);
+    }
+  });
+}
+
+// Trigger file upload for a category
+function triggerFileUpload(category) {
+  if (documents[category].length >= DOCUMENT_LIMITS[category]) {
+    alert(`Maximum ${DOCUMENT_LIMITS[category]} documents allowed in this category.`);
+    return;
+  }
+  currentUploadCategory = category;
+  document.getElementById('fileInput').click();
+}
+
+// Handle file selection
+async function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Validate file type
+  if (file.type !== 'application/pdf') {
+    alert('Only PDF files are allowed.');
+    event.target.value = '';
+    return;
+  }
+
+  // Validate file size
+  if (file.size > MAX_FILE_SIZE) {
+    alert('File size must be less than 10MB.');
+    event.target.value = '';
+    return;
+  }
+
+  try {
+    // Read file as base64
+    const base64Data = await readFileAsBase64(file);
+
+    // Generate thumbnail
+    const thumbnail = await generatePDFThumbnail(base64Data);
+
+    // Create document object
+    const doc = {
+      id: Date.now().toString(),
+      name: file.name,
+      size: file.size,
+      data: base64Data,
+      thumbnail: thumbnail,
+      createdAt: Date.now()
+    };
+
+    // Add to category
+    documents[currentUploadCategory].push(doc);
+
+    // Save and render
+    await saveDocuments();
+    renderDocuments(currentUploadCategory);
+    updateDocumentCount(currentUploadCategory);
+
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    alert('Error uploading file. Please try again.');
+  }
+
+  // Reset file input
+  event.target.value = '';
+  currentUploadCategory = null;
+}
+
+// Read file as base64
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Generate PDF thumbnail using canvas
+async function generatePDFThumbnail(base64Data) {
+  // For now, return null and use placeholder
+  // In a full implementation, you would use PDF.js here
+  return null;
+}
+
+// Render all document categories
+function renderAllDocuments() {
+  renderDocuments('resumes');
+  renderDocuments('coverLetters');
+  renderDocuments('portfolio');
+  updateDocumentCount('resumes');
+  updateDocumentCount('coverLetters');
+  updateDocumentCount('portfolio');
+}
+
+// Render documents for a category
+function renderDocuments(category) {
+  const gridId = {
+    resumes: 'resumesGrid',
+    coverLetters: 'coverLettersGrid',
+    portfolio: 'portfolioGrid'
+  }[category];
+
+  const grid = document.getElementById(gridId);
+  const docs = documents[category];
+
+  if (docs.length === 0) {
+    // Show empty state
+    const emptyStates = {
+      resumes: `
+        <div class="empty-docs-state">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="2" stroke-dasharray="4 2"/>
+            <path d="M12 11v6M9 14h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <p>No resumes uploaded</p>
+          <span>Click "Add" to upload your resume</span>
+        </div>`,
+      coverLetters: `
+        <div class="empty-docs-state">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" stroke-width="2" stroke-dasharray="4 2"/>
+            <path d="M12 11v6M9 14h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <p>No cover letters uploaded</p>
+          <span>Click "Add" to upload a cover letter</span>
+        </div>`,
+      portfolio: `
+        <div class="empty-docs-state">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" stroke-width="2" stroke-dasharray="4 2"/>
+            <path d="M12 9v6M9 12h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <p>No portfolio items uploaded</p>
+          <span>Click "Add" to upload portfolio work</span>
+        </div>`
+    };
+    grid.innerHTML = emptyStates[category];
+    return;
+  }
+
+  // Render document cards
+  grid.innerHTML = docs.map(doc => `
+    <div class="doc-card"
+         data-id="${doc.id}"
+         data-category="${category}"
+         draggable="true"
+         title="${doc.name}">
+      <div class="doc-drag-handle">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+          <circle cx="9" cy="6" r="1.5" fill="currentColor"/>
+          <circle cx="15" cy="6" r="1.5" fill="currentColor"/>
+          <circle cx="9" cy="12" r="1.5" fill="currentColor"/>
+          <circle cx="15" cy="12" r="1.5" fill="currentColor"/>
+          <circle cx="9" cy="18" r="1.5" fill="currentColor"/>
+          <circle cx="15" cy="18" r="1.5" fill="currentColor"/>
+        </svg>
+      </div>
+      <div class="doc-thumbnail">
+        ${doc.thumbnail
+          ? `<img src="${doc.thumbnail}" alt="${doc.name}">`
+          : `<div class="doc-thumbnail-placeholder">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="2"/>
+                <path d="M14 2v6h6" stroke="currentColor" stroke-width="2"/>
+              </svg>
+              <span>PDF</span>
+            </div>`
+        }
+      </div>
+      <div class="doc-name">${truncateName(doc.name)}</div>
+      <div class="doc-size">${formatFileSize(doc.size)}</div>
+    </div>
+  `).join('');
+
+  // Add click listeners to doc cards
+  grid.querySelectorAll('.doc-card').forEach(card => {
+    card.addEventListener('click', () => openPreviewModal(card.dataset.id, card.dataset.category));
+
+    // Drag and drop functionality
+    card.addEventListener('dragstart', handleDragStart);
+    card.addEventListener('dragend', handleDragEnd);
+  });
+}
+
+// Update document count display
+function updateDocumentCount(category) {
+  const countId = {
+    resumes: 'resumeCount',
+    coverLetters: 'coverLetterCount',
+    portfolio: 'portfolioCount'
+  }[category];
+
+  const count = documents[category].length;
+  const limit = DOCUMENT_LIMITS[category];
+  document.getElementById(countId).textContent = `${count}/${limit}`;
+
+  // Disable add button if at limit
+  const btnId = {
+    resumes: 'addResumeBtn',
+    coverLetters: 'addCoverLetterBtn',
+    portfolio: 'addPortfolioBtn'
+  }[category];
+  document.getElementById(btnId).disabled = count >= limit;
+}
+
+// Truncate filename for display
+function truncateName(name) {
+  const maxLength = 12;
+  if (name.length <= maxLength) return name;
+  const ext = name.split('.').pop();
+  const baseName = name.slice(0, maxLength - ext.length - 4);
+  return `${baseName}...${ext}`;
+}
+
+// Format file size
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+// Update storage info
+async function updateStorageInfo() {
+  try {
+    let totalSize = 0;
+
+    // Calculate total size of all documents
+    for (const category of Object.keys(documents)) {
+      for (const doc of documents[category]) {
+        totalSize += doc.size;
+      }
+    }
+
+    // With unlimitedStorage, we show usage but not a strict limit
+    const usedText = formatFileSize(totalSize);
+    document.getElementById('storageUsed').textContent = usedText;
+    document.getElementById('storageTotal').textContent = 'Unlimited';
+
+    // Update storage bar (use 100MB as visual reference)
+    const visualLimit = 100 * 1024 * 1024;
+    const percentage = Math.min((totalSize / visualLimit) * 100, 100);
+    const storageFill = document.getElementById('storageFill');
+    storageFill.style.width = percentage + '%';
+
+    // Add warning/danger classes
+    storageFill.classList.remove('warning', 'danger');
+    if (percentage > 90) {
+      storageFill.classList.add('danger');
+    } else if (percentage > 70) {
+      storageFill.classList.add('warning');
+    }
+  } catch (error) {
+    console.error('Error updating storage info:', error);
+  }
+}
+
+// Open preview modal
+function openPreviewModal(docId, category) {
+  const doc = documents[category].find(d => d.id === docId);
+  if (!doc) return;
+
+  currentPreviewDoc = { ...doc, category };
+  currentPreviewPage = 1;
+
+  document.getElementById('previewDocName').textContent = doc.name;
+  document.getElementById('docPreviewModal').classList.remove('hidden');
+
+  // Render PDF preview
+  renderPDFPreview(doc.data);
+}
+
+// Render PDF preview using iframe
+function renderPDFPreview(base64Data) {
+  const previewContent = document.getElementById('docPreviewContent');
+
+  // Create blob from base64
+  const byteCharacters = atob(base64Data.split(',')[1]);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: 'application/pdf' });
+  const blobUrl = URL.createObjectURL(blob);
+
+  // Use embed element for PDF preview
+  previewContent.innerHTML = `
+    <embed
+      src="${blobUrl}#toolbar=0&navpanes=0"
+      type="application/pdf"
+      width="100%"
+      height="100%"
+      style="border: none; border-radius: 8px;"
+    />
+  `;
+
+  // Hide page navigation since embed handles it
+  document.getElementById('previewPageInfo').textContent = 'Use scroll to navigate';
+  document.getElementById('prevPageBtn').style.display = 'none';
+  document.getElementById('nextPageBtn').style.display = 'none';
+}
+
+// Close preview modal
+function closePreviewModal() {
+  document.getElementById('docPreviewModal').classList.add('hidden');
+  document.getElementById('docPreviewContent').innerHTML = '';
+  currentPreviewDoc = null;
+  currentPreviewPage = 1;
+  pdfDoc = null;
+
+  // Reset page nav visibility
+  document.getElementById('prevPageBtn').style.display = '';
+  document.getElementById('nextPageBtn').style.display = '';
+}
+
+// Change page in preview
+function changePage(delta) {
+  if (!pdfDoc) return;
+
+  const newPage = currentPreviewPage + delta;
+  if (newPage < 1 || newPage > pdfDoc.numPages) return;
+
+  currentPreviewPage = newPage;
+  // Re-render page would go here with PDF.js
+}
+
+// Download current document
+function downloadCurrentDoc() {
+  if (!currentPreviewDoc) return;
+
+  const link = document.createElement('a');
+  link.href = currentPreviewDoc.data;
+  link.download = currentPreviewDoc.name;
+  link.click();
+}
+
+// Delete current document
+async function deleteCurrentDoc() {
+  if (!currentPreviewDoc) return;
+
+  if (!confirm(`Are you sure you want to delete "${currentPreviewDoc.name}"?`)) return;
+
+  const category = currentPreviewDoc.category;
+  documents[category] = documents[category].filter(d => d.id !== currentPreviewDoc.id);
+
+  await saveDocuments();
+  renderDocuments(category);
+  updateDocumentCount(category);
+  closePreviewModal();
+}
+
+// Drag and drop handlers
+function handleDragStart(event) {
+  const card = event.target.closest('.doc-card');
+  if (!card) return;
+
+  card.classList.add('dragging');
+
+  const docId = card.dataset.id;
+  const category = card.dataset.category;
+  const doc = documents[category].find(d => d.id === docId);
+
+  if (!doc) return;
+
+  // Set drag data - the file data for dropping into other applications
+  event.dataTransfer.setData('text/plain', doc.name);
+  event.dataTransfer.setData('application/pdf', doc.data);
+
+  // Create a file from the base64 data for drag-and-drop
+  try {
+    const byteCharacters = atob(doc.data.split(',')[1]);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const file = new File([byteArray], doc.name, { type: 'application/pdf' });
+
+    // For some browsers, we can set the file directly
+    if (event.dataTransfer.items) {
+      event.dataTransfer.items.add(file);
+    }
+  } catch (error) {
+    console.error('Error setting drag data:', error);
+  }
+
+  event.dataTransfer.effectAllowed = 'copy';
+}
+
+function handleDragEnd(event) {
+  const card = event.target.closest('.doc-card');
+  if (card) {
+    card.classList.remove('dragging');
+  }
+}
+
+// Cloud sync toggle handler
+async function handleCloudSyncToggle(event) {
+  const isEnabled = event.target.checked;
+  const statusElement = document.getElementById('syncStatus');
+
+  if (isEnabled) {
+    // Check if user is authenticated
+    const { authToken } = await chrome.storage.local.get('authToken');
+
+    if (!authToken) {
+      alert('Please log in to JobFiltr to enable cloud sync.');
+      event.target.checked = false;
+      return;
+    }
+
+    statusElement.textContent = 'Syncing...';
+
+    try {
+      // Sync documents to cloud (placeholder for actual implementation)
+      await syncDocumentsToCloud();
+      statusElement.textContent = 'Synced to cloud';
+
+      // Save sync preference
+      await chrome.storage.local.set({ cloudSyncEnabled: true });
+    } catch (error) {
+      console.error('Error syncing to cloud:', error);
+      statusElement.textContent = 'Sync failed';
+      event.target.checked = false;
+    }
+  } else {
+    statusElement.textContent = 'Local only';
+    await chrome.storage.local.set({ cloudSyncEnabled: false });
+  }
+}
+
+// Sync documents to cloud (placeholder)
+async function syncDocumentsToCloud() {
+  // This would integrate with Convex backend
+  // For now, just simulate a sync
+  return new Promise(resolve => setTimeout(resolve, 1000));
+}
+
+// Load cloud sync preference
+async function loadCloudSyncPreference() {
+  try {
+    const result = await chrome.storage.local.get(['cloudSyncEnabled', 'authToken']);
+
+    if (result.cloudSyncEnabled && result.authToken) {
+      document.getElementById('cloudSyncToggle').checked = true;
+      document.getElementById('syncStatus').textContent = 'Synced to cloud';
+    }
+  } catch (error) {
+    console.error('Error loading sync preference:', error);
+  }
+}
+
+// Initialize documents when tab is shown
+document.querySelector('[data-tab="documents"]')?.addEventListener('click', () => {
+  if (!documents.resumes.length && !documents.coverLetters.length && !documents.portfolio.length) {
+    initializeDocuments();
+  }
+});
+
+// Initialize on DOMContentLoaded (deferred)
+document.addEventListener('DOMContentLoaded', () => {
+  // Defer documents initialization until tab is accessed
+  setTimeout(() => {
+    initializeDocuments();
+    loadCloudSyncPreference();
+  }, 100);
+});

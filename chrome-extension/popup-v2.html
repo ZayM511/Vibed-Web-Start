@@ -96,6 +96,13 @@
         </svg>
         Scanner
       </button>
+      <button class="tab-button" data-tab="documents">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Documents
+      </button>
     </nav>
 
     <!-- Filters Tab Content -->
@@ -535,6 +542,171 @@
         </div>
       </div>
     </div>
+
+    <!-- Documents Tab Content -->
+    <div class="tab-content" id="documentsTab">
+      <div class="documents-section">
+        <!-- Cloud Sync Toggle -->
+        <div class="sync-toggle-section">
+          <label class="sync-toggle-label">
+            <input type="checkbox" id="cloudSyncToggle" class="sync-checkbox">
+            <span class="sync-slider"></span>
+            <span class="sync-text">Sync to Cloud</span>
+          </label>
+          <span class="sync-status" id="syncStatus">Local only</span>
+        </div>
+
+        <!-- Resumes Section -->
+        <div class="document-category" id="resumesCategory">
+          <div class="category-header">
+            <div class="category-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="2"/>
+                <path d="M14 2v6h6" stroke="currentColor" stroke-width="2"/>
+                <circle cx="12" cy="13" r="2" stroke="currentColor" stroke-width="2"/>
+                <path d="M16 19c0-2-1.8-3-4-3s-4 1-4 3" stroke="currentColor" stroke-width="2"/>
+              </svg>
+              <span>Resumes</span>
+              <span class="doc-count" id="resumeCount">0/10</span>
+            </div>
+            <button class="btn-add-doc" id="addResumeBtn" title="Add Resume">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Add
+            </button>
+          </div>
+          <div class="documents-grid" id="resumesGrid">
+            <div class="empty-docs-state">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="2" stroke-dasharray="4 2"/>
+                <path d="M12 11v6M9 14h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <p>No resumes uploaded</p>
+              <span>Click "Add" to upload your resume</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cover Letters Section -->
+        <div class="document-category" id="coverLettersCategory">
+          <div class="category-header">
+            <div class="category-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" stroke-width="2"/>
+                <path d="M22 6l-10 7L2 6" stroke="currentColor" stroke-width="2"/>
+              </svg>
+              <span>Cover Letters</span>
+              <span class="doc-count" id="coverLetterCount">0/10</span>
+            </div>
+            <button class="btn-add-doc" id="addCoverLetterBtn" title="Add Cover Letter">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Add
+            </button>
+          </div>
+          <div class="documents-grid" id="coverLettersGrid">
+            <div class="empty-docs-state">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" stroke-width="2" stroke-dasharray="4 2"/>
+                <path d="M12 11v6M9 14h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <p>No cover letters uploaded</p>
+              <span>Click "Add" to upload a cover letter</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Portfolio Section -->
+        <div class="document-category" id="portfolioCategory">
+          <div class="category-header">
+            <div class="category-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" stroke-width="2"/>
+                <path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <span>Portfolio</span>
+              <span class="doc-count" id="portfolioCount">0/10</span>
+            </div>
+            <button class="btn-add-doc" id="addPortfolioBtn" title="Add Portfolio Item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Add
+            </button>
+          </div>
+          <div class="documents-grid" id="portfolioGrid">
+            <div class="empty-docs-state">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" stroke-width="2" stroke-dasharray="4 2"/>
+                <path d="M12 9v6M9 12h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <p>No portfolio items uploaded</p>
+              <span>Click "Add" to upload portfolio work</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Storage Info -->
+        <div class="storage-info">
+          <div class="storage-bar">
+            <div class="storage-fill" id="storageFill" style="width: 0%"></div>
+          </div>
+          <div class="storage-text">
+            <span id="storageUsed">0 KB</span> / <span id="storageTotal">5 MB</span> used
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Document Preview Modal -->
+    <div class="doc-preview-modal hidden" id="docPreviewModal">
+      <div class="doc-preview-overlay" id="docPreviewOverlay"></div>
+      <div class="doc-preview-container">
+        <div class="doc-preview-header">
+          <h3 id="previewDocName">Document Name</h3>
+          <div class="preview-actions">
+            <button class="btn-preview-action" id="downloadDocBtn" title="Download">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button class="btn-preview-action btn-delete" id="deleteDocBtn" title="Delete">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button class="btn-preview-close" id="closePreviewBtn" title="Close">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="doc-preview-content" id="docPreviewContent">
+          <!-- PDF will be rendered here -->
+        </div>
+        <div class="doc-preview-footer">
+          <span class="preview-page-info" id="previewPageInfo">Page 1 of 1</span>
+          <div class="preview-nav">
+            <button class="btn-page-nav" id="prevPageBtn" title="Previous Page">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button class="btn-page-nav" id="nextPageBtn" title="Next Page">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hidden File Input -->
+    <input type="file" id="fileInput" accept=".pdf" style="display: none;">
 
     <!-- Footer -->
     <footer class="footer">
