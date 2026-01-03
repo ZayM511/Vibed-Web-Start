@@ -478,7 +478,109 @@
   // UI INJECTION
   // ============================================
 
+  // Inject CSS animations once
+  function injectStyles() {
+    if (document.getElementById('jobfiltr-ghost-styles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'jobfiltr-ghost-styles';
+    style.textContent = `
+      @keyframes jobfiltr-progress-fill {
+        from { stroke-dashoffset: 251.2; }
+      }
+      @keyframes jobfiltr-score-pop {
+        0% { transform: scale(0); opacity: 0; }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      @keyframes jobfiltr-pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
+      @keyframes jobfiltr-fade-in {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes jobfiltr-modal-in {
+        from { opacity: 0; transform: scale(0.9); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      .jobfiltr-ghost-score:hover {
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+      }
+      .jobfiltr-ghost-badge-container {
+        animation: jobfiltr-fade-in 0.4s ease-out;
+      }
+      .jobfiltr-progress-ring {
+        transform: rotate(-90deg);
+      }
+      .jobfiltr-progress-ring-circle {
+        transition: stroke-dashoffset 0.8s ease-out;
+      }
+      .jobfiltr-modal-content {
+        animation: jobfiltr-modal-in 0.3s ease-out;
+      }
+      .jobfiltr-close-btn:hover {
+        color: #1e293b !important;
+        background: #f1f5f9 !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // Create SVG circular progress indicator
+  function createCircularProgress(score, color, size = 60) {
+    const strokeWidth = 4;
+    const radius = (size - strokeWidth) / 2;
+    const circumference = radius * 2 * Math.PI;
+    const progress = Math.min(100, Math.max(0, score));
+    const offset = circumference - (progress / 100) * circumference;
+
+    return `
+      <svg class="jobfiltr-progress-ring" width="${size}" height="${size}">
+        <circle
+          stroke="#e2e8f0"
+          stroke-width="${strokeWidth}"
+          fill="transparent"
+          r="${radius}"
+          cx="${size / 2}"
+          cy="${size / 2}"
+        />
+        <circle
+          class="jobfiltr-progress-ring-circle"
+          stroke="${color}"
+          stroke-width="${strokeWidth}"
+          stroke-linecap="round"
+          fill="transparent"
+          r="${radius}"
+          cx="${size / 2}"
+          cy="${size / 2}"
+          style="
+            stroke-dasharray: ${circumference} ${circumference};
+            stroke-dashoffset: ${offset};
+            animation: jobfiltr-progress-fill 1s ease-out;
+          "
+        />
+        <text
+          x="50%"
+          y="50%"
+          text-anchor="middle"
+          dominant-baseline="central"
+          style="
+            font-size: 16px;
+            font-weight: 700;
+            fill: ${color};
+            transform: rotate(90deg);
+            transform-origin: center;
+          "
+        >${score}%</text>
+      </svg>
+    `;
+  }
+
   function injectScoreUI(score, category, scoreTargets, onClick) {
+    injectStyles();
     document.querySelector('.jobfiltr-ghost-score')?.remove();
 
     // Handle both single selector (string) and array of selectors
@@ -506,27 +608,39 @@
     const color = SCORE_COLORS[category] || SCORE_COLORS.medium_risk;
     const label = SCORE_LABELS[category] || 'Unknown';
 
+    // Get risk level emoji
+    const riskEmoji = {
+      safe: '✅',
+      low_risk: '🔵',
+      medium_risk: '🟡',
+      high_risk: '🟠',
+      likely_ghost: '👻'
+    }[category] || '❓';
+
     const badge = document.createElement('div');
-    badge.className = 'jobfiltr-ghost-score';
+    badge.className = 'jobfiltr-ghost-score jobfiltr-ghost-badge-container';
     badge.innerHTML = `
       <div style="
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding: 8px 16px;
-        background: #f8fafc;
+        gap: 12px;
+        padding: 10px 16px;
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
         border: 2px solid ${color};
-        border-radius: 8px;
+        border-radius: 12px;
         cursor: pointer;
         margin: 12px 0;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        transition: all 0.2s ease;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
       ">
-        <span style="font-size: 24px; font-weight: 700; color: ${color};">${score}</span>
-        <div style="display: flex; flex-direction: column; gap: 2px;">
-          <span style="font-size: 14px; font-weight: 600; color: #334155;">${label}</span>
-          <span style="font-size: 11px; color: #94a3b8;">Click for details</span>
+        ${createCircularProgress(score, color, 56)}
+        <div style="display: flex; flex-direction: column; gap: 3px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 16px;">${riskEmoji}</span>
+            <span style="font-size: 14px; font-weight: 600; color: #334155;">${label}</span>
+          </div>
+          <span style="font-size: 11px; color: #94a3b8;">Ghost Job Analysis • Click for details</span>
         </div>
       </div>
     `;
@@ -541,72 +655,146 @@
 
     console.log('[GhostDetection] Score details:', currentScore);
 
+    // Remove any existing modal
+    document.querySelector('.jobfiltr-modal')?.remove();
+
     const getColor = (cat) => SCORE_COLORS[cat] || SCORE_COLORS.medium_risk;
     const getLabel = (cat) => SCORE_LABELS[cat] || 'Unknown';
+    const color = getColor(currentScore.category);
 
     const modal = document.createElement('div');
     modal.className = 'jobfiltr-modal';
-    modal.innerHTML = `
-      <div style="
-        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.5);
-        display: flex; align-items: center; justify-content: center;
-        z-index: 99999;
-      " onclick="this.parentElement.remove()">
-        <div style="
-          background: white; border-radius: 12px; padding: 24px;
-          max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;
-          box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
-        " onclick="event.stopPropagation()">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h2 style="margin: 0; font-size: 20px; color: #1e293b;">Ghost Job Analysis</h2>
-            <button onclick="this.closest('.jobfiltr-modal').remove()" style="
-              background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8;
-            ">&times;</button>
-          </div>
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      backdrop-filter: blur(2px);
+    `;
 
-          <div style="text-align: center; padding: 16px; background: #f8fafc; border-radius: 8px; margin-bottom: 16px;">
-            <div style="font-size: 48px; font-weight: 700; color: ${getColor(currentScore.category)};">
-              ${currentScore.overall}
-            </div>
-            <div style="font-size: 16px; color: #64748b;">${getLabel(currentScore.category)}</div>
-            <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">
-              Confidence: ${Math.round(currentScore.confidence * 100)}%
-            </div>
-          </div>
+    const content = document.createElement('div');
+    content.className = 'jobfiltr-modal-content';
+    content.style.cssText = `
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+    `;
 
-          <h3 style="font-size: 14px; color: #64748b; margin: 16px 0 8px;">Score Breakdown</h3>
-          ${Object.entries(currentScore.breakdown)
-            .filter(([_, value]) => value > 0)
-            .map(([category, value]) => `
-              <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
-                <span style="text-transform: capitalize; color: #334155;">${category}</span>
+    content.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0; font-size: 20px; color: #1e293b; font-weight: 700;">👻 Ghost Job Analysis</h2>
+        <button class="jobfiltr-close-btn" style="
+          background: none;
+          border: none;
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          font-size: 20px;
+          cursor: pointer;
+          color: #94a3b8;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+        ">✕</button>
+      </div>
+
+      <div style="text-align: center; padding: 24px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; margin-bottom: 20px;">
+        <div style="display: inline-block; margin-bottom: 12px;">
+          ${createCircularProgress(currentScore.overall, color, 100)}
+        </div>
+        <div style="font-size: 18px; font-weight: 600; color: #334155; margin-bottom: 4px;">${getLabel(currentScore.category)}</div>
+        <div style="font-size: 13px; color: #64748b;">
+          Confidence: ${Math.round(currentScore.confidence * 100)}%
+        </div>
+      </div>
+
+      <h3 style="font-size: 13px; color: #64748b; margin: 20px 0 12px; text-transform: uppercase; letter-spacing: 0.5px;">Risk Breakdown</h3>
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
+        ${Object.entries(currentScore.breakdown)
+          .filter(([_, value]) => value > 0)
+          .map(([category, value]) => `
+            <div style="background: #f8fafc; border-radius: 8px; padding: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="text-transform: capitalize; color: #334155; font-weight: 500;">${category}</span>
                 <span style="font-weight: 600; color: ${value > 50 ? '#ef4444' : value > 25 ? '#f59e0b' : '#10b981'};">
                   ${Math.round(value)}%
                 </span>
               </div>
-            `).join('')}
-
-          <h3 style="font-size: 14px; color: #64748b; margin: 16px 0 8px;">Detection Signals</h3>
-          ${currentScore.signals
-            .filter((s) => s.normalizedValue > 0.1)
-            .slice(0, 5)
-            .map((s) => `
-              <div style="padding: 8px; background: #f8fafc; border-radius: 6px; margin-bottom: 8px;">
-                <div style="display: flex; justify-content: space-between;">
-                  <span style="font-weight: 500; color: #334155;">${s.name}</span>
-                  <span style="font-size: 12px; color: #64748b;">${Math.round(s.normalizedValue * 100)}%</span>
-                </div>
-                <div style="font-size: 12px; color: #64748b;">${s.description}</div>
+              <div style="height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;">
+                <div style="
+                  height: 100%;
+                  width: ${value}%;
+                  background: ${value > 50 ? '#ef4444' : value > 25 ? '#f59e0b' : '#10b981'};
+                  border-radius: 2px;
+                  transition: width 0.5s ease-out;
+                "></div>
               </div>
-            `).join('')}
+            </div>
+          `).join('')}
+      </div>
 
-          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center;">
-            <span style="font-size: 12px; color: #94a3b8;">Powered by JobFiltr Ghost Detection</span>
-          </div>
-        </div>
+      <h3 style="font-size: 13px; color: #64748b; margin: 20px 0 12px; text-transform: uppercase; letter-spacing: 0.5px;">Detection Signals</h3>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        ${currentScore.signals
+          .filter((s) => s.normalizedValue > 0.1)
+          .slice(0, 5)
+          .map((s) => `
+            <div style="padding: 12px; background: #f8fafc; border-radius: 8px; border-left: 3px solid ${s.normalizedValue > 0.5 ? '#ef4444' : s.normalizedValue > 0.25 ? '#f59e0b' : '#10b981'};">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <span style="font-weight: 500; color: #334155;">${s.name}</span>
+                <span style="font-size: 12px; font-weight: 600; color: ${s.normalizedValue > 0.5 ? '#ef4444' : s.normalizedValue > 0.25 ? '#f59e0b' : '#10b981'};">${Math.round(s.normalizedValue * 100)}%</span>
+              </div>
+              <div style="font-size: 12px; color: #64748b;">${s.description}</div>
+            </div>
+          `).join('')}
+      </div>
+
+      <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center;">
+        <span style="font-size: 11px; color: #94a3b8;">Powered by JobFiltr Ghost Detection</span>
       </div>
     `;
+
+    modal.appendChild(content);
+
+    // Add event listeners (not inline onclick which doesn't work in content scripts)
+    const closeBtn = content.querySelector('.jobfiltr-close-btn');
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      modal.remove();
+    });
+
+    // Click outside to close
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
+
+    // Prevent clicks inside content from closing
+    content.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+
+    // ESC key to close
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        modal.remove();
+        document.removeEventListener('keydown', handleEsc);
+      }
+    };
+    document.addEventListener('keydown', handleEsc);
 
     document.body.appendChild(modal);
   }

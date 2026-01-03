@@ -193,4 +193,185 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
+// ===== PANEL WINDOW MANAGEMENT =====
+let panelWindowId = null;
+let lastActiveJobTabId = null;
+
+// Track active job site tabs
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  try {
+    const tab = await chrome.tabs.get(activeInfo.tabId);
+    if (tab.url && (tab.url.includes('linkedin.com') || tab.url.includes('indeed.com'))) {
+      lastActiveJobTabId = activeInfo.tabId;
+      console.log('JobFiltr: Tracking job site tab:', activeInfo.tabId);
+    }
+  } catch (error) {
+    console.error('JobFiltr: Error tracking tab:', error);
+  }
+});
+
+// Handle panel-related messages
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'openPanel') {
+    openPanelWindow(message.dock).then(sendResponse);
+    return true;
+  }
+
+  if (message.action === 'closePanel') {
+    if (panelWindowId) {
+      chrome.windows.remove(panelWindowId).catch(() => {});
+      panelWindowId = null;
+    }
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (message.action === 'repositionPanel') {
+    repositionPanel(message.dock).then(sendResponse);
+    return true;
+  }
+
+  if (message.action === 'getWindowInfo') {
+    if (panelWindowId) {
+      chrome.windows.get(panelWindowId).then(win => {
+        sendResponse({ left: win.left, top: win.top, width: win.width, height: win.height });
+      }).catch(() => sendResponse(null));
+      return true;
+    }
+    sendResponse(null);
+    return true;
+  }
+
+  if (message.action === 'movePanel') {
+    if (panelWindowId) {
+      chrome.windows.update(panelWindowId, { left: message.left }).catch(() => {});
+    }
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (message.action === 'snapToEdge') {
+    snapPanelToEdge(message.dock).then(sendResponse);
+    return true;
+  }
+
+  if (message.action === 'getDisplayForPosition') {
+    chrome.system.display.getInfo().then(displays => {
+      const display = displays.find(d => {
+        const left = d.workArea.left;
+        const right = left + d.workArea.width;
+        return message.left >= left && message.left < right;
+      });
+      sendResponse(display || null);
+    }).catch(() => sendResponse(null));
+    return true;
+  }
+
+  if (message.action === 'getActiveJobTab') {
+    getActiveJobTab().then(tab => sendResponse({ tab })).catch(() => sendResponse({ tab: null }));
+    return true;
+  }
+
+  return false;
+});
+
+async function getActiveJobTab() {
+  // First try the last known job tab
+  if (lastActiveJobTabId) {
+    try {
+      const tab = await chrome.tabs.get(lastActiveJobTabId);
+      if (tab.url && (tab.url.includes('linkedin.com') || tab.url.includes('indeed.com'))) {
+        return tab;
+      }
+    } catch (error) {}
+  }
+
+  // Find any active job site tab
+  const tabs = await chrome.tabs.query({ active: true });
+  for (const tab of tabs) {
+    if (tab.url && (tab.url.includes('linkedin.com') || tab.url.includes('indeed.com'))) {
+      lastActiveJobTabId = tab.id;
+      return tab;
+    }
+  }
+
+  // Find any job site tab
+  const allTabs = await chrome.tabs.query({});
+  for (const tab of allTabs) {
+    if (tab.url && (tab.url.includes('linkedin.com') || tab.url.includes('indeed.com'))) {
+      return tab;
+    }
+  }
+
+  return null;
+}
+
+async function openPanelWindow(dock = 'left') {
+  const panelWidth = 380;
+  const displays = await chrome.system.display.getInfo();
+  const primaryDisplay = displays.find(d => d.isPrimary) || displays[0];
+  const { workArea } = primaryDisplay;
+
+  const left = dock === 'right' ? workArea.left + workArea.width - panelWidth : workArea.left;
+
+  const win = await chrome.windows.create({
+    url: `popup-v2.html?mode=panel&dock=${dock}`,
+    type: 'popup',
+    width: panelWidth,
+    height: workArea.height,
+    left: left,
+    top: workArea.top,
+    focused: false
+  });
+
+  panelWindowId = win.id;
+
+  // Keep panel always on top by re-focusing when another window gets focus
+  chrome.windows.onFocusChanged.addListener(async (windowId) => {
+    if (windowId !== chrome.windows.WINDOW_ID_NONE && windowId !== panelWindowId && panelWindowId) {
+      // Don't steal focus, but ensure panel is visible
+      try {
+        await chrome.windows.update(panelWindowId, { focused: false });
+      } catch (error) {}
+    }
+  });
+
+  return { success: true, windowId: win.id };
+}
+
+async function repositionPanel(dock) {
+  if (!panelWindowId) return { success: false };
+
+  const panelWidth = 380;
+  const displays = await chrome.system.display.getInfo();
+  const primaryDisplay = displays.find(d => d.isPrimary) || displays[0];
+  const { workArea } = primaryDisplay;
+
+  const left = dock === 'right' ? workArea.left + workArea.width - panelWidth : workArea.left;
+
+  await chrome.windows.update(panelWindowId, { left, top: workArea.top, height: workArea.height });
+  return { success: true };
+}
+
+async function snapPanelToEdge(dock) {
+  if (!panelWindowId) return { success: false };
+
+  const panelWidth = 380;
+  const currentWindow = await chrome.windows.get(panelWindowId);
+  const displays = await chrome.system.display.getInfo();
+
+  // Find which display the panel is on
+  const display = displays.find(d => {
+    const left = d.workArea.left;
+    const right = left + d.workArea.width;
+    return currentWindow.left >= left && currentWindow.left < right;
+  }) || displays[0];
+
+  const { workArea } = display;
+  const left = dock === 'right' ? workArea.left + workArea.width - panelWidth : workArea.left;
+
+  await chrome.windows.update(panelWindowId, { left });
+  return { success: true };
+}
+
 console.log('JobFiltr: Background service worker ready');

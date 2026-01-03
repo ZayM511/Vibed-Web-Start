@@ -166,6 +166,39 @@
           <p class="filter-description">True entry level (0-1 years only), flags mismatches</p>
         </div>
 
+        <!-- Filter: True Remote Accuracy -->
+        <div class="filter-item expandable">
+          <div class="filter-header">
+            <label class="filter-label">
+              <input type="checkbox" id="filterTrueRemote" class="filter-checkbox">
+              <span class="filter-title">True Remote Accuracy</span>
+            </label>
+            <span class="filter-badge badge-hot">Top Complaint</span>
+          </div>
+          <p class="filter-description">Hide jobs with hidden hybrid/onsite requirements</p>
+          <div class="filter-options remote-options">
+            <p class="filter-options-label">Hide jobs mentioning:</p>
+            <div class="remote-checkboxes">
+              <label class="sub-checkbox-label">
+                <input type="checkbox" id="excludeHybrid" class="sub-checkbox" checked>
+                <span>Hybrid</span>
+              </label>
+              <label class="sub-checkbox-label">
+                <input type="checkbox" id="excludeOnsite" class="sub-checkbox" checked>
+                <span>On-site / Onsite</span>
+              </label>
+              <label class="sub-checkbox-label">
+                <input type="checkbox" id="excludeInOffice" class="sub-checkbox" checked>
+                <span>In-office</span>
+              </label>
+              <label class="sub-checkbox-label">
+                <input type="checkbox" id="excludeInPerson" class="sub-checkbox" checked>
+                <span>In-person</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
         <!-- Filter: Include Keywords -->
         <div class="filter-item expandable">
           <div class="filter-header">
@@ -280,6 +313,28 @@
           </div>
           <p class="filter-description">Skip external application sites</p>
         </div>
+
+        <!-- Benefits Indicator -->
+        <div class="filter-item">
+          <div class="filter-header">
+            <label class="filter-label">
+              <input type="checkbox" id="showBenefitsIndicator" class="filter-checkbox">
+              <span class="filter-title">Show Benefits Indicator</span>
+            </label>
+            <span class="filter-badge badge-new">New</span>
+          </div>
+          <p class="filter-description">Display badges for jobs mentioning benefits (health, 401k, PTO, etc.)</p>
+          <div class="benefits-legend hidden" id="benefitsLegend">
+            <p class="filter-options-label">Benefits detected:</p>
+            <div class="benefits-tags">
+              <span class="benefit-tag health">Health</span>
+              <span class="benefit-tag retirement">401k</span>
+              <span class="benefit-tag pto">PTO</span>
+              <span class="benefit-tag equity">Equity</span>
+              <span class="benefit-tag other">+More</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="filter-actions">
@@ -300,6 +355,20 @@
         <div class="stat-item">
           <span class="stat-label">Jobs Hidden:</span>
           <span class="stat-value" id="hiddenJobsCount">0</span>
+        </div>
+      </div>
+
+      <!-- LinkedIn Page Indicator -->
+      <div class="page-indicator hidden" id="pageIndicator">
+        <div class="page-info">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+            <path d="M9 9h6M9 13h6M9 17h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span id="currentPageText">Page 1</span>
+        </div>
+        <div class="page-stats">
+          <span id="pageHiddenCount">0</span> jobs hidden on this page
         </div>
       </div>
     </div>
