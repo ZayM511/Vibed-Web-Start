@@ -8,15 +8,89 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles/popup.css">
+  <!-- Chart.js for interactive charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     body {
       width: 480px;
       min-height: 500px;
       max-height: none;
+      transition: width 0.3s ease;
+    }
+
+    body.founder-mode {
+      width: 1000px;
+    }
+
+    .main-layout {
+      display: flex;
+      gap: 0;
+    }
+
+    .settings-panel {
+      flex: 0 0 480px;
+      max-width: 480px;
+    }
+
+    .analytics-panel {
+      flex: 1;
+      display: none;
+      border-left: 1px solid var(--border);
+      background: var(--bg-primary);
+      overflow-y: auto;
+      max-height: calc(100vh - 60px);
+    }
+
+    body.founder-mode .analytics-panel {
+      display: block;
     }
 
     .settings-container {
       padding: 24px;
+    }
+
+    /* Founder Greeting Banner */
+    .founder-greeting {
+      display: none;
+      padding: 20px 24px;
+      background: linear-gradient(135deg, var(--accent) 0%, #6366f1 100%);
+      color: white;
+      margin-bottom: 0;
+    }
+
+    body.founder-mode .founder-greeting {
+      display: block;
+    }
+
+    .greeting-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .greeting-text h2 {
+      font-family: "Cormorant", "Playfair Display", Georgia, serif;
+      font-size: 24px;
+      font-weight: 500;
+      margin: 0 0 4px 0;
+      letter-spacing: -0.02em;
+    }
+
+    .greeting-text p {
+      font-size: 13px;
+      opacity: 0.9;
+      margin: 0;
+    }
+
+    .greeting-icon {
+      font-size: 32px;
+      animation: wave 2s ease-in-out infinite;
+    }
+
+    @keyframes wave {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(20deg); }
+      75% { transform: rotate(-10deg); }
     }
 
     .settings-header {
@@ -371,6 +445,311 @@
       text-decoration: underline;
       cursor: pointer;
     }
+
+    /* ===== ANALYTICS DASHBOARD STYLES ===== */
+    .analytics-container {
+      padding: 24px;
+    }
+
+    .analytics-header {
+      margin-bottom: 24px;
+    }
+
+    .analytics-header h2 {
+      font-family: "Cormorant", "Playfair Display", Georgia, serif;
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin: 0 0 4px 0;
+    }
+
+    .analytics-header p {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin: 0;
+    }
+
+    .analytics-refresh {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .refresh-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .refresh-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .refresh-btn svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .refresh-btn.loading svg {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .last-updated {
+      font-size: 10px;
+      color: var(--text-tertiary);
+    }
+
+    /* Metric Cards Grid */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .metric-card {
+      padding: 16px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      transition: all var(--transition-fast);
+    }
+
+    .metric-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .metric-card.highlight {
+      background: linear-gradient(135deg, var(--accent-subtle) 0%, var(--bg-secondary) 100%);
+      border-color: var(--accent);
+    }
+
+    .metric-label {
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-tertiary);
+      margin-bottom: 6px;
+    }
+
+    .metric-value {
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+
+    .metric-value.counting {
+      transition: all 0.3s ease;
+    }
+
+    .metric-change {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 6px;
+      font-size: 11px;
+    }
+
+    .metric-change.positive {
+      color: var(--success);
+    }
+
+    .metric-change.negative {
+      color: var(--danger);
+    }
+
+    .metric-change.neutral {
+      color: var(--text-tertiary);
+    }
+
+    .metric-subvalue {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    /* Chart Sections */
+    .chart-section {
+      margin-bottom: 24px;
+    }
+
+    .chart-section h3 {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chart-section h3 svg {
+      width: 14px;
+      height: 14px;
+      color: var(--accent);
+    }
+
+    .chart-container {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .chart-canvas {
+      width: 100%;
+      height: 180px;
+    }
+
+    /* Detection Breakdown */
+    .detection-breakdown {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .detection-item {
+      text-align: center;
+      padding: 12px 8px;
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+    }
+
+    .detection-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-bottom: 6px;
+    }
+
+    .detection-label {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      display: block;
+    }
+
+    .detection-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .detection-rate {
+      font-size: 10px;
+      color: var(--text-tertiary);
+    }
+
+    /* Quick Stats List */
+    .quick-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .stat-row-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-row-label svg {
+      width: 14px;
+      height: 14px;
+      color: var(--accent);
+    }
+
+    .stat-row-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* Loading State */
+    .analytics-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      color: var(--text-tertiary);
+    }
+
+    .analytics-loading svg {
+      width: 32px;
+      height: 32px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 12px;
+    }
+
+    /* Pulse animation for live data */
+    .live-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: var(--success);
+    }
+
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .fade-in {
+      animation: fadeInUp 0.3s ease forwards;
+    }
   </style>
 </head>
 <body>
@@ -401,127 +780,299 @@
       </div>
     </header>
 
-    <div class="settings-container">
-      <div id="successMessage" class="success-message">
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span>Settings saved successfully</span>
+    <!-- Founder Greeting Banner -->
+    <div class="founder-greeting" id="founderGreeting">
+      <div class="greeting-content">
+        <div class="greeting-text">
+          <h2 id="greetingMessage">Welcome, Founder!</h2>
+          <p id="greetingSubtext">Your dashboard is ready with live analytics.</p>
+        </div>
+        <div class="greeting-icon" id="greetingIcon">👋</div>
       </div>
+    </div>
 
-      <!-- Account Profile Section -->
-      <div class="settings-section" id="accountSection">
-        <h2>
-          <svg viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/>
-            <path d="M4 20c0-4 4-6 8-6s8 2 8 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          Account
-        </h2>
+    <div class="main-layout">
+      <!-- Settings Panel (Left Side) -->
+      <div class="settings-panel">
+        <div class="settings-container">
+          <div id="successMessage" class="success-message">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Settings saved successfully</span>
+          </div>
 
-        <div class="profile-card" id="profileCard">
-          <div class="profile-avatar" id="profileAvatar">?</div>
-          <div class="profile-info">
-            <div class="profile-name-row" id="profileNameDisplay">
-              <span class="profile-name" id="profileName">Loading...</span>
-              <button class="profile-edit-btn" id="editNameBtn">Edit</button>
-            </div>
-            <div class="profile-name-row hidden" id="profileNameEdit">
-              <input type="text" class="profile-name-input" id="profileNameInput" placeholder="Your display name">
-              <div class="profile-actions">
-                <button class="profile-save-btn" id="saveNameBtn">Save</button>
-                <button class="profile-cancel-btn" id="cancelNameBtn">Cancel</button>
+          <!-- Account Profile Section -->
+          <div class="settings-section" id="accountSection">
+            <h2>
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/>
+                <path d="M4 20c0-4 4-6 8-6s8 2 8 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Account
+            </h2>
+
+            <div class="profile-card" id="profileCard">
+              <div class="profile-avatar" id="profileAvatar">?</div>
+              <div class="profile-info">
+                <div class="profile-name-row" id="profileNameDisplay">
+                  <span class="profile-name" id="profileName">Loading...</span>
+                  <button class="profile-edit-btn" id="editNameBtn">Edit</button>
+                </div>
+                <div class="profile-name-row hidden" id="profileNameEdit">
+                  <input type="text" class="profile-name-input" id="profileNameInput" placeholder="Your display name">
+                  <div class="profile-actions">
+                    <button class="profile-save-btn" id="saveNameBtn">Save</button>
+                    <button class="profile-cancel-btn" id="cancelNameBtn">Cancel</button>
+                  </div>
+                </div>
+                <div class="profile-email" id="profileEmail">loading...</div>
               </div>
             </div>
-            <div class="profile-email" id="profileEmail">loading...</div>
-          </div>
-        </div>
 
-        <div class="not-signed-in-message hidden" id="notSignedInMessage">
-          You're not signed in. <a id="openExtensionLink">Open the extension</a> to sign in.
+            <div class="not-signed-in-message hidden" id="notSignedInMessage">
+              You're not signed in. <a id="openExtensionLink">Open the extension</a> to sign in.
+            </div>
+          </div>
+
+          <!-- Backend Configuration (Admin Only) -->
+          <div class="settings-section hidden" id="backendSection">
+            <h2>
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Backend
+            </h2>
+
+            <div class="form-group">
+              <label for="convexUrl">Convex Deployment URL</label>
+              <input
+                type="url"
+                id="convexUrl"
+                placeholder="https://your-deployment.convex.cloud"
+              />
+              <p class="help-text">
+                Your Convex backend URL for AI-powered job analysis. Find this in your Convex dashboard.
+              </p>
+            </div>
+          </div>
+
+          <!-- Extension Behavior -->
+          <div class="settings-section">
+            <h2>
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 1v6m0 6v6M23 12h-6m-6 0H1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Behavior
+            </h2>
+
+            <div class="toggle-group">
+              <div class="toggle-info">
+                <strong>Auto-Scan</strong>
+                <span>Automatically scan job postings when you visit them</span>
+              </div>
+              <div class="toggle-switch" id="autoScanToggle"></div>
+            </div>
+
+            <div class="toggle-group">
+              <div class="toggle-info">
+                <strong>Notifications</strong>
+                <span>Show browser notifications for scan results</span>
+              </div>
+              <div class="toggle-switch" id="notificationsToggle"></div>
+            </div>
+          </div>
+
+          <!-- About -->
+          <div class="settings-section">
+            <h2>
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 16v-4m0-4h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              About
+            </h2>
+
+            <div class="info-box">
+              <strong>JobFiltr</strong><br>
+              AI-powered scam and ghost job detection for smarter job searching.
+              <br><br>
+              <a href="https://jobfiltr.com" target="_blank">Visit Website</a>
+              <div class="version-badge">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                v1.0.0
+              </div>
+            </div>
+          </div>
+
+          <div class="action-buttons">
+            <button class="btn btn-primary" id="saveButton" style="flex: 2;">
+              Save Settings
+            </button>
+            <button class="btn btn-secondary" id="resetButton" style="flex: 1;">
+              Reset
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Backend Configuration (Admin Only) -->
-      <div class="settings-section hidden" id="backendSection">
-        <h2>
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Backend
-        </h2>
-
-        <div class="form-group">
-          <label for="convexUrl">Convex Deployment URL</label>
-          <input
-            type="url"
-            id="convexUrl"
-            placeholder="https://your-deployment.convex.cloud"
-          />
-          <p class="help-text">
-            Your Convex backend URL for AI-powered job analysis. Find this in your Convex dashboard.
-          </p>
-        </div>
-      </div>
-
-      <!-- Extension Behavior -->
-      <div class="settings-section">
-        <h2>
-          <svg viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
-            <path d="M12 1v6m0 6v6M23 12h-6m-6 0H1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          Behavior
-        </h2>
-
-        <div class="toggle-group">
-          <div class="toggle-info">
-            <strong>Auto-Scan</strong>
-            <span>Automatically scan job postings when you visit them</span>
+      <!-- Analytics Panel (Right Side - Founder Only) -->
+      <div class="analytics-panel" id="analyticsPanel">
+        <div class="analytics-container">
+          <div class="analytics-header">
+            <h2>Founder Dashboard</h2>
+            <p>Real-time analytics for JobFiltr</p>
+            <div class="analytics-refresh">
+              <button class="refresh-btn" id="refreshAnalytics">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Refresh
+              </button>
+              <span class="live-indicator">
+                <span class="live-dot"></span>
+                Live
+              </span>
+              <span class="last-updated" id="lastUpdated">Updated just now</span>
+            </div>
           </div>
-          <div class="toggle-switch" id="autoScanToggle"></div>
-        </div>
 
-        <div class="toggle-group">
-          <div class="toggle-info">
-            <strong>Notifications</strong>
-            <span>Show browser notifications for scan results</span>
-          </div>
-          <div class="toggle-switch" id="notificationsToggle"></div>
-        </div>
-      </div>
-
-      <!-- About -->
-      <div class="settings-section">
-        <h2>
-          <svg viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-            <path d="M12 16v-4m0-4h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          About
-        </h2>
-
-        <div class="info-box">
-          <strong>JobFiltr</strong><br>
-          AI-powered scam and ghost job detection for smarter job searching.
-          <br><br>
-          <a href="https://jobfiltr.com" target="_blank">Visit Website</a>
-          <div class="version-badge">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="currentColor" stroke-width="2"/>
+          <!-- Loading State -->
+          <div class="analytics-loading" id="analyticsLoading">
+            <svg viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-dasharray="32" stroke-linecap="round"/>
             </svg>
-            v1.0.0
+            <span>Loading analytics...</span>
+          </div>
+
+          <!-- Analytics Content -->
+          <div id="analyticsContent" class="hidden">
+            <!-- Key Metrics Grid -->
+            <div class="metrics-grid">
+              <div class="metric-card highlight">
+                <div class="metric-label">Total Users</div>
+                <div class="metric-value" id="metricTotalUsers">0</div>
+                <div class="metric-subvalue"><span id="metricNewUsers24h">0</span> new today</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Active Today</div>
+                <div class="metric-value" id="metricActiveUsers">0</div>
+                <div class="metric-subvalue"><span id="metricActiveUsers7d">0</span> this week</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Total Scans</div>
+                <div class="metric-value" id="metricTotalScans">0</div>
+                <div class="metric-subvalue"><span id="metricScans24h">0</span> today</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Avg per User</div>
+                <div class="metric-value" id="metricAvgScans">0</div>
+                <div class="metric-subvalue">scans per user</div>
+              </div>
+            </div>
+
+            <!-- Growth Chart -->
+            <div class="chart-section">
+              <h3>
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M3 3v18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M18 9l-5 5-4-4-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                30-Day Growth Trend
+              </h3>
+              <div class="chart-container">
+                <canvas id="growthChart" class="chart-canvas"></canvas>
+              </div>
+            </div>
+
+            <!-- Detection Stats -->
+            <div class="chart-section">
+              <h3>
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Detection Breakdown
+              </h3>
+              <div class="chart-container">
+                <canvas id="detectionChart" class="chart-canvas" style="height: 140px;"></canvas>
+                <div class="detection-breakdown">
+                  <div class="detection-item">
+                    <span class="detection-dot" style="background: #10B981;"></span>
+                    <span class="detection-value" id="detLegitimate">0</span>
+                    <span class="detection-label">Legitimate</span>
+                  </div>
+                  <div class="detection-item">
+                    <span class="detection-dot" style="background: #EF4444;"></span>
+                    <span class="detection-value" id="detScam">0</span>
+                    <span class="detection-label">Scam</span>
+                  </div>
+                  <div class="detection-item">
+                    <span class="detection-dot" style="background: #F59E0B;"></span>
+                    <span class="detection-value" id="detGhost">0</span>
+                    <span class="detection-label">Ghost</span>
+                  </div>
+                  <div class="detection-item">
+                    <span class="detection-dot" style="background: #8B5CF6;"></span>
+                    <span class="detection-value" id="detSpam">0</span>
+                    <span class="detection-label">Spam</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="chart-section">
+              <h3>
+                <svg viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+                  <path d="M3 9h18M9 21V9" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                Platform Stats
+              </h3>
+              <div class="quick-stats">
+                <div class="stat-row">
+                  <span class="stat-row-label">
+                    <svg viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="2"/></svg>
+                    Documents Uploaded
+                  </span>
+                  <span class="stat-row-value" id="statDocuments">0</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-row-label">
+                    <svg viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" stroke-width="2"/></svg>
+                    Total Feedback
+                  </span>
+                  <span class="stat-row-value" id="statFeedback">0</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-row-label">
+                    <svg viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" stroke-width="2"/></svg>
+                    Community Reviews
+                  </span>
+                  <span class="stat-row-value" id="statReviews">0</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-row-label">
+                    <svg viewBox="0 0 24 24" fill="none"><rect x="1" y="4" width="22" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M1 10h22" stroke="currentColor" stroke-width="2"/></svg>
+                    Pro Subscribers
+                  </span>
+                  <span class="stat-row-value" id="statProUsers">0</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-row-label">
+                    <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5z" stroke="currentColor" stroke-width="2"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2"/></svg>
+                    Chrome Extension Scans
+                  </span>
+                  <span class="stat-row-value" id="statChromeScans">0</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div class="action-buttons">
-        <button class="btn btn-primary" id="saveButton" style="flex: 2;">
-          Save Settings
-        </button>
-        <button class="btn btn-secondary" id="resetButton" style="flex: 1;">
-          Reset
-        </button>
       </div>
     </div>
   </div>

@@ -1,6 +1,204 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 
+// Founder emails for access control
+const FOUNDER_EMAILS = [
+  "isaiah.e.malone@gmail.com",
+  "support@jobfiltr.app",
+  "hello@jobfiltr.app"
+];
+
+// Get comprehensive founder analytics dashboard data
+export const getFounderDashboard = query({
+  args: { userEmail: v.string() },
+  handler: async (ctx, args) => {
+    // Verify founder access
+    if (!FOUNDER_EMAILS.includes(args.userEmail.toLowerCase())) {
+      return null;
+    }
+
+    const now = Date.now();
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+
+    // Fetch all data
+    const manualScans = await ctx.db.query("scans").collect();
+    const urlScans = await ctx.db.query("jobScans").collect();
+    const allScans = [...manualScans, ...urlScans];
+    const subscriptions = await ctx.db.query("subscriptions").collect();
+    const feedback = await ctx.db.query("feedback").collect();
+    const documents = await ctx.db.query("documents").collect();
+    const communityReviews = await ctx.db.query("communityReviews").collect();
+    const users = await ctx.db.query("users").collect();
+
+    // ===== USER METRICS =====
+    const uniqueUserIds = new Set([
+      ...manualScans.map(s => s.userId),
+      ...urlScans.map(s => s.userId),
+    ]);
+    const totalUsers = uniqueUserIds.size;
+
+    // New users (based on first scan timestamp)
+    const userFirstScan: Record<string, number> = {};
+    allScans.forEach((scan: any) => {
+      const ts = scan.timestamp;
+      if (!userFirstScan[scan.userId] || ts < userFirstScan[scan.userId]) {
+        userFirstScan[scan.userId] = ts;
+      }
+    });
+
+    const newUsers24h = Object.values(userFirstScan).filter(ts => ts > oneDayAgo).length;
+    const newUsers7d = Object.values(userFirstScan).filter(ts => ts > sevenDaysAgo).length;
+    const newUsers30d = Object.values(userFirstScan).filter(ts => ts > thirtyDaysAgo).length;
+
+    // Active users
+    const activeUsers24h = new Set(
+      allScans.filter((s: any) => s.timestamp > oneDayAgo).map((s: any) => s.userId)
+    ).size;
+    const activeUsers7d = new Set(
+      allScans.filter((s: any) => s.timestamp > sevenDaysAgo).map((s: any) => s.userId)
+    ).size;
+    const activeUsers30d = new Set(
+      allScans.filter((s: any) => s.timestamp > thirtyDaysAgo).map((s: any) => s.userId)
+    ).size;
+
+    // ===== ENGAGEMENT METRICS =====
+    const totalScans = allScans.length;
+    const scans24h = allScans.filter((s: any) => s.timestamp > oneDayAgo).length;
+    const scans7d = allScans.filter((s: any) => s.timestamp > sevenDaysAgo).length;
+    const avgScansPerUser = totalUsers > 0 ? Math.round(totalScans / totalUsers * 10) / 10 : 0;
+
+    // Scans by source
+    const chromeExtScans = manualScans.filter(s => s.context?.includes("Chrome")).length;
+    const webAppScans = totalScans - chromeExtScans;
+
+    // ===== DETECTION STATS =====
+    const scamDetected = allScans.filter((s: any) => s.report?.isScam).length;
+    const ghostDetected = allScans.filter((s: any) => s.report?.isGhostJob).length;
+    const spamDetected = allScans.filter((s: any) => s.report?.isSpam).length;
+    const legitimateJobs = totalScans - scamDetected - ghostDetected - spamDetected;
+
+    const scamRate = totalScans > 0 ? Math.round(scamDetected / totalScans * 100) : 0;
+    const ghostRate = totalScans > 0 ? Math.round(ghostDetected / totalScans * 100) : 0;
+    const spamRate = totalScans > 0 ? Math.round(spamDetected / totalScans * 100) : 0;
+
+    // ===== SUBSCRIPTION METRICS =====
+    const activeSubscriptions = subscriptions.filter(s => s.status === "active").length;
+    const trialingSubscriptions = subscriptions.filter(s => s.status === "trialing").length;
+    const canceledSubscriptions = subscriptions.filter(s => s.status === "canceled").length;
+    const proUsers = subscriptions.filter(s => s.plan === "pro" && s.status === "active").length;
+    const conversionRate = totalUsers > 0 ? Math.round(proUsers / totalUsers * 100) : 0;
+
+    // ===== DOCUMENT STATS =====
+    const totalDocuments = documents.length;
+    const resumeCount = documents.filter(d => d.fileType === "resume").length;
+    const coverLetterCount = documents.filter(d => d.fileType === "cover_letter").length;
+    const portfolioCount = documents.filter(d => d.fileType === "portfolio").length;
+
+    // ===== FEEDBACK STATS =====
+    const totalFeedback = feedback.length;
+    const newFeedback = feedback.filter(f => f.status === "new").length;
+    const feedbackByType = {
+      feedback: feedback.filter(f => f.type === "feedback").length,
+      feature: feedback.filter(f => f.type === "feature").length,
+      bug: feedback.filter(f => f.type === "bug").length,
+      improvement: feedback.filter(f => f.type === "improvement").length,
+    };
+
+    // ===== COMMUNITY STATS =====
+    const totalReviews = communityReviews.length;
+    const ghostedReports = communityReviews.filter(r => r.gotGhosted).length;
+    const realJobsConfirmed = communityReviews.filter(r => r.wasJobReal).length;
+
+    // ===== GROWTH CHART DATA (Last 30 days) =====
+    const growthData: { date: string; users: number; scans: number }[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const dayStart = new Date(now - i * 24 * 60 * 60 * 1000);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const dateKey = dayStart.toISOString().split("T")[0];
+      const dayUsers = new Set(
+        allScans.filter((s: any) => s.timestamp >= dayStart.getTime() && s.timestamp <= dayEnd.getTime())
+          .map((s: any) => s.userId)
+      ).size;
+      const dayScans = allScans.filter((s: any) =>
+        s.timestamp >= dayStart.getTime() && s.timestamp <= dayEnd.getTime()
+      ).length;
+
+      growthData.push({ date: dateKey, users: dayUsers, scans: dayScans });
+    }
+
+    // ===== DETECTION TYPE CHART =====
+    const detectionBreakdown = [
+      { type: "Legitimate", count: legitimateJobs, color: "#10B981" },
+      { type: "Scam", count: scamDetected, color: "#EF4444" },
+      { type: "Ghost Job", count: ghostDetected, color: "#F59E0B" },
+      { type: "Spam", count: spamDetected, color: "#8B5CF6" },
+    ];
+
+    return {
+      // User metrics
+      totalUsers,
+      newUsers24h,
+      newUsers7d,
+      newUsers30d,
+      activeUsers24h,
+      activeUsers7d,
+      activeUsers30d,
+
+      // Engagement
+      totalScans,
+      scans24h,
+      scans7d,
+      avgScansPerUser,
+      chromeExtScans,
+      webAppScans,
+
+      // Detection
+      scamDetected,
+      ghostDetected,
+      spamDetected,
+      legitimateJobs,
+      scamRate,
+      ghostRate,
+      spamRate,
+
+      // Subscriptions
+      activeSubscriptions,
+      trialingSubscriptions,
+      canceledSubscriptions,
+      proUsers,
+      conversionRate,
+
+      // Documents
+      totalDocuments,
+      resumeCount,
+      coverLetterCount,
+      portfolioCount,
+
+      // Feedback
+      totalFeedback,
+      newFeedback,
+      feedbackByType,
+
+      // Community
+      totalReviews,
+      ghostedReports,
+      realJobsConfirmed,
+
+      // Charts
+      growthData,
+      detectionBreakdown,
+
+      // Metadata
+      lastUpdated: now,
+    };
+  },
+});
+
 // Get training data statistics
 export const getTrainingDataStats = query({
   args: {},
