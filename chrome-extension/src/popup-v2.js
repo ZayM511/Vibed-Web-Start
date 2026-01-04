@@ -3513,8 +3513,163 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeDocuments();
     loadCloudSyncPreference();
     initializeTodoList();
+    initializeDailyMotivation();
   }, 100);
 });
+
+// ===== DAILY MOTIVATION STATEMENTS =====
+
+const motivationalStatements = [
+  // Persistence and resilience
+  "Every application you send is a step forward, even when it doesn't feel like it.",
+  "The right opportunity often comes after the ones that didn't work out.",
+  "Your next role is out there—today's effort brings you closer to finding it.",
+  "Rejection is redirection. Each 'no' is clearing the path to your 'yes'.",
+  "The job search is a marathon, not a sprint. Pace yourself and keep moving.",
+  "Your skills didn't disappear because a company couldn't see them.",
+  "Behind every successful hire was someone who kept going when it was hard.",
+  "Today's application could be tomorrow's interview could be next month's offer.",
+  "The market is tough right now, but so are you.",
+  "Consistency compounds. Small daily efforts lead to big breakthroughs.",
+
+  // Self-worth and value
+  "Your worth isn't determined by how quickly you find a job.",
+  "You bring unique value that the right company is searching for.",
+  "A slow hiring process says nothing about your qualifications.",
+  "You're not starting over—you're starting from experience.",
+  "The gap on your resume tells a story of resilience, not failure.",
+  "Companies that ghost you weren't the right fit anyway.",
+  "Your career is a long game. This chapter doesn't define the whole story.",
+  "What you offer goes beyond what fits in a job description.",
+  "The right team will recognize what you bring to the table.",
+  "You've overcome challenges before. This one is no different.",
+
+  // Modern job market awareness
+  "In a market full of noise, authenticity stands out.",
+  "ATS systems miss great candidates every day. Keep trying different approaches.",
+  "Networking isn't about asking for jobs—it's about building real connections.",
+  "The hidden job market is real. Not every opportunity is posted online.",
+  "Quality applications beat quantity. Focus on roles that truly fit.",
+  "LinkedIn isn't the only path. Explore industry-specific communities.",
+  "Remote work expanded your options. Cast a wider net.",
+  "Skills-based hiring is growing. Your non-traditional path may be an asset.",
+  "The best opportunities often come through unexpected channels.",
+  "Companies are struggling to find the right people too. It's a two-way search.",
+
+  // Taking action
+  "Done is better than perfect. Send that application today.",
+  "One meaningful connection can change your entire trajectory.",
+  "Update one thing on your profile today. Small improvements add up.",
+  "Reach out to someone in your field. Most people want to help.",
+  "Practice your story. How you present yourself matters.",
+  "Research one company deeply instead of ten superficially.",
+  "Follow up on that application. Persistence is noticed.",
+  "Take a skill assessment. It might reveal strengths you've overlooked.",
+  "Write that thank-you note. Details differentiate candidates.",
+  "Set a small goal for today and accomplish it.",
+
+  // Mental health and balance
+  "It's okay to take a day off from the search. Rest is productive.",
+  "Your mental health matters more than any job title.",
+  "Celebrate small wins. They keep momentum alive.",
+  "Talk to someone who understands. You're not alone in this.",
+  "Comparison is the thief of job search joy. Run your own race.",
+  "Frustration is valid. Feel it, then refocus.",
+  "This period of uncertainty is temporary.",
+  "Taking care of yourself is part of the job search strategy.",
+  "You're allowed to be selective. Not every job is worth your time.",
+  "Step away from the screen. Clarity often comes in moments of rest.",
+
+  // Growth mindset
+  "Every interview, even the tough ones, is practice for the right one.",
+  "Feedback is a gift, even when it stings.",
+  "The skills you're building during this search will serve you later.",
+  "Adaptability is becoming your superpower.",
+  "You're learning what you really want. That's valuable.",
+  "This experience is making you a better evaluator of opportunities.",
+  "You're developing resilience that will benefit your entire career.",
+  "Each conversation teaches you something new about the industry.",
+  "You're not just finding a job—you're discovering your next chapter.",
+  "The best candidates keep learning, even between roles.",
+
+  // Industry and timing
+  "Hiring cycles ebb and flow. Slow periods don't last forever.",
+  "Q1 and Q4 hiring patterns are real. Adjust expectations accordingly.",
+  "Budget freezes lift. Positions reopen. Stay ready.",
+  "Economic uncertainty affects hiring timelines, not your abilities.",
+  "Some of the best companies are still hiring, even in downturns.",
+  "Industries shift. Your transferable skills open unexpected doors.",
+  "Startups and established companies hire differently. Explore both.",
+  "Contract roles can lead to permanent positions. Stay open.",
+  "The job you land might not exist yet. Keep your skills current.",
+  "Market conditions change. Your preparation ensures you're ready when they do.",
+
+  // Practical wisdom
+  "Your resume is a living document. Keep refining it.",
+  "Tailor each application. Generic rarely wins.",
+  "Know your salary worth. Research before you negotiate.",
+  "References matter. Nurture those relationships.",
+  "Your online presence is part of your application. Audit it.",
+  "Industry events, even virtual ones, create real opportunities.",
+  "Informational interviews often lead somewhere unexpected.",
+  "Recruiters remember candidates who follow up professionally.",
+  "Your cover letter is a chance to show personality. Use it.",
+  "Interview prep isn't optional. Practice out loud.",
+
+  // Encouragement
+  "Someone out there needs exactly what you offer.",
+  "The right job is worth waiting for.",
+  "You've already survived 100% of your hardest days.",
+  "Trust the process, even when progress feels invisible.",
+  "Your breakthrough could be one application away.",
+  "Keep going. The view from the other side of this is worth it.",
+  "You are more than this job search.",
+  "This season of searching will end. Hold on.",
+  "Better days are coming. Keep putting in the work.",
+  "You're closer than you think.",
+
+  // Mindset shifts
+  "Instead of 'Why haven't I found something?' try 'What am I learning?'",
+  "Rejection means you tried. That takes courage.",
+  "The job search reveals what matters to you. Pay attention.",
+  "Being selective isn't being difficult. It's being strategic.",
+  "Your next role should want you as much as you want it.",
+  "Interviewing is a two-way street. You're evaluating them too.",
+  "A 'no' today doesn't mean 'no' forever with that company.",
+  "Your unconventional background might be exactly what they need.",
+  "Experience isn't just years—it's what you've learned and done.",
+  "The best opportunities align with both your skills and values.",
+
+  // Additional encouragement
+  "Your persistence is already setting you apart from others who gave up.",
+  "Every day you show up for your search is a day closer to success.",
+  "The skills you've built don't expire. They're waiting for the right role.",
+  "Someone will see your potential. Keep making yourself visible.",
+  "Your next opportunity might come from the most unexpected place.",
+  "The companies that take too long to respond often aren't worth your time.",
+  "You're not just looking for any job—you're building your career.",
+  "Each application is practice. Each interview is progress.",
+  "The job market rewards those who don't give up.",
+  "Your story of perseverance will inspire others someday.",
+  "Not every open door is meant for you, and that's okay.",
+  "The right fit goes both ways. Keep searching for mutual alignment."
+];
+
+function initializeDailyMotivation() {
+  const motivationText = document.getElementById('motivationText');
+  if (!motivationText) return;
+
+  // Get the current day of the year for consistent daily rotation
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  const diff = now - start;
+  const oneDay = 1000 * 60 * 60 * 24;
+  const dayOfYear = Math.floor(diff / oneDay);
+
+  // Use day of year to select a statement (cycles through all statements)
+  const statementIndex = dayOfYear % motivationalStatements.length;
+  motivationText.textContent = `"${motivationalStatements[statementIndex]}"`;
+}
 
 // ===== TO-DO LIST FUNCTIONALITY =====
 

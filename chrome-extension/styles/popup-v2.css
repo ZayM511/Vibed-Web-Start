@@ -2269,6 +2269,20 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   gap: var(--spacing-md);
 }
 
+/* Daily Motivation Statement */
+.daily-motivation {
+  padding: 0 var(--spacing-xs);
+}
+
+.motivation-text {
+  font-style: italic;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 0;
+  text-align: center;
+}
+
 /* Cloud Sync Toggle */
 .sync-toggle-section {
   display: flex;
