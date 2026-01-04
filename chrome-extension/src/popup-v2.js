@@ -166,16 +166,30 @@ async function signInWithGoogle() {
     googleBtn.innerHTML = '<span>Connecting...</span>';
     googleBtn.disabled = true;
 
+    // Get OAuth config from manifest
+    const manifest = chrome.runtime.getManifest();
+    const oauth2Config = manifest.oauth2;
+
+    if (!oauth2Config || !oauth2Config.client_id || oauth2Config.client_id === 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com') {
+      throw new Error('Google OAuth not configured. Please set up OAuth credentials in manifest.json.');
+    }
+
+    const clientId = oauth2Config.client_id;
+    const scopes = oauth2Config.scopes || ['openid', 'email', 'profile'];
+
     // Use chrome.identity for Google OAuth
     const redirectUri = chrome.identity.getRedirectURL();
-    const clientId = ''; // To be configured in manifest and Google Cloud Console
+    console.log('JobFiltr: OAuth redirect URI:', redirectUri);
 
     // Build OAuth URL
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     authUrl.searchParams.set('client_id', clientId);
     authUrl.searchParams.set('redirect_uri', redirectUri);
     authUrl.searchParams.set('response_type', 'token');
-    authUrl.searchParams.set('scope', 'email profile');
+    authUrl.searchParams.set('scope', scopes.join(' '));
+    authUrl.searchParams.set('prompt', 'select_account');
+
+    console.log('JobFiltr: Launching OAuth flow...');
 
     // Launch OAuth flow
     const responseUrl = await new Promise((resolve, reject) => {
@@ -183,8 +197,12 @@ async function signInWithGoogle() {
         { url: authUrl.toString(), interactive: true },
         (response) => {
           if (chrome.runtime.lastError) {
+            console.error('JobFiltr: OAuth error:', chrome.runtime.lastError);
             reject(new Error(chrome.runtime.lastError.message));
+          } else if (!response) {
+            reject(new Error('No response from Google. User may have cancelled.'));
           } else {
+            console.log('JobFiltr: OAuth response received');
             resolve(response);
           }
         }
@@ -193,50 +211,84 @@ async function signInWithGoogle() {
 
     // Extract token from response URL
     const url = new URL(responseUrl);
-    const accessToken = new URLSearchParams(url.hash.substring(1)).get('access_token');
+    const hashParams = new URLSearchParams(url.hash.substring(1));
+    const accessToken = hashParams.get('access_token');
 
     if (!accessToken) {
-      throw new Error('Failed to get access token');
+      const errorMsg = hashParams.get('error') || 'Failed to get access token';
+      throw new Error(errorMsg);
     }
+
+    console.log('JobFiltr: Got access token, fetching user info...');
 
     // Get user info from Google
     const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
 
-    const userInfo = await userInfoResponse.json();
-
-    // Exchange Google token for our backend token
-    const backendResponse = await fetch('https://reminiscent-goldfish-690.convex.cloud/api/auth/google', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        googleToken: accessToken,
-        email: userInfo.email,
-        name: userInfo.name
-      })
-    });
-
-    if (!backendResponse.ok) {
-      throw new Error('Failed to authenticate with backend');
+    if (!userInfoResponse.ok) {
+      throw new Error('Failed to fetch Google user info');
     }
 
-    const data = await backendResponse.json();
+    const userInfo = await userInfoResponse.json();
+    console.log('JobFiltr: Got user info for:', userInfo.email);
 
-    // Store auth
+    // Try to exchange Google token for our backend token
+    let backendToken = null;
+    try {
+      const backendResponse = await fetch('https://reminiscent-goldfish-690.convex.cloud/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          googleToken: accessToken,
+          email: userInfo.email,
+          name: userInfo.name,
+          picture: userInfo.picture
+        })
+      });
+
+      if (backendResponse.ok) {
+        const data = await backendResponse.json();
+        backendToken = data.token;
+      }
+    } catch (backendError) {
+      console.warn('JobFiltr: Backend auth not available, using Google token directly');
+    }
+
+    // Store auth (use Google token if backend not available)
     const expiry = Date.now() + (30 * 24 * 60 * 60 * 1000);
     await chrome.storage.local.set({
-      authToken: data.token,
+      authToken: backendToken || accessToken,
       userEmail: userInfo.email,
-      authExpiry: expiry
+      userName: userInfo.name,
+      userPicture: userInfo.picture,
+      authExpiry: expiry,
+      authProvider: 'google'
     });
 
-    currentUser = { email: userInfo.email, token: data.token };
+    currentUser = { email: userInfo.email, token: backendToken || accessToken };
     showAuthenticatedUI();
 
+    console.log('JobFiltr: Google sign in successful');
+
   } catch (error) {
-    console.error('Google sign in error:', error);
-    showAuthError('Google sign in failed. Please try again.');
+    console.error('JobFiltr: Google sign in error:', error);
+
+    // Provide more specific error messages
+    let errorMessage = 'Google sign in failed. ';
+    if (error.message.includes('not configured')) {
+      errorMessage = error.message;
+    } else if (error.message.includes('cancelled') || error.message.includes('closed')) {
+      errorMessage = 'Sign in was cancelled.';
+    } else if (error.message.includes('access_denied')) {
+      errorMessage = 'Access was denied. Please try again.';
+    } else if (error.message.includes('popup_closed')) {
+      errorMessage = 'Sign in window was closed.';
+    } else {
+      errorMessage += 'Please try again.';
+    }
+
+    showAuthError(errorMessage);
   } finally {
     googleBtn.innerHTML = originalHTML;
     googleBtn.disabled = false;

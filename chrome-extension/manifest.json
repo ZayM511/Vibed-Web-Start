@@ -11,15 +11,23 @@
     "scripting",
     "contextMenus",
     "notifications",
-    "system.display"
+    "system.display",
+    "identity"
   ],
   "options_page": "settings.html",
   "host_permissions": [
     "https://*.linkedin.com/*",
     "https://*.indeed.com/*",
     "https://*.google.com/*",
-    "https://*.glassdoor.com/*"
+    "https://*.glassdoor.com/*",
+    "https://www.googleapis.com/*",
+    "https://accounts.google.com/*"
   ],
+  "oauth2": {
+    "client_id": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+    "scopes": ["openid", "email", "profile"]
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAn0vZQHlHqWbPqWY5DqPBiWMk1xFP+TaQa4TJQJdJkLn5RkN0lxLxQPvQyQCqZpLmQJQFvAqRlC0NzDvA3KHwQQA0J3xP5qR1yMvR3vKcKxL0mJQYvR0RHKQ0LyR5xKpFQJLvQyP0KzRxQ0LyR5xKpFQJLvQyP0KzRxQ0LyR5xKpFQJLvQyP0KzRxQ0LyR5xKpFQJLvQyP0KzRxQ0LyR5xKpFQJLvQyP0KzRxQ0LyR5xKpFQJLvQyP0KzRxQ0LyR5xKpFQJLvQyP0KzRxQ0LyR5xKpFQJLvQyP0KzRxQ0LyR5xKpFQJLvQyP0KzRxQ0LyR5xKpFQJLvQyP0KzRxQwIDAQAB",
   "action": {
     "default_popup": "popup-v2.html",
     "default_icon": {
