@@ -2023,7 +2023,7 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 /* History Item Styles */
 .history-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--spacing-md);
   padding: var(--spacing-md);
   background: var(--bg-secondary);
@@ -2131,20 +2131,20 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
   border: none;
   border-radius: var(--radius-sm);
   color: white;
   cursor: pointer;
   transition: all var(--transition-normal);
-  box-shadow: 0 2px 6px var(--accent-glow);
+  box-shadow: 0 2px 4px var(--accent-glow);
 }
 
 .history-item-goto:hover {
-  transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 4px 12px var(--accent-glow);
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 3px 8px var(--accent-glow);
 }
 
 .history-item-goto:active {
@@ -2152,16 +2152,16 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 }
 
 .history-item-goto svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
 }
 
 .history-item-delete {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -2177,8 +2177,8 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 }
 
 .history-item-delete svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
 }
 
 .empty-state {
@@ -3599,7 +3599,7 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 
 .saved-job-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--spacing-md);
   padding: var(--spacing-md);
   background: var(--bg-secondary);
@@ -3678,20 +3678,20 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 22px;
+  height: 22px;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
   border: none;
   border-radius: var(--radius-sm);
   color: white;
   cursor: pointer;
   transition: all var(--transition-normal);
-  box-shadow: 0 2px 6px var(--accent-glow);
+  box-shadow: 0 2px 4px var(--accent-glow);
 }
 
 .saved-job-goto:hover {
-  transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 4px 12px var(--accent-glow);
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 3px 8px var(--accent-glow);
 }
 
 .saved-job-goto:active {
@@ -3699,8 +3699,8 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 }
 
 .saved-job-goto svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
 }
 
 /* Redesigned Remove Button */
@@ -3708,8 +3708,8 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 22px;
+  height: 22px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -3730,8 +3730,8 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 }
 
 .saved-job-delete svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
 }
 
 /* Empty State */
