@@ -3500,5 +3500,365 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => {
     initializeDocuments();
     loadCloudSyncPreference();
+    initializeTodoList();
   }, 100);
 });
+
+// ===== TO-DO LIST FUNCTIONALITY =====
+
+// Todo data structure
+let todos = {
+  active: [],
+  completed: []
+};
+
+// Current active tab in todo section
+let currentTodoTab = 'active';
+
+// Dragging state
+let draggedTodoItem = null;
+
+// Initialize todo list
+async function initializeTodoList() {
+  await loadTodos();
+  renderTodos();
+  updateTodoCounts();
+  setupTodoEventListeners();
+}
+
+// Load todos from storage
+async function loadTodos() {
+  try {
+    const result = await chrome.storage.local.get('userTodos');
+    if (result.userTodos) {
+      todos = result.userTodos;
+    }
+  } catch (error) {
+    console.error('Error loading todos:', error);
+  }
+}
+
+// Save todos to storage
+async function saveTodos() {
+  try {
+    await chrome.storage.local.set({ userTodos: todos });
+  } catch (error) {
+    console.error('Error saving todos:', error);
+  }
+}
+
+// Setup event listeners for todo list
+function setupTodoEventListeners() {
+  // Toggle expand/collapse
+  const todoHeader = document.getElementById('todoHeader');
+  const todoContent = document.getElementById('todoContent');
+  const todoChevron = document.querySelector('.todo-chevron');
+
+  if (todoHeader) {
+    todoHeader.addEventListener('click', () => {
+      todoContent.classList.toggle('hidden');
+      todoHeader.classList.toggle('expanded');
+    });
+  }
+
+  // Tab switching
+  const activeTab = document.getElementById('activeTasksTab');
+  const completedTab = document.getElementById('completedTasksTab');
+
+  if (activeTab) {
+    activeTab.addEventListener('click', () => switchTodoTab('active'));
+  }
+  if (completedTab) {
+    completedTab.addEventListener('click', () => switchTodoTab('completed'));
+  }
+
+  // Add task
+  const addTodoBtn = document.getElementById('addTodoBtn');
+  const todoInput = document.getElementById('todoInput');
+
+  if (addTodoBtn) {
+    addTodoBtn.addEventListener('click', addTodo);
+  }
+  if (todoInput) {
+    todoInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        addTodo();
+      }
+    });
+  }
+
+  // Clear all button
+  const clearAllBtn = document.getElementById('clearAllTodosBtn');
+  if (clearAllBtn) {
+    clearAllBtn.addEventListener('click', clearAllTodos);
+  }
+}
+
+// Switch between active and completed tabs
+function switchTodoTab(tab) {
+  currentTodoTab = tab;
+
+  // Update tab buttons
+  const activeTab = document.getElementById('activeTasksTab');
+  const completedTab = document.getElementById('completedTasksTab');
+  const activeList = document.getElementById('activeTodoList');
+  const completedList = document.getElementById('completedTodoList');
+  const clearAllText = document.getElementById('clearAllText');
+
+  if (tab === 'active') {
+    activeTab.classList.add('active');
+    completedTab.classList.remove('active');
+    activeList.classList.remove('hidden');
+    completedList.classList.add('hidden');
+    if (clearAllText) clearAllText.textContent = 'Clear All Active';
+  } else {
+    activeTab.classList.remove('active');
+    completedTab.classList.add('active');
+    activeList.classList.add('hidden');
+    completedList.classList.remove('hidden');
+    if (clearAllText) clearAllText.textContent = 'Clear All Completed';
+  }
+}
+
+// Add a new todo
+function addTodo() {
+  const input = document.getElementById('todoInput');
+  const text = input.value.trim();
+
+  if (!text) return;
+
+  const todo = {
+    id: Date.now().toString(),
+    text: text,
+    createdAt: new Date().toISOString()
+  };
+
+  todos.active.unshift(todo);
+  input.value = '';
+
+  saveTodos();
+  renderTodos();
+  updateTodoCounts();
+}
+
+// Toggle todo completion
+function toggleTodoCompletion(todoId, isCompleted) {
+  if (isCompleted) {
+    // Move from active to completed
+    const todoIndex = todos.active.findIndex(t => t.id === todoId);
+    if (todoIndex > -1) {
+      const todo = todos.active.splice(todoIndex, 1)[0];
+      todo.completedAt = new Date().toISOString();
+      todos.completed.unshift(todo);
+    }
+  } else {
+    // Move from completed to active
+    const todoIndex = todos.completed.findIndex(t => t.id === todoId);
+    if (todoIndex > -1) {
+      const todo = todos.completed.splice(todoIndex, 1)[0];
+      delete todo.completedAt;
+      todos.active.unshift(todo);
+    }
+  }
+
+  saveTodos();
+  renderTodos();
+  updateTodoCounts();
+}
+
+// Delete a todo
+function deleteTodo(todoId, fromCompleted = false) {
+  const list = fromCompleted ? 'completed' : 'active';
+  todos[list] = todos[list].filter(t => t.id !== todoId);
+
+  saveTodos();
+  renderTodos();
+  updateTodoCounts();
+}
+
+// Clear all todos in current tab
+function clearAllTodos() {
+  const list = currentTodoTab;
+  const count = todos[list].length;
+
+  if (count === 0) return;
+
+  const confirmMsg = list === 'active'
+    ? `Delete all ${count} active task(s)?`
+    : `Delete all ${count} completed task(s)?`;
+
+  if (!confirm(confirmMsg)) return;
+
+  todos[list] = [];
+  saveTodos();
+  renderTodos();
+  updateTodoCounts();
+}
+
+// Render todos
+function renderTodos() {
+  renderActiveTodos();
+  renderCompletedTodos();
+}
+
+// Render active todos
+function renderActiveTodos() {
+  const list = document.getElementById('activeTodoList');
+  if (!list) return;
+
+  if (todos.active.length === 0) {
+    list.innerHTML = `
+      <div class="todo-empty">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>No active tasks</span>
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML = todos.active.map(todo => `
+    <div class="todo-item" data-id="${todo.id}" draggable="true">
+      <div class="todo-drag-handle" title="Drag to reorder">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="8" cy="6" r="1.5" fill="currentColor"/>
+          <circle cx="16" cy="6" r="1.5" fill="currentColor"/>
+          <circle cx="8" cy="12" r="1.5" fill="currentColor"/>
+          <circle cx="16" cy="12" r="1.5" fill="currentColor"/>
+          <circle cx="8" cy="18" r="1.5" fill="currentColor"/>
+          <circle cx="16" cy="18" r="1.5" fill="currentColor"/>
+        </svg>
+      </div>
+      <input type="checkbox" class="todo-checkbox" data-id="${todo.id}" onchange="toggleTodoCompletion('${todo.id}', true)">
+      <span class="todo-text">${escapeHtml(todo.text)}</span>
+      <button class="todo-delete-btn" onclick="deleteTodo('${todo.id}', false)" title="Delete task">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  `).join('');
+
+  // Setup drag and drop for active list
+  setupTodoDragAndDrop(list, 'active');
+}
+
+// Render completed todos
+function renderCompletedTodos() {
+  const list = document.getElementById('completedTodoList');
+  if (!list) return;
+
+  if (todos.completed.length === 0) {
+    list.innerHTML = `
+      <div class="todo-empty">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>No completed tasks yet</span>
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML = todos.completed.map(todo => `
+    <div class="todo-item completed" data-id="${todo.id}">
+      <input type="checkbox" class="todo-checkbox" checked data-id="${todo.id}" onchange="toggleTodoCompletion('${todo.id}', false)">
+      <span class="todo-text">${escapeHtml(todo.text)}</span>
+      <span class="todo-completed-time">${formatCompletedTime(todo.completedAt)}</span>
+      <button class="todo-delete-btn" onclick="deleteTodo('${todo.id}', true)" title="Delete task">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+// Format completed time
+function formatCompletedTime(isoString) {
+  if (!isoString) return '';
+
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  // Format as date
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// Update todo counts
+function updateTodoCounts() {
+  const activeCount = document.getElementById('todoCount');
+  const completedCount = document.getElementById('completedCount');
+
+  if (activeCount) {
+    activeCount.textContent = todos.active.length;
+    activeCount.style.display = todos.active.length > 0 ? 'flex' : 'none';
+  }
+  if (completedCount) {
+    completedCount.textContent = todos.completed.length;
+    completedCount.style.display = todos.completed.length > 0 ? 'inline' : 'none';
+  }
+}
+
+// Setup drag and drop for todo items
+function setupTodoDragAndDrop(list, listType) {
+  const items = list.querySelectorAll('.todo-item');
+
+  items.forEach(item => {
+    item.addEventListener('dragstart', (e) => {
+      draggedTodoItem = item;
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      draggedTodoItem = null;
+
+      // Update todos array order based on DOM order
+      const newOrder = [];
+      list.querySelectorAll('.todo-item').forEach(el => {
+        const id = el.dataset.id;
+        const todo = todos[listType].find(t => t.id === id);
+        if (todo) newOrder.push(todo);
+      });
+      todos[listType] = newOrder;
+      saveTodos();
+    });
+
+    item.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+
+      if (!draggedTodoItem || draggedTodoItem === item) return;
+
+      const rect = item.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+
+      if (e.clientY < midY) {
+        item.parentNode.insertBefore(draggedTodoItem, item);
+      } else {
+        item.parentNode.insertBefore(draggedTodoItem, item.nextSibling);
+      }
+    });
+  });
+}
+
+// Helper: Escape HTML to prevent XSS
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
