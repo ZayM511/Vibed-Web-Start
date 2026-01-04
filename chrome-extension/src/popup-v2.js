@@ -101,8 +101,8 @@ function showAuthenticatedUI(showAnimation = false) {
     // Show success animation first
     showSuccessAnimation(() => {
       hideAuthOverlay();
-      // Trigger notification on content scripts
-      triggerJobFiltrActiveNotification();
+      // Trigger notification on content scripts (first sign-in = bottom-right notification)
+      triggerJobFiltrActiveNotification(true);
     });
   } else {
     hideAuthOverlay();
@@ -139,14 +139,15 @@ function showSuccessAnimation(callback) {
 }
 
 // Trigger JobFiltr Active notification on content scripts
-async function triggerJobFiltrActiveNotification() {
+async function triggerJobFiltrActiveNotification(isFirstSignIn = false) {
   try {
     // Get the active tab and send message to show notification
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab && tab.id) {
       chrome.tabs.sendMessage(tab.id, {
         action: 'showNotification',
-        message: 'JobFiltr Is Active'
+        message: 'JobFiltr Is Active',
+        isFirstSignIn: isFirstSignIn
       }).catch(() => {
         // Tab might not have content script, that's ok
         console.log('JobFiltr: No content script on this tab');

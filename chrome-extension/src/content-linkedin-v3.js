@@ -1712,7 +1712,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'showNotification') {
     // Force show the notification by clearing session storage
     sessionStorage.removeItem('jobfiltr_notification_shown');
-    showJobFiltrActiveNotification();
+
+    // Show different notification based on whether it's first sign-in
+    if (message.isFirstSignIn) {
+      showFirstSignInNotification();
+    } else {
+      showJobFiltrActiveNotification();
+    }
     sendResponse({ success: true });
     return true;
   }
@@ -2655,6 +2661,195 @@ function dismissNotification(notification) {
   setTimeout(() => {
     notification.remove();
   }, 300);
+}
+
+// ===== FIRST SIGN-IN NOTIFICATION (Bottom-Right) =====
+// Shows a special notification at bottom-right when user first signs in
+function showFirstSignInNotification() {
+  // Remove any existing notifications first
+  const existingNotif = document.getElementById('jobfiltr-signin-notification');
+  if (existingNotif) existingNotif.remove();
+
+  // Create the notification element
+  const notification = document.createElement('div');
+  notification.id = 'jobfiltr-signin-notification';
+  notification.innerHTML = `
+    <div class="jobfiltr-signin-content">
+      <div class="jobfiltr-signin-glow"></div>
+      <div class="jobfiltr-signin-inner">
+        <div class="jobfiltr-signin-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          </svg>
+        </div>
+        <div class="jobfiltr-signin-text">
+          <span class="jobfiltr-signin-title">JobFiltr Is Active</span>
+          <span class="jobfiltr-signin-subtitle">Welcome! Your filters are now running</span>
+        </div>
+        <button class="jobfiltr-signin-close" aria-label="Close notification">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Add styles for bottom-right notification
+  const styleId = 'jobfiltr-signin-styles';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      #jobfiltr-signin-notification {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 99999;
+        animation: jobfiltr-signin-slide-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+
+      @keyframes jobfiltr-signin-slide-in {
+        from {
+          opacity: 0;
+          transform: translateY(40px) scale(0.9);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes jobfiltr-signin-slide-out {
+        from {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+        to {
+          opacity: 0;
+          transform: translateY(20px) scale(0.95);
+        }
+      }
+
+      @keyframes jobfiltr-glow-pulse {
+        0%, 100% {
+          opacity: 0.5;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.8;
+          transform: scale(1.05);
+        }
+      }
+
+      .jobfiltr-signin-content {
+        position: relative;
+      }
+
+      .jobfiltr-signin-glow {
+        position: absolute;
+        inset: -4px;
+        background: linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #16a34a 100%);
+        border-radius: 18px;
+        opacity: 0.4;
+        filter: blur(12px);
+        animation: jobfiltr-glow-pulse 2s ease-in-out infinite;
+      }
+
+      .jobfiltr-signin-inner {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 20px;
+        background: linear-gradient(145deg, #1a1a2e 0%, #16213e 50%, #0f172a 100%);
+        border-radius: 14px;
+        box-shadow:
+          0 10px 40px rgba(0, 0, 0, 0.4),
+          0 0 0 1px rgba(74, 222, 128, 0.2),
+          inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        backdrop-filter: blur(10px);
+      }
+
+      .jobfiltr-signin-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        background: linear-gradient(135deg, rgba(74, 222, 128, 0.25) 0%, rgba(34, 197, 94, 0.15) 100%);
+        border-radius: 12px;
+        color: #4ade80;
+        flex-shrink: 0;
+        border: 1px solid rgba(74, 222, 128, 0.3);
+      }
+
+      .jobfiltr-signin-text {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .jobfiltr-signin-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: #ffffff;
+        letter-spacing: -0.01em;
+      }
+
+      .jobfiltr-signin-subtitle {
+        font-size: 13px;
+        color: #94a3b8;
+        letter-spacing: -0.01em;
+      }
+
+      .jobfiltr-signin-close {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-left: 8px;
+        flex-shrink: 0;
+      }
+
+      .jobfiltr-signin-close:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #ffffff;
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+
+      #jobfiltr-signin-notification.hiding {
+        animation: jobfiltr-signin-slide-out 0.3s ease-in forwards;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  document.body.appendChild(notification);
+
+  // Close button handler
+  const closeBtn = notification.querySelector('.jobfiltr-signin-close');
+  closeBtn.addEventListener('click', () => {
+    notification.classList.add('hiding');
+    setTimeout(() => notification.remove(), 300);
+  });
+
+  // Auto-dismiss after 5 seconds
+  setTimeout(() => {
+    if (document.body.contains(notification)) {
+      notification.classList.add('hiding');
+      setTimeout(() => notification.remove(), 300);
+    }
+  }, 5000);
 }
 
 // Show notification after a short delay to ensure page is loaded
