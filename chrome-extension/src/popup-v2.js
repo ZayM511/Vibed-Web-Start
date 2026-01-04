@@ -37,16 +37,16 @@ let currentUser = null;
 // Check auth state on load
 async function checkAuthState() {
   try {
-    const { authToken, userEmail, authExpiry } = await chrome.storage.local.get(['authToken', 'userEmail', 'authExpiry']);
+    const { authToken, userEmail, userName, authExpiry } = await chrome.storage.local.get(['authToken', 'userEmail', 'userName', 'authExpiry']);
 
     // Check if token exists and hasn't expired
     if (authToken && authExpiry && Date.now() < authExpiry) {
-      currentUser = { email: userEmail, token: authToken };
+      currentUser = { email: userEmail, name: userName, token: authToken };
       showAuthenticatedUI();
       return true;
     } else {
       // Clear expired auth
-      await chrome.storage.local.remove(['authToken', 'userEmail', 'authExpiry']);
+      await chrome.storage.local.remove(['authToken', 'userEmail', 'userName', 'authExpiry']);
       currentUser = null;
       showAuthOverlay();
       return false;
@@ -77,7 +77,8 @@ function showAuthenticatedUI(showAnimation = false) {
 
   if (userMenu) userMenu.classList.remove('hidden');
   if (userEmail && currentUser) {
-    userEmail.textContent = currentUser.email;
+    // Display name if available, otherwise show email
+    userEmail.textContent = currentUser.name || currentUser.email;
   }
 
   if (showAnimation) {
@@ -354,6 +355,7 @@ async function signInWithGoogle() {
 
 // Create Account
 async function createAccount() {
+  const name = document.getElementById('createName')?.value.trim();
   const email = document.getElementById('createEmail')?.value.trim();
   const password = document.getElementById('createPassword')?.value;
   const confirmPassword = document.getElementById('confirmPassword')?.value;
@@ -390,7 +392,7 @@ async function createAccount() {
     const response = await fetch('https://reminiscent-goldfish-690.convex.cloud/api/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email, password, name })
     });
 
     if (!response.ok) {
@@ -404,10 +406,11 @@ async function createAccount() {
     await chrome.storage.local.set({
       authToken: data.token,
       userEmail: email,
+      userName: name || '',
       authExpiry: expiry
     });
 
-    currentUser = { email, token: data.token };
+    currentUser = { email, name, token: data.token };
     showAuthenticatedUI(true); // Show success animation
 
   } catch (error) {
@@ -422,14 +425,22 @@ async function createAccount() {
 // Sign Out
 async function signOut() {
   try {
-    await chrome.storage.local.remove(['authToken', 'userEmail', 'authExpiry']);
+    await chrome.storage.local.remove(['authToken', 'userEmail', 'userName', 'authExpiry']);
     currentUser = null;
 
     // Clear form fields
     const emailInput = document.getElementById('authEmail');
     const passwordInput = document.getElementById('authPassword');
+    const nameInput = document.getElementById('createName');
+    const createEmailInput = document.getElementById('createEmail');
+    const createPasswordInput = document.getElementById('createPassword');
+    const confirmPasswordInput = document.getElementById('confirmPassword');
     if (emailInput) emailInput.value = '';
     if (passwordInput) passwordInput.value = '';
+    if (nameInput) nameInput.value = '';
+    if (createEmailInput) createEmailInput.value = '';
+    if (createPasswordInput) createPasswordInput.value = '';
+    if (confirmPasswordInput) confirmPasswordInput.value = '';
 
     // Close dropdown
     const dropdown = document.getElementById('userDropdown');
@@ -513,6 +524,10 @@ document.getElementById('authEmail')?.addEventListener('keypress', (e) => {
 
 document.getElementById('authPassword')?.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') signInWithEmail();
+});
+
+document.getElementById('createName')?.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') document.getElementById('createEmail')?.focus();
 });
 
 document.getElementById('createEmail')?.addEventListener('keypress', (e) => {
