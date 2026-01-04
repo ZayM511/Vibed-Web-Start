@@ -1749,11 +1749,11 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 }
 
 .save-job-button:hover:not(:disabled) {
-  background: var(--accent);
+  background: #EAB308;
   color: white;
-  border-color: var(--accent);
+  border-color: #EAB308;
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px var(--accent-glow);
+  box-shadow: 0 8px 24px rgba(234, 179, 8, 0.35);
 }
 
 .save-job-button:active:not(:disabled) {
