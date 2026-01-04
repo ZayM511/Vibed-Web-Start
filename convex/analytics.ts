@@ -73,9 +73,22 @@ export const getFounderDashboard = query({
     const chromeExtScans = manualScans.filter(s => s.context?.includes("Chrome")).length;
     const webAppScans = totalScans - chromeExtScans;
 
-    // Chrome extension downloads (placeholder - would typically come from Chrome Web Store API)
-    // This can be manually updated or integrated with Chrome Web Store API in the future
-    const chromeExtDownloads = 0; // TODO: Integrate with Chrome Web Store API for actual download count
+    // Chrome extension downloads tracking
+    // Track unique users who have used the Chrome extension (approximates installs)
+    const chromeExtUsers = new Set(
+      manualScans.filter(s => s.context?.includes("Chrome")).map(s => s.userId)
+    ).size;
+
+    // Daily Chrome extension activity (unique users today)
+    const chromeExtUsersToday = new Set(
+      manualScans
+        .filter(s => s.context?.includes("Chrome") && s.timestamp > oneDayAgo)
+        .map(s => s.userId)
+    ).size;
+
+    // Total downloads (using unique Chrome ext users as proxy, can be manually overridden)
+    const chromeExtDownloadsTotal = chromeExtUsers;
+    const chromeExtDownloadsToday = chromeExtUsersToday;
 
     // ===== DETECTION STATS =====
     const scamDetected = allScans.filter((s: any) => s.report?.isScam).length;
@@ -99,6 +112,118 @@ export const getFounderDashboard = query({
     // ===== REVENUE METRICS =====
     const monthlyMRR = Math.round(proUsers * PRO_PRICE * 100) / 100; // MRR in dollars
     const projectedARR = Math.round(monthlyMRR * 12 * 100) / 100; // Projected Annual Revenue
+
+    // ===== MONTHLY MRR CHART DATA (Current Year) =====
+    const currentYear = new Date(now).getFullYear();
+    const currentMonth = new Date(now).getMonth(); // 0-indexed
+
+    // Calculate MRR for each month based on subscription creation dates
+    const monthlyMRRData: { month: string; mrr: number; proUsers: number; newSubs: number; churned: number }[] = [];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    for (let month = 0; month <= currentMonth; month++) {
+      const monthStart = new Date(currentYear, month, 1).getTime();
+      const monthEnd = new Date(currentYear, month + 1, 0, 23, 59, 59, 999).getTime();
+
+      // Count active pro subscriptions at end of each month
+      const activeProAtMonth = subscriptions.filter(s => {
+        const createdAt = (s as any).createdAt || (s as any)._creationTime || 0;
+        const canceledAt = (s as any).canceledAt || null;
+
+        // Was active during this month
+        const wasCreatedBefore = createdAt <= monthEnd;
+        const wasNotCanceledYet = !canceledAt || canceledAt > monthEnd;
+        const isPro = s.plan === "pro";
+
+        return isPro && wasCreatedBefore && wasNotCanceledYet;
+      }).length;
+
+      // New subscriptions this month
+      const newSubsThisMonth = subscriptions.filter(s => {
+        const createdAt = (s as any).createdAt || (s as any)._creationTime || 0;
+        return s.plan === "pro" && createdAt >= monthStart && createdAt <= monthEnd;
+      }).length;
+
+      // Churned this month
+      const churnedThisMonth = subscriptions.filter(s => {
+        const canceledAt = (s as any).canceledAt || null;
+        return s.plan === "pro" && canceledAt && canceledAt >= monthStart && canceledAt <= monthEnd;
+      }).length;
+
+      const monthMRR = Math.round(activeProAtMonth * PRO_PRICE * 100) / 100;
+
+      monthlyMRRData.push({
+        month: monthNames[month],
+        mrr: monthMRR,
+        proUsers: activeProAtMonth,
+        newSubs: newSubsThisMonth,
+        churned: churnedThisMonth
+      });
+    }
+
+    // Fill remaining months with projections (null for actual, projected values for future)
+    const lastKnownMRR = monthlyMRRData.length > 0 ? monthlyMRRData[monthlyMRRData.length - 1].mrr : 0;
+    const lastKnownProUsers = monthlyMRRData.length > 0 ? monthlyMRRData[monthlyMRRData.length - 1].proUsers : 0;
+
+    // Calculate growth rate from available data
+    let avgMonthlyGrowthRate = 0;
+    if (monthlyMRRData.length >= 2) {
+      const growthRates: number[] = [];
+      for (let i = 1; i < monthlyMRRData.length; i++) {
+        const prevMRR = monthlyMRRData[i - 1].mrr;
+        const currMRR = monthlyMRRData[i].mrr;
+        if (prevMRR > 0) {
+          growthRates.push((currMRR - prevMRR) / prevMRR);
+        }
+      }
+      if (growthRates.length > 0) {
+        avgMonthlyGrowthRate = growthRates.reduce((a, b) => a + b, 0) / growthRates.length;
+      }
+    }
+
+    // Project remaining months
+    const projectedMRRData: { month: string; mrr: number; isProjected: boolean }[] = [];
+    for (let month = 0; month < 12; month++) {
+      if (month <= currentMonth) {
+        projectedMRRData.push({
+          month: monthNames[month],
+          mrr: monthlyMRRData[month]?.mrr || 0,
+          isProjected: false
+        });
+      } else {
+        // Project future months based on growth rate
+        const monthsAhead = month - currentMonth;
+        const projectedMRR = Math.round(lastKnownMRR * Math.pow(1 + avgMonthlyGrowthRate, monthsAhead) * 100) / 100;
+        projectedMRRData.push({
+          month: monthNames[month],
+          mrr: projectedMRR,
+          isProjected: true
+        });
+      }
+    }
+
+    // Calculate projection insights
+    const yearEndProjectedMRR = projectedMRRData[11]?.mrr || 0;
+    const yearEndProjectedARR = Math.round(yearEndProjectedMRR * 12 * 100) / 100;
+    const totalYearRevenue = Math.round(projectedMRRData.reduce((sum, m) => sum + m.mrr, 0) * 100) / 100;
+    const avgMRR = Math.round((totalYearRevenue / 12) * 100) / 100;
+    const peakMRR = Math.max(...projectedMRRData.map(m => m.mrr));
+    const peakMonth = projectedMRRData.find(m => m.mrr === peakMRR)?.month || '';
+
+    const mrrProjection = {
+      monthlyData: projectedMRRData,
+      detailedMonthlyData: monthlyMRRData,
+      currentMRR: monthlyMRR,
+      yearEndProjectedMRR,
+      yearEndProjectedARR,
+      totalYearRevenue,
+      avgMRR,
+      peakMRR,
+      peakMonth,
+      avgMonthlyGrowthRate: Math.round(avgMonthlyGrowthRate * 10000) / 100, // as percentage
+      monthsWithData: monthlyMRRData.length,
+      lastUpdated: now
+    };
 
     // ===== DOCUMENT STATS =====
     const totalDocuments = documents.length;
@@ -171,7 +296,8 @@ export const getFounderDashboard = query({
       scans7d,
       avgScansPerUser,
       chromeExtScans,
-      chromeExtDownloads,
+      chromeExtDownloadsTotal,
+      chromeExtDownloadsToday,
       webAppScans,
 
       // Detection
@@ -194,6 +320,7 @@ export const getFounderDashboard = query({
       // Revenue
       monthlyMRR,
       projectedARR,
+      mrrProjection,
 
       // Documents
       totalDocuments,

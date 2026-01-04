@@ -16,6 +16,7 @@ let currentUser = null;
 let analyticsData = null;
 let growthChart = null;
 let detectionChart = null;
+let mrrChart = null;
 
 // DOM Elements
 const convexUrlInput = document.getElementById('convexUrl');
@@ -305,18 +306,26 @@ function updateAnalyticsDashboard(data) {
   const statFeedback = document.getElementById('statFeedback');
   const statReviews = document.getElementById('statReviews');
   const statProUsers = document.getElementById('statProUsers');
-  const statChromeDownloads = document.getElementById('statChromeDownloads');
+  const statChromeDownloadsTotal = document.getElementById('statChromeDownloadsTotal');
+  const statChromeDownloadsToday = document.getElementById('statChromeDownloadsToday');
 
   if (statDocuments) statDocuments.textContent = data.totalDocuments;
   if (statAvgTemplates) statAvgTemplates.textContent = data.avgTemplatesPerUser || 0;
   if (statFeedback) statFeedback.textContent = data.totalFeedback;
   if (statReviews) statReviews.textContent = data.totalReviews;
   if (statProUsers) statProUsers.textContent = data.proUsers;
-  if (statChromeDownloads) statChromeDownloads.textContent = data.chromeExtDownloads || 0;
+  if (statChromeDownloadsTotal) statChromeDownloadsTotal.textContent = data.chromeExtDownloadsTotal || 0;
+  if (statChromeDownloadsToday) statChromeDownloadsToday.textContent = data.chromeExtDownloadsToday || 0;
 
   // Update charts
   updateGrowthChart(data.growthData || []);
   updateDetectionChart(data.detectionBreakdown || []);
+
+  // Update MRR chart and projections
+  if (data.mrrProjection) {
+    updateMRRChart(data.mrrProjection);
+    updateMRRProjection(data.mrrProjection);
+  }
 }
 
 function animateNumber(elementId, targetValue) {
@@ -511,6 +520,227 @@ function updateDetectionChart(data) {
       }
     }
   });
+}
+
+function updateMRRChart(projection) {
+  const ctx = document.getElementById('mrrChart');
+  if (!ctx) return;
+
+  // Destroy existing chart if it exists
+  if (mrrChart) {
+    mrrChart.destroy();
+  }
+
+  const data = projection.monthlyData || [];
+  const labels = data.map(d => d.month);
+  const actualData = data.map(d => d.isProjected ? null : d.mrr);
+  const projectedData = data.map(d => d.isProjected ? d.mrr : null);
+  // For continuity, include last actual point in projected line
+  const lastActualIndex = data.findIndex(d => d.isProjected) - 1;
+  if (lastActualIndex >= 0 && lastActualIndex < data.length - 1) {
+    projectedData[lastActualIndex] = data[lastActualIndex].mrr;
+  }
+
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+  const textColor = isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)';
+
+  // Update year display
+  const yearEl = document.getElementById('mrrChartYear');
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+  mrrChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Actual MRR',
+          data: actualData,
+          backgroundColor: '#10B981',
+          borderColor: '#059669',
+          borderWidth: 1,
+          borderRadius: 6,
+          barPercentage: 0.7,
+        },
+        {
+          label: 'Projected MRR',
+          data: projectedData,
+          backgroundColor: 'rgba(16, 185, 129, 0.3)',
+          borderColor: 'rgba(16, 185, 129, 0.5)',
+          borderWidth: 1,
+          borderRadius: 6,
+          borderDash: [5, 5],
+          barPercentage: 0.7,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        intersect: false,
+        mode: 'index',
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: {
+            boxWidth: 12,
+            padding: 15,
+            color: textColor,
+            font: { size: 11 }
+          }
+        },
+        tooltip: {
+          backgroundColor: isDark ? '#1f2937' : '#ffffff',
+          titleColor: isDark ? '#ffffff' : '#000000',
+          bodyColor: isDark ? '#d1d5db' : '#6b7280',
+          borderColor: isDark ? '#374151' : '#e5e7eb',
+          borderWidth: 1,
+          padding: 12,
+          callbacks: {
+            label: function(context) {
+              const value = context.raw;
+              if (value === null) return null;
+              return context.dataset.label + ': $' + value.toFixed(2);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            color: textColor,
+            font: { size: 10 }
+          }
+        },
+        y: {
+          grid: { color: gridColor },
+          ticks: {
+            color: textColor,
+            font: { size: 10 },
+            callback: function(value) {
+              return '$' + value;
+            }
+          },
+          beginAtZero: true
+        }
+      }
+    }
+  });
+}
+
+function updateMRRProjection(projection) {
+  // Update MRR stats
+  const totalRevenue = document.getElementById('mrrTotalRevenue');
+  const avgMonthly = document.getElementById('mrrAvgMonthly');
+  const peak = document.getElementById('mrrPeak');
+  const growthRate = document.getElementById('mrrGrowthRate');
+
+  if (totalRevenue) totalRevenue.textContent = '$' + (projection.totalYearRevenue || 0).toFixed(2);
+  if (avgMonthly) avgMonthly.textContent = '$' + (projection.avgMRR || 0).toFixed(2);
+  if (peak) peak.textContent = '$' + (projection.peakMRR || 0).toFixed(2);
+  if (growthRate) {
+    const rate = projection.avgMonthlyGrowthRate || 0;
+    growthRate.textContent = (rate >= 0 ? '+' : '') + rate.toFixed(1) + '%';
+    growthRate.style.color = rate >= 0 ? '#10B981' : '#EF4444';
+  }
+
+  // Update projection summary
+  const summary = document.getElementById('projectionSummary');
+  if (summary) {
+    const yearEndMRR = projection.yearEndProjectedMRR || 0;
+    const currentMRR = projection.currentMRR || 0;
+    const growthPercent = currentMRR > 0 ? Math.round((yearEndMRR - currentMRR) / currentMRR * 100) : 0;
+
+    if (yearEndMRR > 0) {
+      summary.textContent = `Based on current growth trends, you're projected to reach $${yearEndMRR.toFixed(2)} MRR by December${growthPercent > 0 ? ` (+${growthPercent}% growth)` : ''}.`;
+    } else {
+      summary.textContent = 'Start acquiring Pro subscribers to see MRR projections.';
+    }
+  }
+
+  // Update detailed projection
+  const yearEndMRR = document.getElementById('projYearEndMRR');
+  const yearEndARR = document.getElementById('projYearEndARR');
+  const peakMonth = document.getElementById('projPeakMonth');
+  const monthsTracked = document.getElementById('projMonthsTracked');
+
+  if (yearEndMRR) yearEndMRR.textContent = '$' + (projection.yearEndProjectedMRR || 0).toFixed(2);
+  if (yearEndARR) yearEndARR.textContent = '$' + (projection.yearEndProjectedARR || 0).toFixed(2);
+  if (peakMonth) peakMonth.textContent = projection.peakMonth || '--';
+  if (monthsTracked) monthsTracked.textContent = projection.monthsWithData || 0;
+
+  // Update insight text
+  const insightText = document.getElementById('projectionInsightText');
+  if (insightText) {
+    const rate = projection.avgMonthlyGrowthRate || 0;
+    const months = projection.monthsWithData || 0;
+
+    if (months < 2) {
+      insightText.textContent = 'Need at least 2 months of data to calculate growth trends. Keep tracking!';
+    } else if (rate > 20) {
+      insightText.textContent = `Excellent growth! You're averaging ${rate.toFixed(1)}% monthly growth. At this pace, you'll see significant revenue expansion.`;
+    } else if (rate > 5) {
+      insightText.textContent = `Healthy growth of ${rate.toFixed(1)}% per month. Focus on reducing churn to accelerate your MRR.`;
+    } else if (rate > 0) {
+      insightText.textContent = `Modest growth of ${rate.toFixed(1)}% per month. Consider optimizing your conversion funnel.`;
+    } else if (rate === 0) {
+      insightText.textContent = 'MRR is stable. Focus on acquisition strategies to drive growth.';
+    } else {
+      insightText.textContent = `MRR is declining ${Math.abs(rate).toFixed(1)}% monthly. Prioritize retention and churn reduction.`;
+    }
+  }
+
+  // Update last updated
+  const lastUpdatedEl = document.getElementById('mrrLastUpdated');
+  if (lastUpdatedEl && projection.lastUpdated) {
+    const date = new Date(projection.lastUpdated);
+    lastUpdatedEl.textContent = 'Last updated: ' + date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+}
+
+// Setup projection details toggle
+function setupProjectionToggle() {
+  const expandBtn = document.getElementById('projectionExpandBtn');
+  const details = document.getElementById('projectionDetails');
+  const header = document.querySelector('.projection-header');
+
+  if (expandBtn && details && header) {
+    const toggleDetails = () => {
+      const isHidden = details.classList.contains('hidden');
+      if (isHidden) {
+        details.classList.remove('hidden');
+        expandBtn.classList.add('expanded');
+      } else {
+        details.classList.add('hidden');
+        expandBtn.classList.remove('expanded');
+      }
+    };
+
+    expandBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleDetails();
+    });
+
+    header.addEventListener('click', toggleDetails);
+  }
+}
+
+// Initialize projection toggle when DOM is ready
+document.addEventListener('DOMContentLoaded', setupProjectionToggle);
+// Also try immediately in case DOM is already loaded
+if (document.readyState !== 'loading') {
+  setupProjectionToggle();
 }
 
 function updateLastUpdated() {

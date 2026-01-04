@@ -471,6 +471,244 @@
       align-items: center;
     }
 
+    /* MRR Chart Section Styles */
+    .mrr-chart-section {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+
+    .mrr-chart-section h3 {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .daily-refresh-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+      padding: 4px 10px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .daily-refresh-badge svg {
+      color: var(--accent);
+    }
+
+    .mrr-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .mrr-stat-item {
+      text-align: center;
+      padding: 12px 8px;
+      background: var(--bg-tertiary);
+      border-radius: 10px;
+    }
+
+    .mrr-stat-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--text-tertiary);
+      margin-bottom: 4px;
+    }
+
+    .mrr-stat-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    /* MRR Projection Brief */
+    .mrr-projection-brief {
+      margin-top: 16px;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .mrr-projection-brief:hover {
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+
+    .projection-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      cursor: pointer;
+    }
+
+    .projection-icon {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+      border-radius: 10px;
+      flex-shrink: 0;
+    }
+
+    .projection-icon svg {
+      width: 18px;
+      height: 18px;
+      color: white;
+    }
+
+    .projection-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .projection-title {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+
+    .projection-summary {
+      display: block;
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    .projection-expand-btn {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .projection-expand-btn:hover {
+      background: var(--accent-subtle);
+      border-color: var(--accent);
+    }
+
+    .projection-expand-btn svg {
+      width: 16px;
+      height: 16px;
+      color: var(--text-secondary);
+      transition: transform 0.3s ease;
+    }
+
+    .projection-expand-btn.expanded svg {
+      transform: rotate(180deg);
+    }
+
+    /* Projection Details */
+    .projection-details {
+      padding: 0 16px 16px;
+      border-top: 1px solid rgba(16, 185, 129, 0.15);
+      animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .projection-details-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      padding-top: 14px;
+    }
+
+    .projection-detail-item {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .detail-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--text-tertiary);
+      margin-bottom: 4px;
+    }
+
+    .detail-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: #10B981;
+    }
+
+    .projection-insight {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 14px;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .projection-insight svg {
+      width: 16px;
+      height: 16px;
+      color: var(--accent);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .projection-insight span {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .projection-last-updated {
+      margin-top: 12px;
+      text-align: right;
+      font-size: 10px;
+      color: var(--text-tertiary);
+    }
+
     .not-signed-in-message {
       padding: 20px;
       background: var(--warning-bg);
@@ -1060,6 +1298,98 @@
               </div>
             </div>
 
+            <!-- MRR Chart Section -->
+            <div class="chart-section mrr-chart-section">
+              <h3>
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span id="mrrChartYear">2024</span> MRR Overview
+                <span class="daily-refresh-badge">
+                  <svg viewBox="0 0 24 24" fill="none" width="12" height="12">
+                    <path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Daily refresh
+                </span>
+              </h3>
+              <div class="chart-container">
+                <canvas id="mrrChart" class="chart-canvas" style="height: 220px;"></canvas>
+              </div>
+
+              <!-- MRR Monthly Stats -->
+              <div class="mrr-stats-grid">
+                <div class="mrr-stat-item">
+                  <span class="mrr-stat-label">Total Revenue YTD</span>
+                  <span class="mrr-stat-value" id="mrrTotalRevenue">$0.00</span>
+                </div>
+                <div class="mrr-stat-item">
+                  <span class="mrr-stat-label">Avg Monthly MRR</span>
+                  <span class="mrr-stat-value" id="mrrAvgMonthly">$0.00</span>
+                </div>
+                <div class="mrr-stat-item">
+                  <span class="mrr-stat-label">Peak MRR</span>
+                  <span class="mrr-stat-value" id="mrrPeak">$0.00</span>
+                </div>
+                <div class="mrr-stat-item">
+                  <span class="mrr-stat-label">Growth Rate</span>
+                  <span class="mrr-stat-value" id="mrrGrowthRate">0%</span>
+                </div>
+              </div>
+
+              <!-- MRR Projection Brief -->
+              <div class="mrr-projection-brief" id="mrrProjectionBrief">
+                <div class="projection-header">
+                  <div class="projection-icon">
+                    <svg viewBox="0 0 24 24" fill="none">
+                      <path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </div>
+                  <div class="projection-content">
+                    <span class="projection-title">Year-End Projection</span>
+                    <span class="projection-summary" id="projectionSummary">Based on current growth, you're projected to reach $0.00 MRR by December.</span>
+                  </div>
+                  <button class="projection-expand-btn" id="projectionExpandBtn" title="View detailed projection">
+                    <svg viewBox="0 0 24 24" fill="none">
+                      <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Expandable Projection Details -->
+                <div class="projection-details hidden" id="projectionDetails">
+                  <div class="projection-details-grid">
+                    <div class="projection-detail-item">
+                      <span class="detail-label">Year-End MRR</span>
+                      <span class="detail-value" id="projYearEndMRR">$0.00</span>
+                    </div>
+                    <div class="projection-detail-item">
+                      <span class="detail-label">Year-End ARR</span>
+                      <span class="detail-value" id="projYearEndARR">$0.00</span>
+                    </div>
+                    <div class="projection-detail-item">
+                      <span class="detail-label">Peak Month</span>
+                      <span class="detail-value" id="projPeakMonth">--</span>
+                    </div>
+                    <div class="projection-detail-item">
+                      <span class="detail-label">Months Tracked</span>
+                      <span class="detail-value" id="projMonthsTracked">0</span>
+                    </div>
+                  </div>
+                  <div class="projection-insight" id="projectionInsight">
+                    <svg viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                      <path d="M12 16v-4m0-4h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <span id="projectionInsightText">Start tracking MRR to see growth projections.</span>
+                  </div>
+                  <div class="projection-last-updated">
+                    <span id="mrrLastUpdated">Last updated: --</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Growth Chart -->
             <div class="chart-section">
               <h3>
@@ -1119,12 +1449,23 @@
                 Platform Stats
               </h3>
               <div class="quick-stats">
-                <div class="stat-row">
-                  <span class="stat-row-label">
-                    <svg viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" stroke-width="2"/><polyline points="7,10 12,15 17,10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                    Chrome Extension Downloads
-                  </span>
-                  <span class="stat-row-value" id="statChromeDownloads">0</span>
+                <div class="stat-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="stat-row-label">
+                      <svg viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" stroke-width="2"/><polyline points="7,10 12,15 17,10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                      Chrome Extension Downloads
+                    </span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; padding-left: 20px;">
+                    <div style="text-align: center;">
+                      <span style="font-size: 18px; font-weight: 700; color: var(--text-primary);" id="statChromeDownloadsTotal">0</span>
+                      <span style="display: block; font-size: 10px; color: var(--text-tertiary); margin-top: 2px;">Total</span>
+                    </div>
+                    <div style="text-align: center;">
+                      <span style="font-size: 18px; font-weight: 700; color: #10B981;" id="statChromeDownloadsToday">0</span>
+                      <span style="display: block; font-size: 10px; color: var(--text-tertiary); margin-top: 2px;">Today</span>
+                    </div>
+                  </div>
                 </div>
                 <div class="stat-row">
                   <span class="stat-row-label">
