@@ -260,29 +260,44 @@ function getApplicantCount(jobCard) {
       for (const elem of elems) {
         const text = elem.textContent.trim().toLowerCase();
 
-        // Check for early applicant indicators
-        if (text.includes('be among the first') || text.includes('be an early applicant') ||
-            text.includes('be one of the first')) {
-          return 5;
+        // Match "X people clicked apply" pattern FIRST (most common on LinkedIn now)
+        const clickedMatch = text.match(/(?:over\s+)?(\d+)\+?\s*people\s+(?:clicked\s+)?appl/i);
+        if (clickedMatch) {
+          return parseInt(clickedMatch[1]);
         }
 
         // Match patterns like "25 applicants", "100+ applicants", "Over 200 applicants"
-        const match = text.match(/(?:over\s+)?(\d+)\+?\s*applicants?/i);
-        if (match) {
-          return parseInt(match[1]);
+        const applicantMatch = text.match(/(?:over\s+)?(\d+)\+?\s*applicants?/i);
+        if (applicantMatch) {
+          return parseInt(applicantMatch[1]);
+        }
+
+        // Check for early applicant indicators LAST (fallback)
+        if (text.includes('be among the first') || text.includes('be an early applicant') ||
+            text.includes('be one of the first')) {
+          return 0; // Return 0 for early applicant (essentially no applicants yet)
         }
       }
     }
 
     // Also check the full text content of the job card
     const cardText = jobCard.textContent.toLowerCase();
-    if (cardText.includes('be among the first') || cardText.includes('be an early applicant')) {
-      return 5;
+
+    // Match "X people clicked apply" pattern first
+    const clickedTextMatch = cardText.match(/(?:over\s+)?(\d+)\+?\s*people\s+(?:clicked\s+)?appl/i);
+    if (clickedTextMatch) {
+      return parseInt(clickedTextMatch[1]);
     }
 
+    // Match "X applicants" pattern
     const textMatch = cardText.match(/(?:over\s+)?(\d+)\+?\s*applicants?/i);
     if (textMatch) {
       return parseInt(textMatch[1]);
+    }
+
+    // Check for early applicant indicators last
+    if (cardText.includes('be among the first') || cardText.includes('be an early applicant')) {
+      return 0; // Return 0 for early applicant
     }
 
     // Check if this job is currently selected and look at the detail panel
@@ -393,24 +408,29 @@ function getDetailPanelApplicantCount() {
       for (const elem of elems) {
         const text = elem.textContent.trim().toLowerCase();
 
-        // Check for early applicant indicators
-        if (text.includes('be among the first') || text.includes('be an early applicant') ||
-            text.includes('be one of the first') || text.includes('early applicant')) {
-          return { count: 5, isEstimate: false };
+        // Match "X people clicked apply" pattern FIRST (most common on LinkedIn now)
+        const clickedMatch = text.match(/(?:over\s+)?(\d+)\+?\s*people\s+(?:clicked\s+)?appl/i);
+        if (clickedMatch) {
+          return { count: parseInt(clickedMatch[1]), isEstimate: false, metricType: 'clicked' };
         }
 
-        // Match various patterns for applicant count
-        // "25 applicants", "100+ applicants", "Over 200 applicants", "200+ people clicked apply"
-        const applicantMatch = text.match(/(?:over\s+)?(\d+)\+?\s*(?:applicants?|people\s+(?:clicked\s+)?appl)/i);
+        // Match patterns like "25 applicants", "100+ applicants", "Over 200 applicants"
+        const applicantMatch = text.match(/(?:over\s+)?(\d+)\+?\s*applicants?/i);
         if (applicantMatch) {
-          return { count: parseInt(applicantMatch[1]), isEstimate: false };
+          return { count: parseInt(applicantMatch[1]), isEstimate: false, metricType: 'applied' };
         }
 
         // "Fewer than 25 applicants"
         const fewerMatch = text.match(/fewer\s+than\s+(\d+)\s*applicants?/i);
         if (fewerMatch) {
           const maxCount = parseInt(fewerMatch[1]);
-          return { count: roundToNearestFive(Math.max(5, maxCount - 10)), isEstimate: true };
+          return { count: roundToNearestFive(Math.max(5, maxCount - 10)), isEstimate: true, metricType: 'applied' };
+        }
+
+        // Check for early applicant indicators LAST
+        if (text.includes('be among the first') || text.includes('be an early applicant') ||
+            text.includes('be one of the first') || text.includes('early applicant')) {
+          return { count: 0, isEstimate: false, metricType: 'early' };
         }
       }
     }
@@ -420,27 +440,36 @@ function getDetailPanelApplicantCount() {
     if (detailPanel) {
       const panelText = detailPanel.textContent.toLowerCase();
 
-      if (panelText.includes('be among the first') || panelText.includes('be an early applicant') ||
-          panelText.includes('early applicant')) {
-        return { count: 5, isEstimate: false };
+      // Match "X people clicked apply" pattern first
+      const clickedMatch = panelText.match(/(?:over\s+)?(\d+)\+?\s*people\s+(?:clicked\s+)?appl/i);
+      if (clickedMatch) {
+        return { count: parseInt(clickedMatch[1]), isEstimate: false, metricType: 'clicked' };
       }
 
-      const applicantMatch = panelText.match(/(?:over\s+)?(\d+)\+?\s*(?:applicants?|people\s+(?:clicked\s+)?appl)/i);
+      // Match "X applicants" pattern
+      const applicantMatch = panelText.match(/(?:over\s+)?(\d+)\+?\s*applicants?/i);
       if (applicantMatch) {
-        return { count: parseInt(applicantMatch[1]), isEstimate: false };
+        return { count: parseInt(applicantMatch[1]), isEstimate: false, metricType: 'applied' };
       }
 
+      // "Fewer than X applicants"
       const fewerMatch = panelText.match(/fewer\s+than\s+(\d+)\s*applicants?/i);
       if (fewerMatch) {
         const maxCount = parseInt(fewerMatch[1]);
-        return { count: roundToNearestFive(Math.max(5, maxCount - 10)), isEstimate: true };
+        return { count: roundToNearestFive(Math.max(5, maxCount - 10)), isEstimate: true, metricType: 'applied' };
+      }
+
+      // Check for early applicant indicators last
+      if (panelText.includes('be among the first') || panelText.includes('be an early applicant') ||
+          panelText.includes('early applicant')) {
+        return { count: 0, isEstimate: false, metricType: 'early' };
       }
     }
 
     // Fallback: estimate based on job age
     const estimate = estimateApplicantCount();
     if (estimate) {
-      return estimate;
+      return { ...estimate, metricType: 'estimate' };
     }
 
     return null;
@@ -458,20 +487,29 @@ function addApplicantCountBadgeToDetailPanel(countData) {
   if (countData === null) return;
 
   // Handle both old format (number) and new format (object)
-  let count, isEstimate;
+  let count, isEstimate, metricType;
   if (typeof countData === 'object') {
     count = countData.count;
     isEstimate = countData.isEstimate;
+    metricType = countData.metricType || 'applied';
   } else {
     count = countData;
     isEstimate = false;
+    metricType = 'applied';
   }
 
   if (count === null || count === undefined) return;
 
-  // Determine color based on count
+  // Determine color based on count (and metric type for early applicant)
   let bgColor, textColor, icon, oddsText;
-  if (count <= 10) {
+
+  // Special handling for early applicant
+  if (metricType === 'early') {
+    bgColor = 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)';
+    textColor = '#166534';
+    icon = '🌟';
+    oddsText = 'Be an early applicant!';
+  } else if (count <= 10) {
     bgColor = 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)';
     textColor = '#166534';
     icon = '🟢';
@@ -498,15 +536,38 @@ function addApplicantCountBadgeToDetailPanel(countData) {
     oddsText = 'Very competitive';
   }
 
-  // Format the count display
-  let countDisplay;
-  if (isEstimate) {
-    // Show as "Under X" for estimates
+  // Format the count display based on metric type
+  let countDisplay, metricLabel;
+
+  if (metricType === 'early') {
+    countDisplay = 'Early';
+    metricLabel = 'applicant';
+  } else if (metricType === 'clicked') {
+    // For "clicked apply" metric
+    if (isEstimate) {
+      const nextMultiple = Math.ceil(count / 5) * 5 + 5;
+      countDisplay = `~${nextMultiple}`;
+      oddsText += ' (est.)';
+    } else {
+      countDisplay = `${count}${count >= 100 ? '+' : ''}`;
+    }
+    metricLabel = 'clicked apply';
+  } else if (metricType === 'estimate') {
+    // For estimates based on job age
     const nextMultiple = Math.ceil(count / 5) * 5 + 5;
-    countDisplay = `Under ${nextMultiple}`;
+    countDisplay = `~${nextMultiple}`;
+    metricLabel = 'applicants';
     oddsText += ' (est.)';
   } else {
-    countDisplay = `${count}${count >= 100 ? '+' : ''}`;
+    // For actual "applicants" metric
+    if (isEstimate) {
+      const nextMultiple = Math.ceil(count / 5) * 5 + 5;
+      countDisplay = `~${nextMultiple}`;
+      oddsText += ' (est.)';
+    } else {
+      countDisplay = `${count}${count >= 100 ? '+' : ''}`;
+    }
+    metricLabel = 'applicants';
   }
 
   const badge = document.createElement('div');
@@ -515,7 +576,7 @@ function addApplicantCountBadgeToDetailPanel(countData) {
     <div style="display: flex; align-items: center; gap: 8px;">
       <span style="font-size: 18px;">${icon}</span>
       <div>
-        <div style="font-weight: 700; font-size: 14px;">${countDisplay} applicants</div>
+        <div style="font-weight: 700; font-size: 14px;">${countDisplay} ${metricLabel}</div>
         <div style="font-size: 11px; opacity: 0.8;">${oddsText}</div>
       </div>
     </div>
