@@ -71,15 +71,72 @@ function hideAuthOverlay() {
   if (overlay) overlay.classList.add('hidden');
 }
 
-function showAuthenticatedUI() {
-  hideAuthOverlay();
-
+function showAuthenticatedUI(showAnimation = false) {
   const userMenu = document.getElementById('userMenu');
   const userEmail = document.getElementById('userEmail');
 
   if (userMenu) userMenu.classList.remove('hidden');
   if (userEmail && currentUser) {
     userEmail.textContent = currentUser.email;
+  }
+
+  if (showAnimation) {
+    // Show success animation first
+    showSuccessAnimation(() => {
+      hideAuthOverlay();
+      // Trigger notification on content scripts
+      triggerJobFiltrActiveNotification();
+    });
+  } else {
+    hideAuthOverlay();
+  }
+}
+
+// Show success animation overlay
+function showSuccessAnimation(callback) {
+  const successOverlay = document.getElementById('authSuccessOverlay');
+  const authOverlay = document.getElementById('authOverlay');
+
+  if (!successOverlay) {
+    if (callback) callback();
+    return;
+  }
+
+  // Hide auth overlay immediately
+  if (authOverlay) authOverlay.classList.add('hidden');
+
+  // Show success overlay
+  successOverlay.classList.remove('hidden');
+
+  // After 2 seconds, fade out and transition to main app
+  setTimeout(() => {
+    successOverlay.classList.add('fade-out');
+
+    // After fade out completes, hide overlay and call callback
+    setTimeout(() => {
+      successOverlay.classList.add('hidden');
+      successOverlay.classList.remove('fade-out');
+      if (callback) callback();
+    }, 400); // Match CSS transition duration
+  }, 2000);
+}
+
+// Trigger JobFiltr Active notification on content scripts
+async function triggerJobFiltrActiveNotification() {
+  try {
+    // Get the active tab and send message to show notification
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab && tab.id) {
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'showNotification',
+        message: 'JobFiltr Is Active'
+      }).catch(() => {
+        // Tab might not have content script, that's ok
+        console.log('JobFiltr: No content script on this tab');
+      });
+    }
+  } catch (error) {
+    console.log('JobFiltr: Could not send notification to tab', error);
   }
 }
 
@@ -146,7 +203,7 @@ async function signInWithEmail() {
     });
 
     currentUser = { email, token: data.token };
-    showAuthenticatedUI();
+    showAuthenticatedUI(true); // Show success animation
 
   } catch (error) {
     console.error('Sign in error:', error);
@@ -267,7 +324,7 @@ async function signInWithGoogle() {
     });
 
     currentUser = { email: userInfo.email, token: backendToken || accessToken };
-    showAuthenticatedUI();
+    showAuthenticatedUI(true); // Show success animation
 
     console.log('JobFiltr: Google sign in successful');
 
@@ -351,7 +408,7 @@ async function createAccount() {
     });
 
     currentUser = { email, token: data.token };
-    showAuthenticatedUI();
+    showAuthenticatedUI(true); // Show success animation
 
   } catch (error) {
     console.error('Create account error:', error);
@@ -1521,6 +1578,25 @@ document.getElementById('templateNameInput')?.addEventListener('keydown', (e) =>
 
 // Apply Filters Button
 document.getElementById('applyFilters').addEventListener('click', async () => {
+  // Check if user is authenticated before applying filters
+  if (!currentUser) {
+    const btn = document.getElementById('applyFilters');
+    const originalText = btn.innerHTML;
+
+    // Show sign-in required feedback
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 9v2m0 4h.01M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> Sign in required';
+    btn.style.background = 'var(--warning)';
+
+    setTimeout(() => {
+      btn.innerHTML = originalText;
+      btn.style.background = '';
+      // Show auth overlay
+      showAuthOverlay();
+    }, 1500);
+
+    return;
+  }
+
   await saveFilterSettings();
 
   // Send message to content script to apply filters

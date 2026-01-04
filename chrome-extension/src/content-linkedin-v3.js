@@ -1708,6 +1708,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Handle notification request from popup (after sign-in)
+  if (message.action === 'showNotification') {
+    // Force show the notification by clearing session storage
+    sessionStorage.removeItem('jobfiltr_notification_shown');
+    showJobFiltrActiveNotification();
+    sendResponse({ success: true });
+    return true;
+  }
+
   return false;
 });
 
@@ -2080,6 +2089,13 @@ if (!observerInitialized) {
 // ===== AUTO-LOAD SAVED FILTERS ON PAGE LOAD =====
 async function loadAndApplyFilters() {
   try {
+    // Check if user is authenticated before auto-applying filters
+    const authResult = await chrome.storage.local.get(['authToken', 'authExpiry']);
+    if (!authResult.authToken || !authResult.authExpiry || Date.now() >= authResult.authExpiry) {
+      log('User not authenticated, skipping auto-apply filters');
+      return;
+    }
+
     const result = await chrome.storage.local.get('filterSettings');
     if (result.filterSettings && Object.keys(result.filterSettings).length > 0) {
       filterSettings = result.filterSettings;

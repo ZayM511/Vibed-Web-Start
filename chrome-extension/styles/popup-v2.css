@@ -2577,6 +2577,7 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 }
 
 .auth-btn-google {
+  width: 100%;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   color: var(--text-primary);
@@ -2895,4 +2896,141 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 
 .empty-state p {
   font-size: 13px;
+}
+
+/* ============================================
+   SIGN-IN SUCCESS ANIMATION OVERLAY
+   ============================================ */
+
+.auth-success-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-primary);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 0.4s ease-out;
+}
+
+.auth-success-overlay.hidden {
+  display: none;
+}
+
+.auth-success-overlay.fade-out {
+  opacity: 0;
+}
+
+.success-animation-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-lg);
+  animation: success-scale-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes success-scale-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.success-logo-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.success-logo {
+  animation: success-logo-pulse 1.5s ease-in-out infinite;
+  filter: drop-shadow(0 8px 24px var(--accent-glow));
+}
+
+@keyframes success-logo-pulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 8px 24px var(--accent-glow));
+  }
+  50% {
+    transform: scale(1.05);
+    filter: drop-shadow(0 12px 32px var(--accent-glow));
+  }
+}
+
+.success-checkmark {
+  position: absolute;
+  bottom: -8px;
+  right: -8px;
+  animation: checkmark-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s forwards;
+  opacity: 0;
+  transform: scale(0);
+}
+
+@keyframes checkmark-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.success-checkmark svg {
+  filter: drop-shadow(0 4px 8px rgba(5, 150, 105, 0.3));
+}
+
+.success-text {
+  font-family: "Cormorant", Georgia, serif;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  opacity: 0;
+  animation: success-text-fade 0.4s ease-out 0.5s forwards;
+}
+
+@keyframes success-text-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dark mode adjustments for success animation */
+[data-theme="dark"] .success-logo {
+  filter: drop-shadow(0 8px 24px rgba(74, 123, 183, 0.4));
+}
+
+[data-theme="dark"] .success-checkmark svg {
+  filter: drop-shadow(0 4px 8px rgba(52, 211, 153, 0.4));
+}
+
+@keyframes success-logo-pulse-dark {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 8px 24px rgba(74, 123, 183, 0.4));
+  }
+  50% {
+    transform: scale(1.05);
+    filter: drop-shadow(0 12px 32px rgba(74, 123, 183, 0.5));
+  }
+}
+
+[data-theme="dark"] .success-logo {
+  animation: success-logo-pulse-dark 1.5s ease-in-out infinite;
 }

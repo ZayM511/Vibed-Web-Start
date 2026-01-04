@@ -933,6 +933,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Handle notification request from popup (after sign-in)
+  if (message.action === 'showNotification') {
+    // Force show the notification by clearing session storage
+    sessionStorage.removeItem('jobfiltr_notification_shown');
+    showJobFiltrActiveNotification();
+    sendResponse({ success: true });
+    return true;
+  }
+
   return false;
 });
 
@@ -1222,6 +1231,13 @@ function stopPeriodicScan() {
 // ===== AUTO-LOAD SAVED FILTERS ON PAGE LOAD =====
 async function loadAndApplyFilters() {
   try {
+    // Check if user is authenticated before auto-applying filters
+    const authResult = await chrome.storage.local.get(['authToken', 'authExpiry']);
+    if (!authResult.authToken || !authResult.authExpiry || Date.now() >= authResult.authExpiry) {
+      log('User not authenticated, skipping auto-apply filters');
+      return;
+    }
+
     const result = await chrome.storage.local.get('filterSettings');
     if (result.filterSettings && Object.keys(result.filterSettings).length > 0) {
       filterSettings = result.filterSettings;
@@ -1257,3 +1273,178 @@ document.addEventListener('click', (e) => {
 }, true);
 
 log('Indeed content script ready');
+
+// ===== JOBFILTR ACTIVE NOTIFICATION =====
+// Shows a small notification when JobFiltr first activates on Indeed
+
+function showJobFiltrActiveNotification() {
+  // Check if we've already shown the notification this session
+  const notificationKey = 'jobfiltr_notification_shown';
+  if (sessionStorage.getItem(notificationKey)) {
+    return;
+  }
+
+  // Check if popup is currently open/pinned by querying the background
+  chrome.runtime.sendMessage({ type: 'CHECK_POPUP_STATE' }, (response) => {
+    // If popup is open/pinned, don't show notification
+    if (response && response.popupOpen) {
+      return;
+    }
+
+    // Mark as shown for this session
+    sessionStorage.setItem(notificationKey, 'true');
+
+    // Create the notification element
+    const notification = document.createElement('div');
+    notification.id = 'jobfiltr-active-notification';
+    notification.innerHTML = `
+      <div class="jobfiltr-notif-content">
+        <div class="jobfiltr-notif-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          </svg>
+        </div>
+        <div class="jobfiltr-notif-text">
+          <span class="jobfiltr-notif-title">JobFiltr Is Active</span>
+          <span class="jobfiltr-notif-subtitle">Filtering jobs on this page</span>
+        </div>
+        <button class="jobfiltr-notif-close" aria-label="Close notification">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    `;
+
+    // Add styles
+    const style = document.createElement('style');
+    style.textContent = `
+      #jobfiltr-active-notification {
+        position: fixed;
+        top: 24px;
+        right: 24px;
+        z-index: 99999;
+        animation: jobfiltr-notif-slide-in 0.4s ease-out;
+      }
+
+      @keyframes jobfiltr-notif-slide-in {
+        from {
+          opacity: 0;
+          transform: translateX(100px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      @keyframes jobfiltr-notif-slide-out {
+        from {
+          opacity: 1;
+          transform: translateX(0);
+        }
+        to {
+          opacity: 0;
+          transform: translateX(100px);
+        }
+      }
+
+      .jobfiltr-notif-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: linear-gradient(135deg, #1E3A5F 0%, #2A4A73 100%);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(30, 58, 95, 0.3), 0 2px 8px rgba(0, 0, 0, 0.1);
+        color: white;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+
+      .jobfiltr-notif-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 10px;
+        flex-shrink: 0;
+      }
+
+      .jobfiltr-notif-icon svg {
+        color: #34D399;
+      }
+
+      .jobfiltr-notif-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .jobfiltr-notif-title {
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+
+      .jobfiltr-notif-subtitle {
+        font-size: 12px;
+        opacity: 0.8;
+      }
+
+      .jobfiltr-notif-close {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        background: transparent;
+        border: none;
+        border-radius: 6px;
+        color: rgba(255, 255, 255, 0.6);
+        cursor: pointer;
+        transition: all 0.2s;
+        flex-shrink: 0;
+      }
+
+      .jobfiltr-notif-close:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #ffffff;
+      }
+
+      #jobfiltr-active-notification.hiding {
+        animation: jobfiltr-notif-slide-out 0.3s ease-in forwards;
+      }
+    `;
+
+    document.head.appendChild(style);
+    document.body.appendChild(notification);
+
+    // Close button handler
+    const closeBtn = notification.querySelector('.jobfiltr-notif-close');
+    closeBtn.addEventListener('click', () => {
+      dismissNotification(notification);
+    });
+
+    // Auto-dismiss after 4 seconds
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        dismissNotification(notification);
+      }
+    }, 4000);
+  });
+}
+
+function dismissNotification(notification) {
+  notification.classList.add('hiding');
+  setTimeout(() => {
+    notification.remove();
+  }, 300);
+}
+
+// Show notification after a short delay to ensure page is loaded
+setTimeout(() => {
+  showJobFiltrActiveNotification();
+}, 1500);
