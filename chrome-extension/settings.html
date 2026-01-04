@@ -228,6 +228,149 @@
       color: var(--text-tertiary);
       margin-top: 8px;
     }
+
+    /* Account Profile Section */
+    .profile-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 16px;
+    }
+
+    .profile-avatar {
+      width: 48px;
+      height: 48px;
+      background: var(--accent);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .profile-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .profile-email {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .profile-name-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .profile-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .profile-name-input {
+      flex: 1;
+      padding: 6px 10px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .profile-name-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .profile-edit-btn {
+      padding: 6px 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+    }
+
+    .profile-edit-btn:hover {
+      background: var(--accent-subtle);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .profile-save-btn {
+      padding: 6px 12px;
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+    }
+
+    .profile-save-btn:hover {
+      background: var(--accent-hover);
+    }
+
+    .profile-cancel-btn {
+      padding: 6px 10px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+    }
+
+    .profile-cancel-btn:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .profile-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .not-signed-in-message {
+      padding: 20px;
+      background: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      border-radius: 12px;
+      color: var(--warning);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .not-signed-in-message a {
+      color: var(--accent);
+      text-decoration: underline;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -266,8 +409,41 @@
         <span>Settings saved successfully</span>
       </div>
 
-      <!-- Backend Configuration -->
-      <div class="settings-section">
+      <!-- Account Profile Section -->
+      <div class="settings-section" id="accountSection">
+        <h2>
+          <svg viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/>
+            <path d="M4 20c0-4 4-6 8-6s8 2 8 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          Account
+        </h2>
+
+        <div class="profile-card" id="profileCard">
+          <div class="profile-avatar" id="profileAvatar">?</div>
+          <div class="profile-info">
+            <div class="profile-name-row" id="profileNameDisplay">
+              <span class="profile-name" id="profileName">Loading...</span>
+              <button class="profile-edit-btn" id="editNameBtn">Edit</button>
+            </div>
+            <div class="profile-name-row hidden" id="profileNameEdit">
+              <input type="text" class="profile-name-input" id="profileNameInput" placeholder="Your display name">
+              <div class="profile-actions">
+                <button class="profile-save-btn" id="saveNameBtn">Save</button>
+                <button class="profile-cancel-btn" id="cancelNameBtn">Cancel</button>
+              </div>
+            </div>
+            <div class="profile-email" id="profileEmail">loading...</div>
+          </div>
+        </div>
+
+        <div class="not-signed-in-message hidden" id="notSignedInMessage">
+          You're not signed in. <a id="openExtensionLink">Open the extension</a> to sign in.
+        </div>
+      </div>
+
+      <!-- Backend Configuration (Admin Only) -->
+      <div class="settings-section hidden" id="backendSection">
         <h2>
           <svg viewBox="0 0 24 24" fill="none">
             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>

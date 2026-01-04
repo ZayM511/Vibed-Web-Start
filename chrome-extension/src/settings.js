@@ -3,6 +3,16 @@
 // Default Convex URL
 const DEFAULT_CONVEX_URL = 'https://reminiscent-goldfish-690.convex.cloud';
 
+// Admin emails that can see backend section
+const ADMIN_EMAILS = [
+  'isaiah.e.malone@gmail.com',
+  'support@jobfiltr.app',
+  'hello@jobfiltr.app'
+];
+
+// Current user state
+let currentUser = null;
+
 // DOM Elements
 const convexUrlInput = document.getElementById('convexUrl');
 const autoScanToggle = document.getElementById('autoScanToggle');
@@ -12,8 +22,25 @@ const resetButton = document.getElementById('resetButton');
 const successMessage = document.getElementById('successMessage');
 const themeToggle = document.getElementById('themeToggle');
 
-// Initialize theme and load settings on page load
+// Account Elements
+const accountSection = document.getElementById('accountSection');
+const backendSection = document.getElementById('backendSection');
+const profileCard = document.getElementById('profileCard');
+const profileAvatar = document.getElementById('profileAvatar');
+const profileName = document.getElementById('profileName');
+const profileEmail = document.getElementById('profileEmail');
+const profileNameDisplay = document.getElementById('profileNameDisplay');
+const profileNameEdit = document.getElementById('profileNameEdit');
+const profileNameInput = document.getElementById('profileNameInput');
+const editNameBtn = document.getElementById('editNameBtn');
+const saveNameBtn = document.getElementById('saveNameBtn');
+const cancelNameBtn = document.getElementById('cancelNameBtn');
+const notSignedInMessage = document.getElementById('notSignedInMessage');
+const openExtensionLink = document.getElementById('openExtensionLink');
+
+// Initialize theme, auth, and load settings on page load
 initTheme();
+initAuth();
 loadSettings();
 
 // Theme Management
@@ -39,12 +66,124 @@ function toggleTheme() {
   setTheme(newTheme);
 }
 
+// Auth Management
+async function initAuth() {
+  try {
+    const result = await chrome.storage.local.get(['authToken', 'userEmail', 'userName', 'authExpiry']);
+
+    if (result.authToken && result.userEmail) {
+      // Check if token is still valid
+      const now = Date.now();
+      if (result.authExpiry && now < result.authExpiry) {
+        currentUser = {
+          email: result.userEmail,
+          name: result.userName || ''
+        };
+        showAuthenticatedProfile();
+        return;
+      }
+    }
+
+    // Not signed in or expired
+    showNotSignedIn();
+  } catch (error) {
+    console.error('Error checking auth state:', error);
+    showNotSignedIn();
+  }
+}
+
+function showAuthenticatedProfile() {
+  if (!currentUser) return;
+
+  // Show profile card, hide not signed in message
+  profileCard.classList.remove('hidden');
+  notSignedInMessage.classList.add('hidden');
+
+  // Set avatar initial
+  const initial = currentUser.name
+    ? currentUser.name.charAt(0).toUpperCase()
+    : currentUser.email.charAt(0).toUpperCase();
+  profileAvatar.textContent = initial;
+
+  // Set name and email
+  profileName.textContent = currentUser.name || 'No display name set';
+  profileEmail.textContent = currentUser.email;
+
+  // Check if admin email - show backend section
+  if (ADMIN_EMAILS.includes(currentUser.email.toLowerCase())) {
+    backendSection.classList.remove('hidden');
+  } else {
+    backendSection.classList.add('hidden');
+  }
+}
+
+function showNotSignedIn() {
+  profileCard.classList.add('hidden');
+  notSignedInMessage.classList.remove('hidden');
+  backendSection.classList.add('hidden');
+}
+
+function startEditName() {
+  profileNameDisplay.classList.add('hidden');
+  profileNameEdit.classList.remove('hidden');
+  profileNameInput.value = currentUser?.name || '';
+  profileNameInput.focus();
+}
+
+function cancelEditName() {
+  profileNameEdit.classList.add('hidden');
+  profileNameDisplay.classList.remove('hidden');
+}
+
+async function saveDisplayName() {
+  const newName = profileNameInput.value.trim();
+
+  try {
+    // Save to storage
+    await chrome.storage.local.set({ userName: newName });
+
+    // Update current user
+    if (currentUser) {
+      currentUser.name = newName;
+    }
+
+    // Update UI
+    profileName.textContent = newName || 'No display name set';
+    const initial = newName
+      ? newName.charAt(0).toUpperCase()
+      : currentUser.email.charAt(0).toUpperCase();
+    profileAvatar.textContent = initial;
+
+    // Hide edit mode
+    cancelEditName();
+
+    // Show success
+    showSuccessMessage();
+  } catch (error) {
+    console.error('Error saving display name:', error);
+    alert('Failed to save display name. Please try again.');
+  }
+}
+
 // Event listeners
 saveButton.addEventListener('click', saveSettings);
 resetButton.addEventListener('click', resetToDefaults);
 autoScanToggle.addEventListener('click', toggleAutoScan);
 notificationsToggle.addEventListener('click', toggleNotifications);
 themeToggle.addEventListener('click', toggleTheme);
+
+// Profile editing listeners
+editNameBtn.addEventListener('click', startEditName);
+saveNameBtn.addEventListener('click', saveDisplayName);
+cancelNameBtn.addEventListener('click', cancelEditName);
+profileNameInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') saveDisplayName();
+  if (e.key === 'Escape') cancelEditName();
+});
+openExtensionLink.addEventListener('click', () => {
+  // Can't directly open popup, but can show instructions
+  alert('Click the JobFiltr icon in your browser toolbar to sign in.');
+});
 
 // Load current settings
 async function loadSettings() {

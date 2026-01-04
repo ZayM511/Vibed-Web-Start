@@ -80,7 +80,16 @@ function showAuthenticatedUI(showAnimation = false) {
   if (currentUser) {
     // Set greeting with name if available
     if (userGreeting) {
-      userGreeting.textContent = currentUser.name ? `Hi ${currentUser.name}!` : 'Hi there!';
+      const greetingText = currentUser.name ? `Hi ${currentUser.name}!` : 'Hi there!';
+      userGreeting.textContent = greetingText;
+
+      // Auto-adjust font size based on name length
+      userGreeting.classList.remove('text-sm', 'text-xs');
+      if (greetingText.length > 20) {
+        userGreeting.classList.add('text-xs');
+      } else if (greetingText.length > 14) {
+        userGreeting.classList.add('text-sm');
+      }
     }
     // Always show email
     if (userEmail) {
@@ -2327,7 +2336,64 @@ function displayScanResults(result) {
   } else {
     flagsList.innerHTML = '<div class="flag-item"><span>No red flags detected!</span></div>';
   }
+
+  // Show notification toast if enabled
+  showScanNotification(result, status, statusText);
 }
+
+// ===== NOTIFICATION TOAST =====
+let notificationTimeout = null;
+
+async function showScanNotification(result, status, statusText) {
+  // Check if notifications are enabled
+  const settings = await chrome.storage.sync.get({ notifications: true });
+  if (!settings.notifications) return;
+
+  const toast = document.getElementById('notificationToast');
+  const title = document.getElementById('notificationTitle');
+  const message = document.getElementById('notificationMessage');
+
+  if (!toast) return;
+
+  // Clear any existing timeout
+  if (notificationTimeout) {
+    clearTimeout(notificationTimeout);
+  }
+
+  // Set notification content
+  title.textContent = 'Scan Complete';
+  const jobTitle = currentJobData?.title || 'Job';
+  if (status === 'danger') {
+    message.textContent = `Warning: ${jobTitle} may be a scam/ghost job`;
+  } else if (status === 'warning') {
+    message.textContent = `${jobTitle} has some suspicious indicators`;
+  } else {
+    message.textContent = `${jobTitle} appears legitimate`;
+  }
+
+  // Set notification type (success or warning)
+  toast.classList.remove('success', 'warning', 'hidden', 'hiding');
+  toast.classList.add(status === 'legitimate' ? 'success' : 'warning');
+
+  // Auto-hide after 5 seconds
+  notificationTimeout = setTimeout(() => {
+    hideNotificationToast();
+  }, 5000);
+}
+
+function hideNotificationToast() {
+  const toast = document.getElementById('notificationToast');
+  if (!toast || toast.classList.contains('hidden')) return;
+
+  toast.classList.add('hiding');
+  setTimeout(() => {
+    toast.classList.add('hidden');
+    toast.classList.remove('hiding');
+  }, 300);
+}
+
+// Close button for notification
+document.getElementById('notificationClose')?.addEventListener('click', hideNotificationToast);
 
 async function saveScanToHistory(result) {
   try {
