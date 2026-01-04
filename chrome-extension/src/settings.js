@@ -243,6 +243,8 @@ async function loadAnalytics() {
     if (analyticsContent) analyticsContent.classList.remove('hidden');
     if (refreshAnalytics) refreshAnalytics.classList.remove('loading');
     updateLastUpdated();
+    // Re-sync panel heights after content loads
+    setTimeout(matchPanelHeights, 50);
   }
 }
 
@@ -913,11 +915,32 @@ function enableFounderMode() {
   document.body.classList.add('founder-mode');
   updateGreeting();
   loadAnalytics();
+  // Match analytics panel height to settings panel after a short delay
+  setTimeout(matchPanelHeights, 100);
 }
 
 function disableFounderMode() {
   document.body.classList.remove('founder-mode');
 }
+
+// ===== PANEL HEIGHT SYNC =====
+function matchPanelHeights() {
+  const settingsPanel = document.querySelector('.settings-panel');
+  const analyticsPanel = document.getElementById('analyticsPanel');
+
+  if (settingsPanel && analyticsPanel && document.body.classList.contains('founder-mode')) {
+    const settingsHeight = settingsPanel.offsetHeight;
+    analyticsPanel.style.height = settingsHeight + 'px';
+    analyticsPanel.style.maxHeight = settingsHeight + 'px';
+  }
+}
+
+// Re-sync heights on window resize
+window.addEventListener('resize', () => {
+  if (document.body.classList.contains('founder-mode')) {
+    matchPanelHeights();
+  }
+});
 
 // ===== THEME MANAGEMENT =====
 function initTheme() {
