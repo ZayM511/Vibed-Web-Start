@@ -258,6 +258,21 @@ async function getConvexUrl() {
 }
 
 function showDemoAnalytics() {
+  console.log('[Settings] showDemoAnalytics called');
+
+  // Check if Chart.js is loaded, if not wait for it
+  if (typeof Chart === 'undefined') {
+    console.warn('[Settings] Chart.js not loaded yet, waiting 500ms...');
+    setTimeout(() => {
+      if (typeof Chart === 'undefined') {
+        console.error('[Settings] Chart.js still not loaded after wait!');
+        return;
+      }
+      showDemoAnalytics(); // Retry
+    }, 500);
+    return;
+  }
+
   // Demo data for when API is unavailable
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -464,7 +479,16 @@ function animateCurrency(elementId, targetValue) {
 
 function updateGrowthChart(data) {
   const ctx = document.getElementById('growthChart');
-  if (!ctx) return;
+  if (!ctx) {
+    console.warn('[Settings] Growth chart canvas not found');
+    return;
+  }
+
+  // Check if Chart.js is loaded
+  if (typeof Chart === 'undefined') {
+    console.error('[Settings] Chart.js not loaded! Cannot create growth chart');
+    return;
+  }
 
   // Destroy existing chart if it exists
   if (growthChart) {
@@ -567,16 +591,27 @@ function updateGrowthChart(data) {
             color: textColor,
             font: { size: 10 }
           },
-          beginAtZero: true
+          beginAtZero: true,
+          suggestedMax: 10 // Ensure visible y-axis even with all zero values
         }
       }
     }
   });
+  console.log('[Settings] Growth chart created successfully with', labels.length, 'data points');
 }
 
 function updateDetectionChart(data) {
   const ctx = document.getElementById('detectionChart');
-  if (!ctx) return;
+  if (!ctx) {
+    console.warn('[Settings] Detection chart canvas not found');
+    return;
+  }
+
+  // Check if Chart.js is loaded
+  if (typeof Chart === 'undefined') {
+    console.error('[Settings] Chart.js not loaded! Cannot create detection chart');
+    return;
+  }
 
   // Destroy existing chart if it exists
   if (detectionChart) {
@@ -630,11 +665,21 @@ function updateDetectionChart(data) {
       }
     }
   });
+  console.log('[Settings] Detection chart created successfully with', values.length, 'categories');
 }
 
 function updateMRRChart(projection) {
   const ctx = document.getElementById('mrrChart');
-  if (!ctx) return;
+  if (!ctx) {
+    console.warn('[Settings] MRR chart canvas not found');
+    return;
+  }
+
+  // Check if Chart.js is loaded
+  if (typeof Chart === 'undefined') {
+    console.error('[Settings] Chart.js not loaded! Cannot create MRR chart');
+    return;
+  }
 
   // Destroy existing chart if it exists
   if (mrrChart) {
@@ -748,11 +793,13 @@ function updateMRRChart(projection) {
               return '$' + value;
             }
           },
-          beginAtZero: true
+          beginAtZero: true,
+          suggestedMax: 100 // Ensure visible y-axis even with all zero values
         }
       }
     }
   });
+  console.log('[Settings] MRR chart created successfully with', labels.length, 'months');
 }
 
 function updateMRRProjection(projection) {
@@ -867,7 +914,16 @@ if (document.readyState !== 'loading') {
 
 function updateConversionChart(conversionData) {
   const ctx = document.getElementById('conversionChart');
-  if (!ctx) return;
+  if (!ctx) {
+    console.warn('[Settings] Conversion chart canvas not found');
+    return;
+  }
+
+  // Check if Chart.js is loaded
+  if (typeof Chart === 'undefined') {
+    console.error('[Settings] Chart.js not loaded! Cannot create conversion chart');
+    return;
+  }
 
   // Destroy existing chart if it exists
   if (conversionChart) {
@@ -958,6 +1014,7 @@ function updateConversionChart(conversionData) {
       }
     }
   });
+  console.log('[Settings] Conversion chart created successfully with', labels.length, 'months');
 }
 
 function updateLastUpdated() {
