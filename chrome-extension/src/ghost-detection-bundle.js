@@ -80,8 +80,13 @@
     description: '.jobs-description__content, .jobs-description-content__text, .jobs-box__html-content, .jobs-description',
     easyApply: '.jobs-apply-button--top-card, .jobs-apply-button, .jobs-s-apply button',
     promoted: '.job-card-container__footer-job-state, .promoted-badge',
-    // Multiple fallback targets for score injection (updated for 2025 LinkedIn layout)
+    // Multiple fallback targets for score injection (updated for 2025/2026 LinkedIn layout)
     scoreTargets: [
+      // Primary targets - most reliable in 2026 LinkedIn layout
+      '.jobs-details',
+      '.job-view-layout',
+      '.scaffold-layout__detail',
+
       // Modern LinkedIn selectors (2025+)
       '.jobs-details__main-content .jobs-details-top-card__container',
       '.jobs-search__job-details .jobs-details-top-card',
@@ -90,6 +95,8 @@
       '.job-details-jobs-unified-top-card',
       '.jobs-details-top-card__container',
       '.jobs-search__right-rail .jobs-details-top-card',
+      '.jobs-unified-top-card__top-card',
+      '.job-details-module',
 
       // Legacy selectors (keep for compatibility)
       '.job-details-jobs-unified-top-card__primary-description-container',
@@ -106,7 +113,6 @@
 
       // Absolute fallbacks (very broad)
       '.jobs-search__job-details',
-      '.scaffold-layout__detail',
       '.jobs-details__main-content',
       '[data-job-id]',
     ],

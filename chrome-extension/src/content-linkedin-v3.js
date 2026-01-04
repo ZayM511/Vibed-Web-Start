@@ -1310,8 +1310,16 @@ function formatJobAge(days) {
 
 // Add job age badge to job card (positioned on the RIGHT side)
 function addJobAgeBadge(jobCard, days) {
-  // Remove existing job age badge if any
+  // Cache the job age on the job card for persistence
+  jobCard.dataset.jobfiltrAge = days.toString();
+
+  // Check if badge already exists with correct value
   const existingBadge = jobCard.querySelector('.jobfiltr-age-badge');
+  if (existingBadge && existingBadge.dataset.age === days.toString()) {
+    return; // Badge already exists with correct value, no need to recreate
+  }
+
+  // Remove existing job age badge if any
   if (existingBadge) existingBadge.remove();
 
   const ageText = formatJobAge(days);
@@ -1342,6 +1350,7 @@ function addJobAgeBadge(jobCard, days) {
 
   const badge = document.createElement('div');
   badge.className = 'jobfiltr-age-badge';
+  badge.dataset.age = days.toString(); // Store age for comparison
   badge.innerHTML = `<span style="margin-right: 4px;">${icon}</span>${ageText}`;
   badge.style.cssText = `
     position: absolute;
@@ -1415,8 +1424,8 @@ function applyFilters(settings) {
     let shouldHide = false;
     const reasons = [];
 
-    // Remove existing badges first
-    const existingBadges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge, .jobfiltr-age-badge');
+    // Remove existing badges first (but NOT age badges - those persist)
+    const existingBadges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge');
     existingBadges.forEach(b => b.remove());
 
     // Filter 1: Hide Staffing Firms
@@ -1521,7 +1530,11 @@ function applyFilters(settings) {
 
     // Job Age Display (display only, doesn't hide)
     if (settings.showJobAge && !shouldHide) {
-      const jobAge = getJobAge(jobCard);
+      let jobAge = getJobAge(jobCard);
+      // Use cached age if getJobAge returns null but we have a cached value
+      if (jobAge === null && jobCard.dataset.jobfiltrAge) {
+        jobAge = parseInt(jobCard.dataset.jobfiltrAge, 10);
+      }
       if (jobAge !== null) {
         addJobAgeBadge(jobCard, jobAge);
       }
@@ -1602,7 +1615,8 @@ function resetFilters() {
     jobCard.style.display = '';
     delete jobCard.dataset.jobfiltrHidden;
     delete jobCard.dataset.jobfiltrReasons;
-    const badges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge, .jobfiltr-age-badge, .jobfiltr-entry-level-badge');
+    // Remove badges but NOT age badges - those persist permanently
+    const badges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge, .jobfiltr-entry-level-badge');
     badges.forEach(badge => badge.remove());
   });
 
@@ -1817,8 +1831,8 @@ function performIncrementalScan() {
     let shouldHide = false;
     const reasons = [];
 
-    // Remove existing badges first
-    const existingBadges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge, .jobfiltr-age-badge');
+    // Remove existing badges first (but NOT age badges - those persist)
+    const existingBadges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge');
     existingBadges.forEach(b => b.remove());
 
     // Apply all filters
@@ -1874,7 +1888,11 @@ function performIncrementalScan() {
 
     // Job Age Display (display only)
     if (filterSettings.showJobAge && !shouldHide) {
-      const jobAge = getJobAge(jobCard);
+      let jobAge = getJobAge(jobCard);
+      // Use cached age if getJobAge returns null but we have a cached value
+      if (jobAge === null && jobCard.dataset.jobfiltrAge) {
+        jobAge = parseInt(jobCard.dataset.jobfiltrAge, 10);
+      }
       if (jobAge !== null) {
         addJobAgeBadge(jobCard, jobAge);
       }
@@ -2340,7 +2358,11 @@ function performFullScan() {
       // Job Age Display (display only, on visible jobs)
       if (filterSettings.showJobAge) {
         if (!jobCard.querySelector('.jobfiltr-age-badge')) {
-          const jobAge = getJobAge(jobCard);
+          let jobAge = getJobAge(jobCard);
+          // Use cached age if getJobAge returns null but we have a cached value
+          if (jobAge === null && jobCard.dataset.jobfiltrAge) {
+            jobAge = parseInt(jobCard.dataset.jobfiltrAge, 10);
+          }
           if (jobAge !== null) {
             addJobAgeBadge(jobCard, jobAge);
           }
