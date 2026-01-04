@@ -2026,6 +2026,8 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   align-items: flex-start;
   gap: var(--spacing-md);
   padding: var(--spacing-md);
+  margin-left: calc(-1 * var(--spacing-md));
+  margin-right: calc(-1 * var(--spacing-md));
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -3646,6 +3648,8 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   align-items: flex-start;
   gap: var(--spacing-md);
   padding: var(--spacing-md);
+  margin-left: calc(-1 * var(--spacing-md));
+  margin-right: calc(-1 * var(--spacing-md));
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
