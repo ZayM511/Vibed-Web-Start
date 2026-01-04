@@ -3562,14 +3562,15 @@ async function saveTodos() {
 // Setup event listeners for todo list
 function setupTodoEventListeners() {
   // Toggle expand/collapse
+  const todoSection = document.getElementById('todoSection');
   const todoHeader = document.getElementById('todoHeader');
   const todoContent = document.getElementById('todoContent');
   const todoChevron = document.querySelector('.todo-chevron');
 
-  if (todoHeader) {
+  if (todoHeader && todoSection) {
     todoHeader.addEventListener('click', () => {
       todoContent.classList.toggle('hidden');
-      todoHeader.classList.toggle('expanded');
+      todoSection.classList.toggle('expanded');
     });
   }
 
@@ -3694,12 +3695,6 @@ function clearAllTodos() {
   const count = todos[list].length;
 
   if (count === 0) return;
-
-  const confirmMsg = list === 'active'
-    ? `Delete all ${count} active task(s)?`
-    : `Delete all ${count} completed task(s)?`;
-
-  if (!confirm(confirmMsg)) return;
 
   todos[list] = [];
   saveTodos();

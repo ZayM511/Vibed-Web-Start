@@ -2696,7 +2696,27 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 
 .todo-chevron {
   color: var(--text-tertiary);
-  transition: transform var(--transition-normal);
+  transition: transform var(--transition-normal), color var(--transition-fast);
+}
+
+/* Hover animation - bounce down when collapsed, bounce up when expanded */
+.todo-header:hover .todo-chevron {
+  color: var(--accent);
+  animation: todo-chevron-bounce 0.4s ease-in-out;
+}
+
+.todo-section.expanded .todo-header:hover .todo-chevron {
+  animation: todo-chevron-bounce-up 0.4s ease-in-out;
+}
+
+@keyframes todo-chevron-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(3px); }
+}
+
+@keyframes todo-chevron-bounce-up {
+  0%, 100% { transform: rotate(180deg) translateY(0); }
+  50% { transform: rotate(180deg) translateY(3px); }
 }
 
 .todo-section.expanded .todo-chevron {
@@ -3596,8 +3616,10 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 
 .saved-jobs-section {
   margin-top: var(--spacing-lg);
-  padding-top: var(--spacing-lg);
-  border-top: 1px solid var(--border);
+  padding: var(--spacing-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
 .saved-jobs-list {
