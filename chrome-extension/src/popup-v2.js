@@ -1924,14 +1924,17 @@ async function detectCurrentJob() {
 function formatLocationCityState(location) {
   if (!location || location === 'Not detected') return location;
 
+  // First, remove metadata separated by middle dot (·) - LinkedIn adds "· 1 day ago · X people clicked apply" etc.
+  let cleaned = location.split('·')[0].trim();
+
   // Handle special cases
-  const lowerLocation = location.toLowerCase().trim();
+  const lowerLocation = cleaned.toLowerCase().trim();
   if (lowerLocation === 'remote' || lowerLocation.includes('remote')) {
     return 'Remote';
   }
 
   // Remove common suffixes and work type indicators
-  let cleaned = location
+  cleaned = cleaned
     .replace(/\s*\(On-?site\)/gi, '')
     .replace(/\s*\(Hybrid\)/gi, '')
     .replace(/\s*\(Remote\)/gi, '')
