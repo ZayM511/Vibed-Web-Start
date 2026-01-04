@@ -165,12 +165,16 @@ async function saveDisplayName() {
   }
 }
 
+// Close button
+const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+
 // Event listeners
 saveButton.addEventListener('click', saveSettings);
 resetButton.addEventListener('click', resetToDefaults);
 autoScanToggle.addEventListener('click', toggleAutoScan);
 notificationsToggle.addEventListener('click', toggleNotifications);
 themeToggle.addEventListener('click', toggleTheme);
+closeSettingsBtn.addEventListener('click', closeSettingsPage);
 
 // Profile editing listeners
 editNameBtn.addEventListener('click', startEditName);
@@ -291,6 +295,19 @@ function isValidUrl(string) {
   }
 }
 
+// Close the settings page
+function closeSettingsPage() {
+  // Try to close using Chrome tabs API first (works for extension-opened tabs)
+  chrome.tabs.getCurrent((tab) => {
+    if (tab && tab.id) {
+      chrome.tabs.remove(tab.id);
+    } else {
+      // Fallback to window.close() for popup mode
+      window.close();
+    }
+  });
+}
+
 // Handle keyboard shortcuts
 document.addEventListener('keydown', (e) => {
   // Ctrl/Cmd + S to save
@@ -301,6 +318,6 @@ document.addEventListener('keydown', (e) => {
 
   // Escape to close
   if (e.key === 'Escape') {
-    window.close();
+    closeSettingsPage();
   }
 });
