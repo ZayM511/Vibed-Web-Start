@@ -65,7 +65,39 @@ loadSettings();
 const mrrYearEl = document.getElementById('mrrChartYear');
 if (mrrYearEl) mrrYearEl.textContent = new Date().getFullYear();
 
-// ===== PERSONALIZED GREETING SYSTEM (4-hour rotation) =====
+// ===== PERSONALIZED GREETING SYSTEM (4-hour rotation with 2-week non-repetition) =====
+
+// Track recently used greetings to prevent repetition within 2 weeks
+let recentGreetings = {};
+const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+
+async function loadRecentGreetings() {
+  try {
+    const result = await chrome.storage.local.get('founderGreetingHistory');
+    if (result.founderGreetingHistory) {
+      recentGreetings = result.founderGreetingHistory;
+      // Clean up entries older than 2 weeks
+      const now = Date.now();
+      Object.keys(recentGreetings).forEach(key => {
+        if (now - recentGreetings[key] > TWO_WEEKS_MS) {
+          delete recentGreetings[key];
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error loading greeting history:', error);
+  }
+}
+
+async function saveGreetingToHistory(greetingKey) {
+  recentGreetings[greetingKey] = Date.now();
+  try {
+    await chrome.storage.local.set({ founderGreetingHistory: recentGreetings });
+  } catch (error) {
+    console.error('Error saving greeting history:', error);
+  }
+}
+
 function generateFounderGreeting() {
   const now = new Date();
   const hour = now.getHours();
@@ -121,11 +153,42 @@ function generateFounderGreeting() {
     ]
   };
 
-  // Pick a variant based on day of year for variety
-  const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
   const variants = greetingVariants[fourHourWindow];
-  const variantIndex = dayOfYear % variants.length;
-  const selected = variants[variantIndex];
+  const nowTimestamp = Date.now();
+
+  // Filter out recently used greetings (within 2 weeks)
+  const availableVariants = variants.filter((v, index) => {
+    const key = `${fourHourWindow}-${index}`;
+    const lastUsed = recentGreetings[key];
+    return !lastUsed || (nowTimestamp - lastUsed > TWO_WEEKS_MS);
+  });
+
+  // If all variants were used recently, use the oldest one
+  let selected;
+  let selectedKey;
+  if (availableVariants.length === 0) {
+    // Find the variant that was used longest ago
+    let oldestKey = null;
+    let oldestTime = Infinity;
+    variants.forEach((v, index) => {
+      const key = `${fourHourWindow}-${index}`;
+      const lastUsed = recentGreetings[key] || 0;
+      if (lastUsed < oldestTime) {
+        oldestTime = lastUsed;
+        oldestKey = key;
+        selected = v;
+      }
+    });
+    selectedKey = oldestKey;
+  } else {
+    // Pick randomly from available variants for more variety
+    const randomIndex = Math.floor(Math.random() * availableVariants.length);
+    selected = availableVariants[randomIndex];
+    selectedKey = `${fourHourWindow}-${variants.indexOf(selected)}`;
+  }
+
+  // Save this greeting to history
+  saveGreetingToHistory(selectedKey);
 
   timeGreeting = selected.greeting;
   icon = selected.icon;
@@ -1065,8 +1128,10 @@ function isFounder(email) {
   return email && FOUNDER_EMAILS.includes(email.toLowerCase());
 }
 
-function enableFounderMode() {
+async function enableFounderMode() {
   document.body.classList.add('founder-mode');
+  // Load recent greetings before updating to ensure 2-week non-repetition works
+  await loadRecentGreetings();
   updateGreeting();
   loadAnalytics();
   // Match analytics panel height to settings panel after a short delay
