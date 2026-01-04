@@ -17,6 +17,7 @@ let analyticsData = null;
 let growthChart = null;
 let detectionChart = null;
 let mrrChart = null;
+let conversionChart = null;
 
 // DOM Elements
 const convexUrlInput = document.getElementById('convexUrl');
@@ -60,7 +61,7 @@ initTheme();
 initAuth();
 loadSettings();
 
-// ===== PERSONALIZED GREETING SYSTEM =====
+// ===== PERSONALIZED GREETING SYSTEM (4-hour rotation) =====
 function generateFounderGreeting() {
   const now = new Date();
   const hour = now.getHours();
@@ -68,49 +69,65 @@ function generateFounderGreeting() {
   const day = now.getDate();
   const dayOfWeek = now.getDay();
 
-  // Time-based greeting
+  // Calculate 4-hour window (0-3, 4-7, 8-11, 12-15, 16-19, 20-23)
+  const fourHourWindow = Math.floor(hour / 4);
+
+  // Time-based greeting with 4-hour windows for variety
   let timeGreeting = '';
   let icon = '👋';
   let subtext = 'Your dashboard is ready with live analytics.';
 
-  // Late night (12am - 5am)
-  if (hour >= 0 && hour < 5) {
-    timeGreeting = 'Up Late Tonight, Founder!';
-    icon = '🌙';
-    subtext = 'Burning the midnight oil? Here\'s your data.';
-  }
-  // Early morning (5am - 8am)
-  else if (hour >= 5 && hour < 8) {
-    timeGreeting = 'Early Bird, Founder!';
-    icon = '🌅';
-    subtext = 'Starting the day strong with your analytics.';
-  }
-  // Morning (8am - 12pm)
-  else if (hour >= 8 && hour < 12) {
-    timeGreeting = 'Good Morning, Founder!';
-    icon = '☀️';
-    subtext = 'Fresh day, fresh data. Let\'s grow!';
-  }
-  // Afternoon (12pm - 5pm)
-  else if (hour >= 12 && hour < 17) {
-    timeGreeting = 'Good Afternoon, Founder!';
-    icon = '🚀';
-    subtext = 'Midday check-in on your metrics.';
-  }
-  // Evening (5pm - 9pm)
-  else if (hour >= 17 && hour < 21) {
-    timeGreeting = 'Good Evening, Founder!';
-    icon = '🌆';
-    subtext = 'Wrapping up? Here\'s today\'s progress.';
-  }
-  // Night (9pm - 12am)
-  else {
-    timeGreeting = 'Evening, Founder!';
-    icon = '🌃';
-    subtext = 'Night owl mode activated. Your stats await.';
-  }
+  // Greetings rotate based on 4-hour windows
+  const greetingVariants = {
+    // 12am - 4am (Window 0)
+    0: [
+      { greeting: 'Up Late Tonight, Founder!', icon: '🌙', subtext: 'Burning the midnight oil? Here\'s your data.' },
+      { greeting: 'Night Shift, Founder!', icon: '🦉', subtext: 'Late night grind. Your metrics await.' },
+      { greeting: 'Midnight Builder!', icon: '⭐', subtext: 'Working while others sleep. Respect.' }
+    ],
+    // 4am - 8am (Window 1)
+    1: [
+      { greeting: 'Early Bird, Founder!', icon: '🌅', subtext: 'Starting the day strong with your analytics.' },
+      { greeting: 'Rise & Grind, Founder!', icon: '🔥', subtext: 'Early morning momentum. Let\'s go!' },
+      { greeting: 'Dawn Patrol, Founder!', icon: '☕', subtext: 'First light check-in. Here\'s the scoop.' }
+    ],
+    // 8am - 12pm (Window 2)
+    2: [
+      { greeting: 'Good Morning, Founder!', icon: '☀️', subtext: 'Fresh day, fresh data. Let\'s grow!' },
+      { greeting: 'Morning Check-in!', icon: '📊', subtext: 'Your morning metrics are ready.' },
+      { greeting: 'Time to Build, Founder!', icon: '🏗️', subtext: 'Morning momentum at your fingertips.' }
+    ],
+    // 12pm - 4pm (Window 3)
+    3: [
+      { greeting: 'Good Afternoon, Founder!', icon: '🚀', subtext: 'Midday check-in on your metrics.' },
+      { greeting: 'Afternoon Update!', icon: '📈', subtext: 'How\'s the day shaping up? Let\'s see.' },
+      { greeting: 'Lunch Break Insights!', icon: '🎯', subtext: 'Quick look at your progress.' }
+    ],
+    // 4pm - 8pm (Window 4)
+    4: [
+      { greeting: 'Good Evening, Founder!', icon: '🌆', subtext: 'Wrapping up? Here\'s today\'s progress.' },
+      { greeting: 'End of Day Report!', icon: '📋', subtext: 'How did today stack up?' },
+      { greeting: 'Evening Review, Founder!', icon: '🌇', subtext: 'Golden hour for your golden metrics.' }
+    ],
+    // 8pm - 12am (Window 5)
+    5: [
+      { greeting: 'Night Owl, Founder!', icon: '🌃', subtext: 'Night owl mode activated. Your stats await.' },
+      { greeting: 'Evening Hustle!', icon: '💫', subtext: 'Still at it? Here\'s your data.' },
+      { greeting: 'Winding Down, Founder!', icon: '🌙', subtext: 'One last look before rest.' }
+    ]
+  };
 
-  // Day of week special messages
+  // Pick a variant based on day of year for variety
+  const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+  const variants = greetingVariants[fourHourWindow];
+  const variantIndex = dayOfYear % variants.length;
+  const selected = variants[variantIndex];
+
+  timeGreeting = selected.greeting;
+  icon = selected.icon;
+  subtext = selected.subtext;
+
+  // Day of week special messages (override time-based)
   if (dayOfWeek === 1) { // Monday
     timeGreeting = 'Happy Monday, Founder!';
     icon = '💪';
@@ -119,13 +136,13 @@ function generateFounderGreeting() {
     timeGreeting = 'Happy Friday, Founder!';
     icon = '🎉';
     subtext = 'End of week stats looking good?';
-  } else if (dayOfWeek === 0 || dayOfWeek === 6) { // Weekend
+  } else if ((dayOfWeek === 0 || dayOfWeek === 6) && hour >= 8 && hour < 20) { // Weekend daytime
     timeGreeting = 'Weekend Mode, Founder!';
     icon = '☕';
     subtext = 'Building on the weekend? That\'s dedication.';
   }
 
-  // Holiday overrides
+  // Holiday overrides (highest priority)
   const holidays = getHolidayGreeting(month, day);
   if (holidays) {
     timeGreeting = holidays.greeting;
@@ -326,6 +343,11 @@ function updateAnalyticsDashboard(data) {
     updateMRRChart(data.mrrProjection);
     updateMRRProjection(data.mrrProjection);
   }
+
+  // Update conversion rate chart
+  if (data.conversionRateData) {
+    updateConversionChart(data.conversionRateData);
+  }
 }
 
 function animateNumber(elementId, targetValue) {
@@ -380,16 +402,29 @@ function updateGrowthChart(data) {
   const ctx = document.getElementById('growthChart');
   if (!ctx) return;
 
-  const labels = data.map(d => {
-    const date = new Date(d.date);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  });
-  const users = data.map(d => d.users);
-  const scans = data.map(d => d.scans);
-
   // Destroy existing chart if it exists
   if (growthChart) {
     growthChart.destroy();
+  }
+
+  // Handle empty data - show last 30 days with zero values
+  let labels, users, scans;
+  if (data.length === 0) {
+    labels = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      labels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    }
+    users = labels.map(() => 0);
+    scans = labels.map(() => 0);
+  } else {
+    labels = data.map(d => {
+      const date = new Date(d.date);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+    users = data.map(d => d.users);
+    scans = data.map(d => d.scans);
   }
 
   // Get computed styles for theming
@@ -531,23 +566,35 @@ function updateMRRChart(projection) {
     mrrChart.destroy();
   }
 
-  const data = projection.monthlyData || [];
-  const labels = data.map(d => d.month);
-  const actualData = data.map(d => d.isProjected ? null : d.mrr);
-  const projectedData = data.map(d => d.isProjected ? d.mrr : null);
-  // For continuity, include last actual point in projected line
-  const lastActualIndex = data.findIndex(d => d.isProjected) - 1;
-  if (lastActualIndex >= 0 && lastActualIndex < data.length - 1) {
-    projectedData[lastActualIndex] = data[lastActualIndex].mrr;
+  // Update year display first
+  const yearEl = document.getElementById('mrrChartYear');
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const currentMonth = new Date().getMonth();
+
+  // Handle empty data - show all 12 months with zero values
+  let data = projection.monthlyData || [];
+  let labels, actualData, projectedData;
+
+  if (data.length === 0) {
+    labels = monthNames;
+    actualData = monthNames.map((_, i) => i <= currentMonth ? 0 : null);
+    projectedData = monthNames.map((_, i) => i > currentMonth ? 0 : null);
+  } else {
+    labels = data.map(d => d.month);
+    actualData = data.map(d => d.isProjected ? null : d.mrr);
+    projectedData = data.map(d => d.isProjected ? d.mrr : null);
+    // For continuity, include last actual point in projected line
+    const lastActualIndex = data.findIndex(d => d.isProjected) - 1;
+    if (lastActualIndex >= 0 && lastActualIndex < data.length - 1) {
+      projectedData[lastActualIndex] = data[lastActualIndex].mrr;
+    }
   }
 
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
   const textColor = isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)';
-
-  // Update year display
-  const yearEl = document.getElementById('mrrChartYear');
-  if (yearEl) yearEl.textContent = new Date().getFullYear();
 
   mrrChart = new Chart(ctx, {
     type: 'bar',
@@ -741,6 +788,101 @@ document.addEventListener('DOMContentLoaded', setupProjectionToggle);
 // Also try immediately in case DOM is already loaded
 if (document.readyState !== 'loading') {
   setupProjectionToggle();
+}
+
+function updateConversionChart(conversionData) {
+  const ctx = document.getElementById('conversionChart');
+  if (!ctx) return;
+
+  // Destroy existing chart if it exists
+  if (conversionChart) {
+    conversionChart.destroy();
+  }
+
+  const data = conversionData.monthlyData || [];
+
+  // If no data, show empty state message in stats
+  const currentRateEl = document.getElementById('convCurrentRate');
+  const thisMonthEl = document.getElementById('convThisMonth');
+  const avgMonthlyEl = document.getElementById('convAvgMonthly');
+
+  if (data.length === 0) {
+    if (currentRateEl) currentRateEl.textContent = '0%';
+    if (thisMonthEl) thisMonthEl.textContent = '0';
+    if (avgMonthlyEl) avgMonthlyEl.textContent = '0';
+  } else {
+    if (currentRateEl) currentRateEl.textContent = (conversionData.currentRate || 0) + '%';
+    if (thisMonthEl) thisMonthEl.textContent = conversionData.thisMonthConversions || 0;
+    if (avgMonthlyEl) avgMonthlyEl.textContent = conversionData.avgMonthlyConversions || 0;
+  }
+
+  const labels = data.length > 0 ? data.map(d => d.month) : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].slice(0, new Date().getMonth() + 1);
+  const rates = data.length > 0 ? data.map(d => d.rate) : labels.map(() => 0);
+
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+  const textColor = isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)';
+
+  conversionChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Conversion Rate',
+        data: rates,
+        borderColor: '#8B5CF6',
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#8B5CF6',
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: isDark ? '#1f2937' : '#ffffff',
+          titleColor: isDark ? '#ffffff' : '#000000',
+          bodyColor: isDark ? '#d1d5db' : '#6b7280',
+          borderColor: isDark ? '#374151' : '#e5e7eb',
+          borderWidth: 1,
+          padding: 12,
+          callbacks: {
+            label: function(context) {
+              return 'Conversion: ' + context.raw + '%';
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            color: textColor,
+            font: { size: 10 }
+          }
+        },
+        y: {
+          grid: { color: gridColor },
+          ticks: {
+            color: textColor,
+            font: { size: 10 },
+            callback: function(value) {
+              return value + '%';
+            }
+          },
+          beginAtZero: true,
+          suggestedMax: 10
+        }
+      }
+    }
+  });
 }
 
 function updateLastUpdated() {

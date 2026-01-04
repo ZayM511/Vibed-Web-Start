@@ -225,6 +225,52 @@ export const getFounderDashboard = query({
       lastUpdated: now
     };
 
+    // ===== MONTHLY CONVERSION RATE DATA =====
+    const monthlyConversionData: { month: string; rate: number; conversions: number; totalUsers: number }[] = [];
+
+    for (let month = 0; month <= currentMonth; month++) {
+      const monthEnd = new Date(currentYear, month + 1, 0, 23, 59, 59, 999).getTime();
+
+      // Get users at end of month
+      const usersAtMonth = new Set(
+        allScans.filter((s: any) => s.timestamp <= monthEnd).map((s: any) => s.userId)
+      ).size;
+
+      // Get pro users at end of month
+      const proUsersAtMonth = subscriptions.filter(s => {
+        const createdAt = (s as any).createdAt || (s as any)._creationTime || 0;
+        const canceledAt = (s as any).canceledAt || null;
+        const wasCreatedBefore = createdAt <= monthEnd;
+        const wasNotCanceledYet = !canceledAt || canceledAt > monthEnd;
+        return s.plan === "pro" && wasCreatedBefore && wasNotCanceledYet;
+      }).length;
+
+      const conversionRate = usersAtMonth > 0 ? Math.round(proUsersAtMonth / usersAtMonth * 10000) / 100 : 0;
+
+      monthlyConversionData.push({
+        month: monthNames[month],
+        rate: conversionRate,
+        conversions: proUsersAtMonth,
+        totalUsers: usersAtMonth
+      });
+    }
+
+    // Calculate conversion metrics
+    const currentConversionRate = conversionRate;
+    const thisMonthConversions = monthlyConversionData.length > 0
+      ? monthlyConversionData[monthlyConversionData.length - 1].conversions
+      : 0;
+    const avgMonthlyConversions = monthlyConversionData.length > 0
+      ? Math.round(monthlyConversionData.reduce((sum, m) => sum + m.conversions, 0) / monthlyConversionData.length * 10) / 10
+      : 0;
+
+    const conversionRateData = {
+      monthlyData: monthlyConversionData,
+      currentRate: currentConversionRate,
+      thisMonthConversions,
+      avgMonthlyConversions
+    };
+
     // ===== DOCUMENT STATS =====
     const totalDocuments = documents.length;
     const resumeCount = documents.filter(d => d.fileType === "resume").length;
@@ -321,6 +367,7 @@ export const getFounderDashboard = query({
       monthlyMRR,
       projectedARR,
       mrrProjection,
+      conversionRateData,
 
       // Documents
       totalDocuments,
