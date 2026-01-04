@@ -1924,8 +1924,22 @@ async function detectCurrentJob() {
 function formatLocationCityState(location) {
   if (!location || location === 'Not detected') return location;
 
-  // First, remove metadata separated by middle dot (·) - LinkedIn adds "· 1 day ago · X people clicked apply" etc.
-  let cleaned = location.split('·')[0].trim();
+  // First, remove metadata separated by various separators
+  // LinkedIn uses middle dot (·), bullet (•), or other separators before metadata like "1 day ago", "100 people clicked"
+  let cleaned = location
+    .split(/[·•‧∙]/)[0]  // Split on various dot-like characters
+    .split(/\s+[-–—]\s+/)[0]  // Split on dashes with spaces
+    .trim();
+
+  // Also remove common metadata patterns that might not have separators
+  cleaned = cleaned
+    .replace(/\s*Reposted.*$/i, '')
+    .replace(/\s*Posted.*$/i, '')
+    .replace(/\s*\d+\s*(day|hour|week|month)s?\s*ago.*$/i, '')
+    .replace(/\s*\d+\s*people\s*clicked.*$/i, '')
+    .replace(/\s*Promoted.*$/i, '')
+    .replace(/\s*Responses\s*managed.*$/i, '')
+    .trim();
 
   // Handle special cases
   const lowerLocation = cleaned.toLowerCase().trim();
@@ -2469,11 +2483,46 @@ async function loadScanHistory() {
           <div class="history-item-company">${scan.company || 'Unknown Company'}</div>
           <div class="history-item-location">${formatLocationCityState(scan.location) || ''}</div>
         </div>
-        <div class="history-item-datetime">
-          <span class="history-item-date">${dateStr}</span>
-          <span class="history-item-time">${timeStr}</span>
+        <div class="history-item-right">
+          <div class="history-item-datetime">
+            <span class="history-item-date">${dateStr}</span>
+            <span class="history-item-time">${timeStr}</span>
+          </div>
+          <div class="history-item-actions">
+            <button class="history-item-goto" title="Go to job posting" data-url="${scan.url || ''}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button class="history-item-delete" title="Remove" data-index="${index}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
         </div>
       `;
+
+      // Go to job posting
+      historyItem.querySelector('.history-item-goto').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const url = e.currentTarget.dataset.url;
+        if (url) {
+          chrome.tabs.create({ url });
+        }
+      });
+
+      // Delete history item
+      historyItem.querySelector('.history-item-delete').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const idx = parseInt(e.currentTarget.dataset.index);
+        const history = await chrome.storage.local.get('scanHistory');
+        const scanHistory = history.scanHistory || [];
+        scanHistory.splice(idx, 1);
+        await chrome.storage.local.set({ scanHistory });
+        loadScanHistory();
+      });
+
       historyList.appendChild(historyItem);
     });
   } catch (error) {
@@ -2588,21 +2637,23 @@ function renderSavedJobs() {
         <div class="saved-job-company">${job.company}</div>
         <div class="saved-job-location">${formatLocationCityState(job.location) || ''}</div>
       </div>
-      <div class="saved-job-datetime">
-        <span class="saved-job-date">${dateStr}</span>
-        <span class="saved-job-time">${timeStr}</span>
-      </div>
-      <div class="saved-job-actions">
-        <button class="saved-job-goto" title="Go to job posting" data-url="${job.url}">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        <button class="saved-job-delete" title="Remove" data-id="${job.id}">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </button>
+      <div class="saved-job-right">
+        <div class="saved-job-datetime">
+          <span class="saved-job-date">${dateStr}</span>
+          <span class="saved-job-time">${timeStr}</span>
+        </div>
+        <div class="saved-job-actions">
+          <button class="saved-job-goto" title="Go to job posting" data-url="${job.url}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button class="saved-job-delete" title="Remove" data-id="${job.id}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
       </div>
     `;
 

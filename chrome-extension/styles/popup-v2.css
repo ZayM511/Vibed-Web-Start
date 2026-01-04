@@ -1691,6 +1691,59 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   height: 18px;
 }
 
+/* Save Job Button - matches Scan Button design */
+.save-job-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-normal) var(--ease-out);
+}
+
+.save-job-button:hover:not(:disabled) {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px var(--accent-glow);
+}
+
+.save-job-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.save-job-button:disabled {
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  border-color: var(--border);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.save-job-button.saved {
+  background: var(--success);
+  color: white;
+  border-color: var(--success);
+}
+
+.save-job-button.saved:hover {
+  background: var(--success);
+  opacity: 0.9;
+}
+
+.save-job-button svg {
+  width: 18px;
+  height: 18px;
+}
+
 /* Loading Section */
 .loading-section {
   text-align: center;
@@ -1925,6 +1978,167 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
+}
+
+/* History Item Styles */
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+.history-item:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.history-item.warning {
+  border-left: 3px solid var(--warning);
+}
+
+.history-item.danger {
+  border-left: 3px solid var(--danger);
+}
+
+.history-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-item-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: 2px;
+}
+
+.history-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-item-score {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+.history-item.warning .history-item-score {
+  color: var(--warning);
+}
+
+.history-item.danger .history-item-score {
+  color: var(--danger);
+}
+
+.history-item-company {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-item-location {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.history-item-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.history-item-datetime {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.history-item-date {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.history-item-time {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.history-item-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.history-item-goto {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: white;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  box-shadow: 0 2px 6px var(--accent-glow);
+}
+
+.history-item-goto:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.history-item-goto:active {
+  transform: translateY(0) scale(1);
+}
+
+.history-item-goto svg {
+  width: 14px;
+  height: 14px;
+}
+
+.history-item-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.history-item-delete:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.history-item-delete svg {
+  width: 14px;
+  height: 14px;
 }
 
 .empty-state {
@@ -3038,13 +3252,18 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   margin-top: 2px;
 }
 
+.saved-job-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .saved-job-datetime {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-right: var(--spacing-sm);
 }
 
 .saved-job-date {
@@ -3062,8 +3281,7 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 .saved-job-actions {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  flex-shrink: 0;
+  gap: var(--spacing-xs);
 }
 
 /* Redesigned Go to Job Posting Button */
