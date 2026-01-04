@@ -41,7 +41,10 @@
       "Bash(cmd /c \"echo Copying from: .claude\\skills && echo Copying to: %APPDATA%\\Claude\\skills && xcopy .claude\\skills %APPDATA%\\Claude\\skills /E /I /Y /H && echo Done! && dir %APPDATA%\\Claude\\skills\")",
       "Bash(claude --version:*)",
       "Bash(npm update:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Skill(playwright-skill)",
+      "Skill(playwright-skill:*)",
+      "Bash(node -e:*)"
     ],
     "deny": [],
     "ask": [],

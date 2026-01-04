@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Founder Dashboard Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --bg-tertiary: #334155;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-tertiary: #64748b;
+      --accent: #818cf8;
+      --accent-subtle: rgba(129, 140, 248, 0.1);
+      --border: #334155;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    /* Founder Greeting Banner */
+    .founder-greeting {
+      padding: 20px 24px;
+      background: linear-gradient(135deg, var(--accent) 0%, #6366f1 100%);
+      color: white;
+      margin-bottom: 20px;
+      border-radius: 16px;
+    }
+
+    .greeting-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .greeting-text h2 {
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+
+    .greeting-text p {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .greeting-icon {
+      font-size: 32px;
+    }
+
+    /* User Tracking Section */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .metric-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-tertiary);
+      margin-bottom: 4px;
+    }
+
+    .metric-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .metric-subvalue {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+
+    /* Revenue Metrics Section */
+    .revenue-metrics-section {
+      margin-bottom: 20px;
+    }
+
+    .revenue-metrics-section h3 {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .revenue-metrics-section h3 svg {
+      width: 16px;
+      height: 16px;
+      color: var(--accent);
+    }
+
+    .revenue-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .revenue-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px;
+      border-radius: 14px;
+      transition: all 0.2s ease;
+    }
+
+    .revenue-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .mrr-card {
+      background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+      border: 1px solid #10B981;
+    }
+
+    .arr-card {
+      background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);
+      border: 1px solid #8B5CF6;
+    }
+
+    .revenue-card-icon {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      flex-shrink: 0;
+    }
+
+    .revenue-card-icon svg {
+      width: 22px;
+      height: 22px;
+      color: white;
+    }
+
+    .revenue-card-content {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .revenue-card-label {
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 2px;
+    }
+
+    .revenue-card-value {
+      font-size: 26px;
+      font-weight: 700;
+      color: white;
+      line-height: 1.1;
+    }
+
+    .revenue-card-subtext {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-top: 2px;
+    }
+
+    /* Chart Section */
+    .chart-section {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .chart-section h3 {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .chart-section h3 svg {
+      width: 16px;
+      height: 16px;
+      color: var(--accent);
+    }
+
+    .chart-container {
+      position: relative;
+      height: 200px;
+    }
+
+    .daily-refresh-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+      padding: 4px 10px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .daily-refresh-badge svg {
+      color: var(--accent);
+    }
+
+    /* MRR Stats Grid */
+    .mrr-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .mrr-stat-item {
+      text-align: center;
+      padding: 12px 8px;
+      background: var(--bg-tertiary);
+      border-radius: 10px;
+    }
+
+    .mrr-stat-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--text-tertiary);
+      margin-bottom: 4px;
+    }
+
+    .mrr-stat-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    /* Conversion Stats */
+    .conversion-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .conversion-stat-item {
+      text-align: center;
+      padding: 10px 8px;
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+    }
+
+    .conversion-stat-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--text-tertiary);
+      margin-bottom: 4px;
+    }
+
+    .conversion-stat-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .conversion-stat-value.positive {
+      color: #10B981;
+    }
+
+    /* MRR Projection Brief */
+    .mrr-projection-brief {
+      margin-top: 16px;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .projection-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      cursor: pointer;
+    }
+
+    .projection-icon {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+      border-radius: 10px;
+    }
+
+    .projection-icon svg {
+      width: 18px;
+      height: 18px;
+      color: white;
+    }
+
+    .projection-content {
+      flex: 1;
+    }
+
+    .projection-title {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .projection-summary {
+      display: block;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Founder Greeting Banner -->
+    <div class="founder-greeting">
+      <div class="greeting-content">
+        <div class="greeting-text">
+          <h2 id="greetingMessage">Good Afternoon, Founder!</h2>
+          <p id="greetingSubtext">Midday check-in on your metrics.</p>
+        </div>
+        <div class="greeting-icon" id="greetingIcon">🚀</div>
+      </div>
+    </div>
+
+    <!-- User Tracking Section -->
+    <div class="metrics-grid">
+      <div class="metric-card" style="background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%); border-color: #3B82F6;">
+        <div class="metric-label" style="color: rgba(255,255,255,0.8);">Free Users</div>
+        <div class="metric-value" style="color: white; font-weight: 700;">127</div>
+        <div class="metric-subvalue" style="color: rgba(255,255,255,0.7);">currently active</div>
+      </div>
+      <div class="metric-card" style="background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%); border-color: #8B5CF6;">
+        <div class="metric-label" style="color: rgba(255,255,255,0.8);">Pro Subs</div>
+        <div class="metric-value" style="color: white; font-weight: 700;">23</div>
+        <div class="metric-subvalue" style="color: rgba(255,255,255,0.7);">currently active</div>
+      </div>
+    </div>
+
+    <!-- Key Metrics Grid -->
+    <div class="metrics-grid" style="grid-template-columns: repeat(4, 1fr);">
+      <div class="metric-card">
+        <div class="metric-label">Total Users</div>
+        <div class="metric-value">150</div>
+        <div class="metric-subvalue">12 new today</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Active Today</div>
+        <div class="metric-value">45</div>
+        <div class="metric-subvalue">89 this week</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Total Scans</div>
+        <div class="metric-value">1,247</div>
+        <div class="metric-subvalue">67 today</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Avg per User</div>
+        <div class="metric-value">8.3</div>
+        <div class="metric-subvalue">scans per user</div>
+      </div>
+    </div>
+
+    <!-- Revenue Metrics Section -->
+    <div class="revenue-metrics-section">
+      <h3>
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Revenue Metrics
+      </h3>
+      <div class="revenue-cards">
+        <div class="revenue-card mrr-card">
+          <div class="revenue-card-icon">
+            <svg viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+              <path d="M12 6v12M15 9h-4.5a2.5 2.5 0 000 5h3a2.5 2.5 0 010 5H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="revenue-card-content">
+            <span class="revenue-card-label">Monthly MRR</span>
+            <span class="revenue-card-value">$183.77</span>
+            <span class="revenue-card-subtext">23 Pro subscribers x $7.99</span>
+          </div>
+        </div>
+        <div class="revenue-card arr-card">
+          <div class="revenue-card-icon">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M3 3v18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M7 16l4-4 4 4 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="revenue-card-content">
+            <span class="revenue-card-label">Projected ARR</span>
+            <span class="revenue-card-value">$2,205.24</span>
+            <span class="revenue-card-subtext">annual recurring revenue</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MRR Chart Section -->
+    <div class="chart-section">
+      <h3>
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span id="mrrChartYear">2025</span> MRR Overview
+        <span class="daily-refresh-badge">
+          <svg viewBox="0 0 24 24" fill="none" width="12" height="12">
+            <path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Daily refresh
+        </span>
+      </h3>
+      <div class="chart-container" style="height: 220px;">
+        <canvas id="mrrChart"></canvas>
+      </div>
+      <div class="mrr-stats-grid">
+        <div class="mrr-stat-item">
+          <span class="mrr-stat-label">Total Revenue YTD</span>
+          <span class="mrr-stat-value">$183.77</span>
+        </div>
+        <div class="mrr-stat-item">
+          <span class="mrr-stat-label">Avg Monthly MRR</span>
+          <span class="mrr-stat-value">$183.77</span>
+        </div>
+        <div class="mrr-stat-item">
+          <span class="mrr-stat-label">Peak MRR</span>
+          <span class="mrr-stat-value">$183.77</span>
+        </div>
+        <div class="mrr-stat-item">
+          <span class="mrr-stat-label">Growth Rate</span>
+          <span class="mrr-stat-value" style="color: #10B981;">+15.2%</span>
+        </div>
+      </div>
+      <div class="mrr-projection-brief">
+        <div class="projection-header">
+          <div class="projection-icon">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="projection-content">
+            <span class="projection-title">Year-End Projection</span>
+            <span class="projection-summary">Based on current growth, you're projected to reach $312.45 MRR by December (+70% growth).</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 30-Day Growth Trend -->
+    <div class="chart-section">
+      <h3>
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M3 3v18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M18 9l-5 5-4-4-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        30-Day Growth Trend
+      </h3>
+      <div class="chart-container">
+        <canvas id="growthChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Monthly Conversion Rate -->
+    <div class="chart-section">
+      <h3>
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="8.5" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
+          <path d="M20 8v6M23 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Monthly Conversion Rate
+      </h3>
+      <div class="chart-container" style="height: 180px;">
+        <canvas id="conversionChart"></canvas>
+      </div>
+      <div class="conversion-stats">
+        <div class="conversion-stat-item">
+          <span class="conversion-stat-label">Current Rate</span>
+          <span class="conversion-stat-value positive">15.3%</span>
+        </div>
+        <div class="conversion-stat-item">
+          <span class="conversion-stat-label">This Month</span>
+          <span class="conversion-stat-value">23</span>
+        </div>
+        <div class="conversion-stat-item">
+          <span class="conversion-stat-label">Avg Monthly</span>
+          <span class="conversion-stat-value">18</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Update year display
+    document.getElementById('mrrChartYear').textContent = new Date().getFullYear();
+
+    // Generate greeting based on time
+    function updateGreeting() {
+      const hour = new Date().getHours();
+      const fourHourWindow = Math.floor(hour / 4);
+
+      const greetings = {
+        0: { msg: 'Up Late Tonight, Founder!', sub: 'Burning the midnight oil? Here\'s your data.', icon: '🌙' },
+        1: { msg: 'Early Bird, Founder!', sub: 'Starting the day strong with your analytics.', icon: '🌅' },
+        2: { msg: 'Good Morning, Founder!', sub: 'Fresh day, fresh data. Let\'s grow!', icon: '☀️' },
+        3: { msg: 'Good Afternoon, Founder!', sub: 'Midday check-in on your metrics.', icon: '🚀' },
+        4: { msg: 'Good Evening, Founder!', sub: 'Wrapping up? Here\'s today\'s progress.', icon: '🌆' },
+        5: { msg: 'Night Owl, Founder!', sub: 'Night owl mode activated. Your stats await.', icon: '🌃' }
+      };
+
+      const g = greetings[fourHourWindow];
+      document.getElementById('greetingMessage').textContent = g.msg;
+      document.getElementById('greetingSubtext').textContent = g.sub;
+      document.getElementById('greetingIcon').textContent = g.icon;
+    }
+    updateGreeting();
+
+    // MRR Chart
+    const mrrCtx = document.getElementById('mrrChart').getContext('2d');
+    new Chart(mrrCtx, {
+      type: 'bar',
+      data: {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+        datasets: [{
+          label: 'Actual MRR',
+          data: [183.77, null, null, null, null, null, null, null, null, null, null, null],
+          backgroundColor: '#10B981',
+          borderRadius: 6
+        }, {
+          label: 'Projected MRR',
+          data: [null, 195, 210, 228, 248, 265, 280, 295, 305, 312, 318, 325],
+          backgroundColor: 'rgba(16, 185, 129, 0.3)',
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            labels: { color: 'rgba(255,255,255,0.6)', font: { size: 11 } }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)' } },
+          y: {
+            grid: { color: 'rgba(255,255,255,0.1)' },
+            ticks: { color: 'rgba(255,255,255,0.6)', callback: v => '$' + v },
+            beginAtZero: true
+          }
+        }
+      }
+    });
+
+    // Growth Chart
+    const growthCtx = document.getElementById('growthChart').getContext('2d');
+    const last30Days = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      last30Days.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    }
+    new Chart(growthCtx, {
+      type: 'line',
+      data: {
+        labels: last30Days,
+        datasets: [{
+          label: 'Users',
+          data: [45, 48, 52, 55, 58, 62, 65, 68, 72, 75, 78, 82, 85, 88, 92, 95, 98, 102, 105, 108, 112, 115, 118, 122, 125, 128, 132, 138, 145, 150],
+          borderColor: '#818cf8',
+          backgroundColor: 'rgba(129, 140, 248, 0.1)',
+          fill: true,
+          tension: 0.4
+        }, {
+          label: 'Scans',
+          data: [120, 135, 145, 160, 175, 190, 210, 230, 250, 280, 310, 340, 380, 420, 460, 500, 550, 600, 660, 720, 780, 850, 920, 990, 1050, 1100, 1150, 1190, 1220, 1247],
+          borderColor: '#10B981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          fill: true,
+          tension: 0.4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'top', labels: { color: 'rgba(255,255,255,0.6)' } }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)', maxTicksLimit: 10 } },
+          y: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: 'rgba(255,255,255,0.6)' }, beginAtZero: true }
+        }
+      }
+    });
+
+    // Conversion Chart
+    const convCtx = document.getElementById('conversionChart').getContext('2d');
+    new Chart(convCtx, {
+      type: 'line',
+      data: {
+        labels: ['Jan'],
+        datasets: [{
+          label: 'Conversion Rate',
+          data: [15.3],
+          borderColor: '#8B5CF6',
+          backgroundColor: 'rgba(139, 92, 246, 0.1)',
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#8B5CF6',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          pointRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)' } },
+          y: {
+            grid: { color: 'rgba(255,255,255,0.1)' },
+            ticks: { color: 'rgba(255,255,255,0.6)', callback: v => v + '%' },
+            beginAtZero: true,
+            suggestedMax: 20
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
