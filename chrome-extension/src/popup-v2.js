@@ -1742,6 +1742,7 @@ async function saveScanToHistory(result) {
 
     scanHistory.unshift({
       ...currentJobData,
+      location: formatLocationCityState(currentJobData?.location), // Format location to city, state
       ...result,
       timestamp: Date.now()
     });
@@ -1803,6 +1804,7 @@ async function loadScanHistory() {
             <span class="history-item-score">${score}/100</span>
           </div>
           <div class="history-item-company">${scan.company || 'Unknown Company'}</div>
+          <div class="history-item-location">${formatLocationCityState(scan.location) || ''}</div>
         </div>
         <div class="history-item-datetime">
           <span class="history-item-date">${dateStr}</span>
@@ -1905,11 +1907,27 @@ function renderSavedJobs() {
   savedJobs.forEach(job => {
     const jobItem = document.createElement('div');
     jobItem.className = 'saved-job-item';
+
+    // Format date and time for saved job
+    const savedDate = new Date(job.savedAt);
+    const dateStr = savedDate.toLocaleDateString([], {
+      month: 'short',
+      day: 'numeric'
+    });
+    const timeStr = savedDate.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
     jobItem.innerHTML = `
       <div class="saved-job-info">
         <div class="saved-job-title">${job.title}</div>
         <div class="saved-job-company">${job.company}</div>
-        <div class="saved-job-location">${job.location}</div>
+        <div class="saved-job-location">${formatLocationCityState(job.location) || ''}</div>
+      </div>
+      <div class="saved-job-datetime">
+        <span class="saved-job-date">${dateStr}</span>
+        <span class="saved-job-time">${timeStr}</span>
       </div>
       <div class="saved-job-actions">
         <button class="saved-job-goto" title="Go to job posting" data-url="${job.url}">

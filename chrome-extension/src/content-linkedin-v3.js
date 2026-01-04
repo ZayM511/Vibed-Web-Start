@@ -255,6 +255,7 @@ function getApplicantCount(jobCard) {
       '.artdeco-entity-lockup__caption'
     ];
 
+    // FIRST PASS: Look for actual numeric applicant counts
     for (const selector of cardApplicantSelectors) {
       const elems = jobCard.querySelectorAll(selector);
       for (const elem of elems) {
@@ -271,16 +272,10 @@ function getApplicantCount(jobCard) {
         if (applicantMatch) {
           return parseInt(applicantMatch[1]);
         }
-
-        // Check for early applicant indicators LAST (fallback)
-        if (text.includes('be among the first') || text.includes('be an early applicant') ||
-            text.includes('be one of the first')) {
-          return 0; // Return 0 for early applicant (essentially no applicants yet)
-        }
       }
     }
 
-    // Also check the full text content of the job card
+    // Also check the full text content of the job card for numeric counts
     const cardText = jobCard.textContent.toLowerCase();
 
     // Match "X people clicked apply" pattern first
@@ -295,7 +290,19 @@ function getApplicantCount(jobCard) {
       return parseInt(textMatch[1]);
     }
 
-    // Check for early applicant indicators last
+    // SECOND PASS: Only check for early applicant if no numeric count found
+    for (const selector of cardApplicantSelectors) {
+      const elems = jobCard.querySelectorAll(selector);
+      for (const elem of elems) {
+        const text = elem.textContent.trim().toLowerCase();
+        if (text.includes('be among the first') || text.includes('be an early applicant') ||
+            text.includes('be one of the first')) {
+          return 0; // Return 0 for early applicant (essentially no applicants yet)
+        }
+      }
+    }
+
+    // Check full card text for early applicant indicators last
     if (cardText.includes('be among the first') || cardText.includes('be an early applicant')) {
       return 0; // Return 0 for early applicant
     }
@@ -403,6 +410,8 @@ function getDetailPanelApplicantCount() {
       '.job-details-how-you-match__skills-item'
     ];
 
+    // FIRST PASS: Look for actual applicant counts (numbers) across ALL elements
+    // This ensures we don't incorrectly return "early applicant" when a count exists elsewhere
     for (const selector of detailSelectors) {
       const elems = document.querySelectorAll(selector);
       for (const elem of elems) {
@@ -426,16 +435,10 @@ function getDetailPanelApplicantCount() {
           const maxCount = parseInt(fewerMatch[1]);
           return { count: roundToNearestFive(Math.max(5, maxCount - 10)), isEstimate: true, metricType: 'applied' };
         }
-
-        // Check for early applicant indicators LAST
-        if (text.includes('be among the first') || text.includes('be an early applicant') ||
-            text.includes('be one of the first') || text.includes('early applicant')) {
-          return { count: 0, isEstimate: false, metricType: 'early' };
-        }
       }
     }
 
-    // Also scan the whole detail panel text
+    // Also scan the whole detail panel text for counts BEFORE checking early applicant
     const detailPanel = document.querySelector('.jobs-details, .job-view-layout, .scaffold-layout__detail');
     if (detailPanel) {
       const panelText = detailPanel.textContent.toLowerCase();
@@ -458,8 +461,24 @@ function getDetailPanelApplicantCount() {
         const maxCount = parseInt(fewerMatch[1]);
         return { count: roundToNearestFive(Math.max(5, maxCount - 10)), isEstimate: true, metricType: 'applied' };
       }
+    }
 
-      // Check for early applicant indicators last
+    // SECOND PASS: Only check for early applicant if NO numeric count was found
+    // This prevents false "early applicant" when the actual count exists in a different element
+    for (const selector of detailSelectors) {
+      const elems = document.querySelectorAll(selector);
+      for (const elem of elems) {
+        const text = elem.textContent.trim().toLowerCase();
+        if (text.includes('be among the first') || text.includes('be an early applicant') ||
+            text.includes('be one of the first') || text.includes('early applicant')) {
+          return { count: 0, isEstimate: false, metricType: 'early' };
+        }
+      }
+    }
+
+    // Check detail panel text for early applicant last
+    if (detailPanel) {
+      const panelText = detailPanel.textContent.toLowerCase();
       if (panelText.includes('be among the first') || panelText.includes('be an early applicant') ||
           panelText.includes('early applicant')) {
         return { count: 0, isEstimate: false, metricType: 'early' };
@@ -1387,7 +1406,7 @@ function applyFilters(settings) {
 
   log('Applying filters with settings:', settings);
 
-  // Comprehensive job card selectors - includes viewed/visited jobs
+  // Comprehensive job card selectors - includes viewed/visited jobs and dismissible jobs with X button
   const jobCardSelectors = [
     '.jobs-search__results-list > li',
     '.scaffold-layout__list-item',
@@ -1400,6 +1419,14 @@ function applyFilters(settings) {
     '.scaffold-layout__list-item--is-viewed',
     '.jobs-search-results-list__list-item--visited',
     'li.ember-view.jobs-search-results__list-item',
+    // Dismissible jobs with X button (collections, saved jobs, job alerts)
+    '.jobs-unified-list li',
+    '.jobs-unified-list .scaffold-layout__list-item',
+    '.jobs-job-card-list li',
+    '.jobs-job-card-list__item',
+    '.job-card-list li',
+    '.jobs-home-recommendations li',
+    '.jobs-save-list li',
     // Additional selectors for edge cases
     '.jobs-search-results__list-item',
     '.job-card-list__entity-lockup'
@@ -1586,7 +1613,7 @@ function resetFilters() {
   // Clear filter settings
   filterSettings = {};
 
-  // Comprehensive job card selectors - includes viewed/visited jobs
+  // Comprehensive job card selectors - includes viewed/visited jobs and dismissible jobs with X button
   const jobCardSelectors = [
     '.jobs-search__results-list > li',
     '.scaffold-layout__list-item',
@@ -1599,6 +1626,14 @@ function resetFilters() {
     '.scaffold-layout__list-item--is-viewed',
     '.jobs-search-results-list__list-item--visited',
     'li.ember-view.jobs-search-results__list-item',
+    // Dismissible jobs with X button (collections, saved jobs, job alerts)
+    '.jobs-unified-list li',
+    '.jobs-unified-list .scaffold-layout__list-item',
+    '.jobs-job-card-list li',
+    '.jobs-job-card-list__item',
+    '.job-card-list li',
+    '.jobs-home-recommendations li',
+    '.jobs-save-list li',
     '.jobs-search-results__list-item'
   ];
 
@@ -1790,7 +1825,7 @@ function performIncrementalScan() {
   if (isScanning || Object.keys(filterSettings).length === 0) return;
   isScanning = true;
 
-  // Comprehensive job card selectors - includes viewed/visited jobs
+  // Comprehensive job card selectors - includes viewed/visited jobs and dismissible jobs with X button
   const jobCardSelectors = [
     '.jobs-search__results-list > li',
     '.scaffold-layout__list-item',
@@ -1803,6 +1838,14 @@ function performIncrementalScan() {
     '.scaffold-layout__list-item--is-viewed',
     '.jobs-search-results-list__list-item--visited',
     'li.ember-view.jobs-search-results__list-item',
+    // Dismissible jobs with X button (collections, saved jobs, job alerts)
+    '.jobs-unified-list li',
+    '.jobs-unified-list .scaffold-layout__list-item',
+    '.jobs-job-card-list li',
+    '.jobs-job-card-list__item',
+    '.job-card-list li',
+    '.jobs-home-recommendations li',
+    '.jobs-save-list li',
     // Additional selectors
     '.jobs-search-results__list-item',
     '.job-card-list__entity-lockup'
@@ -2208,7 +2251,7 @@ function performFullScan() {
     updateApplicantCountInDetailPanel();
   }
 
-  // Comprehensive job card selectors - includes viewed/visited jobs
+  // Comprehensive job card selectors - includes viewed/visited jobs and dismissible jobs with X button
   const jobCardSelectors = [
     '.jobs-search__results-list > li',
     '.scaffold-layout__list-item',
@@ -2221,6 +2264,14 @@ function performFullScan() {
     '.scaffold-layout__list-item--is-viewed',
     '.jobs-search-results-list__list-item--visited',
     'li.ember-view.jobs-search-results__list-item',
+    // Dismissible jobs with X button (collections, saved jobs, job alerts)
+    '.jobs-unified-list li',
+    '.jobs-unified-list .scaffold-layout__list-item',
+    '.jobs-job-card-list li',
+    '.jobs-job-card-list__item',
+    '.job-card-list li',
+    '.jobs-home-recommendations li',
+    '.jobs-save-list li',
     // Additional selectors for edge cases
     '.jobs-search-results__list-item',
     '.job-card-list__entity-lockup'
