@@ -8,6 +8,15 @@ let hiddenJobsCount = 0;
 let currentPage = 1;
 let lastPageUrl = '';
 
+// ===== EXTENSION CONTEXT VALIDATION =====
+function isExtensionContextValid() {
+  try {
+    return chrome && chrome.runtime && chrome.runtime.id;
+  } catch (e) {
+    return false;
+  }
+}
+
 // ===== IMPROVED LOGGING =====
 function log(message, data = null) {
   const timestamp = new Date().toISOString();
@@ -76,6 +85,8 @@ function checkForPageChange() {
 }
 
 function sendPageUpdate() {
+  if (!isExtensionContextValid()) return;
+
   try {
     chrome.runtime.sendMessage({
       type: 'PAGE_UPDATE',
@@ -84,7 +95,9 @@ function sendPageUpdate() {
       site: 'linkedin'
     });
   } catch (error) {
-    log('Failed to send page update:', error);
+    if (!error.message?.includes('Extension context invalidated')) {
+      log('Failed to send page update:', error);
+    }
   }
 }
 
@@ -1584,15 +1597,19 @@ function applyFilters(settings) {
   });
 
   // Send stats update with page info
-  try {
-    chrome.runtime.sendMessage({
-      type: 'FILTER_STATS_UPDATE',
-      hiddenCount: hiddenJobsCount,
-      page: currentPage,
-      site: 'linkedin'
-    });
-  } catch (error) {
-    log('Failed to send stats update:', error);
+  if (isExtensionContextValid()) {
+    try {
+      chrome.runtime.sendMessage({
+        type: 'FILTER_STATS_UPDATE',
+        hiddenCount: hiddenJobsCount,
+        page: currentPage,
+        site: 'linkedin'
+      });
+    } catch (error) {
+      if (!error.message?.includes('Extension context invalidated')) {
+        log('Failed to send stats update:', error);
+      }
+    }
   }
 
   log(`Filtered ${hiddenJobsCount} jobs out of ${jobCards.length} on page ${currentPage}`);
@@ -1661,10 +1678,14 @@ function resetFilters() {
 
   hiddenJobsCount = 0;
 
-  try {
-    chrome.runtime.sendMessage({ type: 'FILTER_STATS_UPDATE', hiddenCount: 0 });
-  } catch (error) {
-    log('Failed to send reset update:', error);
+  if (isExtensionContextValid()) {
+    try {
+      chrome.runtime.sendMessage({ type: 'FILTER_STATS_UPDATE', hiddenCount: 0 });
+    } catch (error) {
+      if (!error.message?.includes('Extension context invalidated')) {
+        log('Failed to send reset update:', error);
+      }
+    }
   }
 
   log('Filters reset on LinkedIn');
@@ -1972,14 +1993,18 @@ function performIncrementalScan() {
 
   if (newJobsProcessed > 0) {
     log(`Incremental scan: processed ${newJobsProcessed} job cards, ${hiddenJobsCount} total hidden on page ${currentPage}`);
-    try {
-      chrome.runtime.sendMessage({
-        type: 'FILTER_STATS_UPDATE',
-        hiddenCount: hiddenJobsCount,
-        page: currentPage,
-        site: 'linkedin'
-      });
-    } catch (error) {}
+    if (isExtensionContextValid()) {
+      try {
+        chrome.runtime.sendMessage({
+          type: 'FILTER_STATS_UPDATE',
+          hiddenCount: hiddenJobsCount,
+          page: currentPage,
+          site: 'linkedin'
+        });
+      } catch (error) {
+        // Silently ignore errors in background updates
+      }
+    }
   }
 
   isScanning = false;
@@ -2094,6 +2119,12 @@ if (!observerInitialized) {
 
 // ===== AUTO-LOAD SAVED FILTERS ON PAGE LOAD =====
 async function loadAndApplyFilters() {
+  // Check if extension context is valid before attempting to use Chrome APIs
+  if (!isExtensionContextValid()) {
+    log('Extension context invalidated, cannot load filters');
+    return;
+  }
+
   try {
     // Check if user is authenticated before auto-applying filters
     const authResult = await chrome.storage.local.get(['authToken', 'authExpiry']);
@@ -2112,7 +2143,10 @@ async function loadAndApplyFilters() {
       }, 1000);
     }
   } catch (error) {
-    log('Error loading saved filters:', error);
+    // Only log error if it's not a context invalidation error
+    if (!error.message?.includes('Extension context invalidated')) {
+      log('Error loading saved filters:', error);
+    }
   }
 }
 
@@ -2457,14 +2491,18 @@ function performFullScan() {
   // Update count if changed
   if (hiddenCount !== hiddenJobsCount) {
     hiddenJobsCount = hiddenCount;
-    try {
-      chrome.runtime.sendMessage({
-        type: 'FILTER_STATS_UPDATE',
-        hiddenCount: hiddenJobsCount,
-        page: currentPage,
-        site: 'linkedin'
-      });
-    } catch (error) {}
+    if (isExtensionContextValid()) {
+      try {
+        chrome.runtime.sendMessage({
+          type: 'FILTER_STATS_UPDATE',
+          hiddenCount: hiddenJobsCount,
+          page: currentPage,
+          site: 'linkedin'
+        });
+      } catch (error) {
+        // Silently ignore errors in background updates
+      }
+    }
   }
 }
 
@@ -2505,12 +2543,24 @@ function showJobFiltrActiveNotification() {
     return;
   }
 
+  // Check extension context before attempting to send message
+  if (!isExtensionContextValid()) {
+    return;
+  }
+
   // Check if popup is currently open/pinned by querying the background
-  chrome.runtime.sendMessage({ type: 'CHECK_POPUP_STATE' }, (response) => {
-    // If popup is open/pinned, don't show notification
-    if (response && response.popupOpen) {
-      return;
-    }
+  try {
+    chrome.runtime.sendMessage({ type: 'CHECK_POPUP_STATE' }, (response) => {
+      // Check for runtime errors
+      if (chrome.runtime.lastError) {
+        // Extension context invalidated or other error, skip notification
+        return;
+      }
+
+      // If popup is open/pinned, don't show notification
+      if (response && response.popupOpen) {
+        return;
+      }
 
     // Mark as shown for this session
     sessionStorage.setItem(notificationKey, 'true');
@@ -2653,7 +2703,13 @@ function showJobFiltrActiveNotification() {
         dismissNotification(notification);
       }
     }, 4000);
-  });
+    });
+  } catch (error) {
+    // Silently ignore errors when extension context is invalidated
+    if (!error.message?.includes('Extension context invalidated')) {
+      console.error('JobFiltr: Error showing notification:', error);
+    }
+  }
 }
 
 function dismissNotification(notification) {
@@ -2854,6 +2910,12 @@ function showFirstSignInNotification() {
 
 // Check if user is signed in before showing notification
 async function isUserSignedIn() {
+  // Check if extension context is valid before attempting to use Chrome APIs
+  if (!isExtensionContextValid()) {
+    console.warn('JobFiltr: Extension context invalidated, cannot check auth state');
+    return false;
+  }
+
   try {
     const result = await chrome.storage.local.get(['authToken', 'authExpiry']);
     if (result.authToken && result.authExpiry && Date.now() < result.authExpiry) {
@@ -2861,7 +2923,10 @@ async function isUserSignedIn() {
     }
     return false;
   } catch (error) {
-    console.error('JobFiltr: Error checking auth state:', error);
+    // Only log error if it's not a context invalidation error
+    if (!error.message?.includes('Extension context invalidated')) {
+      console.error('JobFiltr: Error checking auth state:', error);
+    }
     return false;
   }
 }
