@@ -2552,22 +2552,22 @@ function showJobFiltrActiveNotification() {
       @keyframes jobfiltr-notif-slide-in {
         from {
           opacity: 0;
-          transform: translateY(-20px) scale(0.95);
+          transform: translateX(100px);
         }
         to {
           opacity: 1;
-          transform: translateY(0) scale(1);
+          transform: translateX(0);
         }
       }
 
       @keyframes jobfiltr-notif-slide-out {
         from {
           opacity: 1;
-          transform: translateY(0) scale(1);
+          transform: translateX(0);
         }
         to {
           opacity: 0;
-          transform: translateY(-20px) scale(0.95);
+          transform: translateX(100px);
         }
       }
 
