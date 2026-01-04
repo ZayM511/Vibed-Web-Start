@@ -384,6 +384,57 @@ function updateSiteStatus(site) {
   }
 }
 
+// ===== CONTENT SCRIPT INJECTION =====
+// Inject content scripts programmatically when not loaded
+async function injectContentScripts(tabId, site) {
+  if (!tabId || !site) {
+    console.warn('Cannot inject content scripts: missing tabId or site');
+    return false;
+  }
+
+  try {
+    // Determine which scripts to inject based on site
+    let scripts = [];
+    let cssFiles = ['styles/content.css'];
+
+    if (site === 'linkedin') {
+      scripts = ['src/content-linkedin-v3.js', 'src/ghost-detection-bundle.js'];
+    } else if (site === 'indeed') {
+      scripts = ['src/content-indeed-v3.js', 'src/ghost-detection-bundle.js'];
+    } else if (site === 'google-jobs') {
+      scripts = ['src/content-google-jobs.js'];
+    } else {
+      console.warn('Unknown site for content script injection:', site);
+      return false;
+    }
+
+    console.log(`Injecting content scripts for ${site}:`, scripts);
+
+    // Inject CSS first
+    await chrome.scripting.insertCSS({
+      target: { tabId },
+      files: cssFiles
+    });
+
+    // Inject JS scripts
+    for (const script of scripts) {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: [script]
+      });
+    }
+
+    // Wait a moment for scripts to initialize
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    console.log('Content scripts injected successfully');
+    return true;
+  } catch (error) {
+    console.error('Failed to inject content scripts:', error);
+    return false;
+  }
+}
+
 // Request current page info from content script
 async function requestPageInfo() {
   try {
@@ -1051,16 +1102,22 @@ document.getElementById('applyFilters').addEventListener('click', async () => {
       return;
     }
 
-    try {
+    const btn = document.getElementById('applyFilters');
+    const originalText = btn.innerHTML;
+
+    // Helper function to send the apply filters message
+    async function sendApplyFilters() {
       await chrome.tabs.sendMessage(tabId, {
         type: 'APPLY_FILTERS',
         settings: filterSettings,
         site: currentSite
       });
+    }
+
+    try {
+      await sendApplyFilters();
 
       // Show success feedback
-      const btn = document.getElementById('applyFilters');
-      const originalText = btn.innerHTML;
       btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Filters Applied!';
       btn.style.background = 'var(--success)';
 
@@ -1071,19 +1128,46 @@ document.getElementById('applyFilters').addEventListener('click', async () => {
 
       updateFilterStats();
     } catch (msgError) {
-      // Handle content script not available
+      // Handle content script not available - try to inject and retry
       if (msgError.message?.includes('Receiving end does not exist')) {
-        console.warn('Content script not loaded on this page');
-        // Show error feedback
-        const btn = document.getElementById('applyFilters');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '⚠ Content script not loaded';
+        console.warn('Content script not loaded, attempting to inject...');
+
+        // Show loading feedback
+        btn.innerHTML = '⏳ Loading scripts...';
+        btn.style.background = 'var(--primary)';
+
+        // Try to inject content scripts
+        const injected = await injectContentScripts(tabId, currentSite);
+
+        if (injected) {
+          try {
+            // Retry sending the message
+            await sendApplyFilters();
+
+            // Show success feedback
+            btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Filters Applied!';
+            btn.style.background = 'var(--success)';
+
+            setTimeout(() => {
+              btn.innerHTML = originalText;
+              btn.style.background = '';
+            }, 2000);
+
+            updateFilterStats();
+            return;
+          } catch (retryError) {
+            console.error('Failed to apply filters after injection:', retryError);
+          }
+        }
+
+        // Injection failed or retry failed
+        btn.innerHTML = '⚠ Please refresh the page';
         btn.style.background = 'var(--error)';
 
         setTimeout(() => {
           btn.innerHTML = originalText;
           btn.style.background = '';
-        }, 2000);
+        }, 3000);
       } else {
         throw msgError;
       }
@@ -1132,14 +1216,30 @@ document.getElementById('resetFilters').addEventListener('click', async () => {
     }
 
     if (tabId) {
-      try {
+      // Helper function to send the reset message
+      async function sendResetFilters() {
         await chrome.tabs.sendMessage(tabId, {
           type: 'RESET_FILTERS'
         });
+      }
+
+      try {
+        await sendResetFilters();
       } catch (msgError) {
-        // Silently ignore if content script is not available
-        // This happens when the tab doesn't have our content script loaded
-        if (!msgError.message?.includes('Receiving end does not exist')) {
+        // If content script not available, try to inject and retry
+        if (msgError.message?.includes('Receiving end does not exist')) {
+          console.warn('Content script not loaded for reset, attempting to inject...');
+
+          const injected = await injectContentScripts(tabId, currentSite);
+          if (injected) {
+            try {
+              await sendResetFilters();
+            } catch (retryError) {
+              // Silently fail on retry - the filters are already reset locally
+              console.warn('Failed to send reset after injection:', retryError);
+            }
+          }
+        } else {
           console.error('Error sending reset message:', msgError);
         }
       }
