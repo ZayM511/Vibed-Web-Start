@@ -2399,3 +2399,176 @@ if (Object.keys(filterSettings).length > 0) {
 }
 
 log(`LinkedIn content script ready with continuous scanning (Page ${currentPage})`);
+
+// ===== JOBFILTR ACTIVE NOTIFICATION =====
+// Shows a small notification when JobFiltr first activates on LinkedIn/Indeed
+
+function showJobFiltrActiveNotification() {
+  // Check if we've already shown the notification this session
+  const notificationKey = 'jobfiltr_notification_shown';
+  if (sessionStorage.getItem(notificationKey)) {
+    return;
+  }
+
+  // Check if popup is currently open/pinned by querying the background
+  chrome.runtime.sendMessage({ type: 'CHECK_POPUP_STATE' }, (response) => {
+    // If popup is open/pinned, don't show notification
+    if (response && response.popupOpen) {
+      return;
+    }
+
+    // Mark as shown for this session
+    sessionStorage.setItem(notificationKey, 'true');
+
+    // Create the notification element
+    const notification = document.createElement('div');
+    notification.id = 'jobfiltr-active-notification';
+    notification.innerHTML = `
+      <div class="jobfiltr-notif-content">
+        <div class="jobfiltr-notif-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          </svg>
+        </div>
+        <div class="jobfiltr-notif-text">
+          <span class="jobfiltr-notif-title">JobFiltr Active</span>
+          <span class="jobfiltr-notif-subtitle">Filtering jobs on this page</span>
+        </div>
+        <button class="jobfiltr-notif-close" aria-label="Close notification">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    `;
+
+    // Add styles
+    const style = document.createElement('style');
+    style.textContent = `
+      #jobfiltr-active-notification {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 99999;
+        animation: jobfiltr-notif-slide-in 0.4s ease-out;
+      }
+
+      @keyframes jobfiltr-notif-slide-in {
+        from {
+          opacity: 0;
+          transform: translateY(20px) scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes jobfiltr-notif-slide-out {
+        from {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+        to {
+          opacity: 0;
+          transform: translateY(20px) scale(0.95);
+        }
+      }
+
+      .jobfiltr-notif-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+
+      .jobfiltr-notif-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        background: rgba(74, 222, 128, 0.2);
+        border-radius: 10px;
+        color: #4ade80;
+        flex-shrink: 0;
+      }
+
+      .jobfiltr-notif-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .jobfiltr-notif-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #ffffff;
+      }
+
+      .jobfiltr-notif-subtitle {
+        font-size: 12px;
+        color: #94a3b8;
+      }
+
+      .jobfiltr-notif-close {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        background: transparent;
+        border: none;
+        border-radius: 6px;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-left: 4px;
+        flex-shrink: 0;
+      }
+
+      .jobfiltr-notif-close:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #ffffff;
+      }
+
+      #jobfiltr-active-notification.hiding {
+        animation: jobfiltr-notif-slide-out 0.3s ease-in forwards;
+      }
+    `;
+
+    document.head.appendChild(style);
+    document.body.appendChild(notification);
+
+    // Close button handler
+    const closeBtn = notification.querySelector('.jobfiltr-notif-close');
+    closeBtn.addEventListener('click', () => {
+      dismissNotification(notification);
+    });
+
+    // Auto-dismiss after 4 seconds
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        dismissNotification(notification);
+      }
+    }, 4000);
+  });
+}
+
+function dismissNotification(notification) {
+  notification.classList.add('hiding');
+  setTimeout(() => {
+    notification.remove();
+  }, 300);
+}
+
+// Show notification after a short delay to ensure page is loaded
+setTimeout(() => {
+  showJobFiltrActiveNotification();
+}, 1500);

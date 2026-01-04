@@ -1922,6 +1922,9 @@ document.getElementById('openWebApp').addEventListener('click', () => {
 
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', () => {
+  // Notify background that popup is opened (for notification suppression)
+  chrome.runtime.sendMessage({ type: 'POPUP_OPENED' }).catch(() => {});
+
   // Detect if in panel mode first
   detectPanelMode();
 

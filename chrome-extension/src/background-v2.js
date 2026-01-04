@@ -37,9 +37,31 @@ chrome.runtime.onInstalled.addListener((details) => {
   }
 });
 
+// ===== POPUP STATE TRACKING =====
+let popupOpenTimestamp = 0;
+const POPUP_OPEN_THRESHOLD = 5000; // Consider popup "open" if opened within last 5 seconds
+
 // ===== MESSAGE HANDLING =====
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('JobFiltr: Message received:', message.type);
+
+  // Check if popup is currently open (for notification suppression)
+  if (message.type === 'CHECK_POPUP_STATE') {
+    // Popup is considered "open" if:
+    // 1. Panel window is open, OR
+    // 2. Popup was opened recently (within threshold)
+    const isPopupOpen = panelWindowId !== null ||
+                        (Date.now() - popupOpenTimestamp < POPUP_OPEN_THRESHOLD);
+    sendResponse({ popupOpen: isPopupOpen });
+    return true;
+  }
+
+  // Track when popup is opened
+  if (message.type === 'POPUP_OPENED') {
+    popupOpenTimestamp = Date.now();
+    sendResponse({ success: true });
+    return true;
+  }
 
   if (message.type === 'FILTER_STATS_UPDATE') {
     // Update badge with hidden jobs count
