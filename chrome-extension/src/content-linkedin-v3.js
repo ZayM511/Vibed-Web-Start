@@ -2505,7 +2505,7 @@ function showJobFiltrActiveNotification() {
           </svg>
         </div>
         <div class="jobfiltr-notif-text">
-          <span class="jobfiltr-notif-title">JobFiltr Active</span>
+          <span class="jobfiltr-notif-title">JobFiltr Is Active</span>
           <span class="jobfiltr-notif-subtitle">Filtering jobs on this page</span>
         </div>
         <button class="jobfiltr-notif-close" aria-label="Close notification">
@@ -2521,7 +2521,7 @@ function showJobFiltrActiveNotification() {
     style.textContent = `
       #jobfiltr-active-notification {
         position: fixed;
-        bottom: 24px;
+        top: 24px;
         right: 24px;
         z-index: 99999;
         animation: jobfiltr-notif-slide-in 0.4s ease-out;
@@ -2530,7 +2530,7 @@ function showJobFiltrActiveNotification() {
       @keyframes jobfiltr-notif-slide-in {
         from {
           opacity: 0;
-          transform: translateY(20px) scale(0.95);
+          transform: translateY(-20px) scale(0.95);
         }
         to {
           opacity: 1;
@@ -2545,7 +2545,7 @@ function showJobFiltrActiveNotification() {
         }
         to {
           opacity: 0;
-          transform: translateY(20px) scale(0.95);
+          transform: translateY(-20px) scale(0.95);
         }
       }
 

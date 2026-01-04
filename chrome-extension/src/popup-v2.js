@@ -31,6 +31,396 @@ initTheme();
 // Theme toggle button
 document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
 
+// ===== AUTHENTICATION =====
+let currentUser = null;
+
+// Check auth state on load
+async function checkAuthState() {
+  try {
+    const { authToken, userEmail, authExpiry } = await chrome.storage.local.get(['authToken', 'userEmail', 'authExpiry']);
+
+    // Check if token exists and hasn't expired
+    if (authToken && authExpiry && Date.now() < authExpiry) {
+      currentUser = { email: userEmail, token: authToken };
+      showAuthenticatedUI();
+      return true;
+    } else {
+      // Clear expired auth
+      await chrome.storage.local.remove(['authToken', 'userEmail', 'authExpiry']);
+      currentUser = null;
+      showAuthOverlay();
+      return false;
+    }
+  } catch (error) {
+    console.error('Error checking auth state:', error);
+    showAuthOverlay();
+    return false;
+  }
+}
+
+function showAuthOverlay() {
+  const overlay = document.getElementById('authOverlay');
+  const userMenu = document.getElementById('userMenu');
+
+  if (overlay) overlay.classList.remove('hidden');
+  if (userMenu) userMenu.classList.add('hidden');
+}
+
+function hideAuthOverlay() {
+  const overlay = document.getElementById('authOverlay');
+  if (overlay) overlay.classList.add('hidden');
+}
+
+function showAuthenticatedUI() {
+  hideAuthOverlay();
+
+  const userMenu = document.getElementById('userMenu');
+  const userEmail = document.getElementById('userEmail');
+
+  if (userMenu) userMenu.classList.remove('hidden');
+  if (userEmail && currentUser) {
+    userEmail.textContent = currentUser.email;
+  }
+}
+
+function showAuthError(message, isCreateForm = false) {
+  const errorEl = document.getElementById(isCreateForm ? 'createAuthError' : 'authError');
+  const errorText = document.getElementById(isCreateForm ? 'createAuthErrorText' : 'authErrorText');
+
+  if (errorEl && errorText) {
+    errorText.textContent = message;
+    errorEl.classList.remove('hidden');
+  }
+}
+
+function hideAuthError(isCreateForm = false) {
+  const errorEl = document.getElementById(isCreateForm ? 'createAuthError' : 'authError');
+  if (errorEl) errorEl.classList.add('hidden');
+}
+
+// Email/Password Sign In
+async function signInWithEmail() {
+  const email = document.getElementById('authEmail')?.value.trim();
+  const password = document.getElementById('authPassword')?.value;
+
+  if (!email || !password) {
+    showAuthError('Please enter email and password');
+    return;
+  }
+
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    showAuthError('Please enter a valid email address');
+    return;
+  }
+
+  hideAuthError();
+
+  const signInBtn = document.getElementById('signInBtn');
+  const originalHTML = signInBtn.innerHTML;
+  signInBtn.innerHTML = '<span>Signing in...</span>';
+  signInBtn.disabled = true;
+
+  try {
+    // Call backend API for authentication
+    const response = await fetch('https://reminiscent-goldfish-690.convex.cloud/api/auth/signin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Sign in failed' }));
+      throw new Error(error.message || 'Invalid email or password');
+    }
+
+    const data = await response.json();
+
+    // Store auth token with 30-day expiry (or until browser restart for session)
+    const expiry = Date.now() + (30 * 24 * 60 * 60 * 1000); // 30 days
+    await chrome.storage.local.set({
+      authToken: data.token,
+      userEmail: email,
+      authExpiry: expiry
+    });
+
+    currentUser = { email, token: data.token };
+    showAuthenticatedUI();
+
+  } catch (error) {
+    console.error('Sign in error:', error);
+    showAuthError(error.message || 'Sign in failed. Please try again.');
+  } finally {
+    signInBtn.innerHTML = originalHTML;
+    signInBtn.disabled = false;
+  }
+}
+
+// Google OAuth Sign In
+async function signInWithGoogle() {
+  const googleBtn = document.getElementById('googleSignInBtn');
+  const originalHTML = googleBtn.innerHTML;
+
+  try {
+    googleBtn.innerHTML = '<span>Connecting...</span>';
+    googleBtn.disabled = true;
+
+    // Use chrome.identity for Google OAuth
+    const redirectUri = chrome.identity.getRedirectURL();
+    const clientId = ''; // To be configured in manifest and Google Cloud Console
+
+    // Build OAuth URL
+    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    authUrl.searchParams.set('client_id', clientId);
+    authUrl.searchParams.set('redirect_uri', redirectUri);
+    authUrl.searchParams.set('response_type', 'token');
+    authUrl.searchParams.set('scope', 'email profile');
+
+    // Launch OAuth flow
+    const responseUrl = await new Promise((resolve, reject) => {
+      chrome.identity.launchWebAuthFlow(
+        { url: authUrl.toString(), interactive: true },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(response);
+          }
+        }
+      );
+    });
+
+    // Extract token from response URL
+    const url = new URL(responseUrl);
+    const accessToken = new URLSearchParams(url.hash.substring(1)).get('access_token');
+
+    if (!accessToken) {
+      throw new Error('Failed to get access token');
+    }
+
+    // Get user info from Google
+    const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+
+    const userInfo = await userInfoResponse.json();
+
+    // Exchange Google token for our backend token
+    const backendResponse = await fetch('https://reminiscent-goldfish-690.convex.cloud/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        googleToken: accessToken,
+        email: userInfo.email,
+        name: userInfo.name
+      })
+    });
+
+    if (!backendResponse.ok) {
+      throw new Error('Failed to authenticate with backend');
+    }
+
+    const data = await backendResponse.json();
+
+    // Store auth
+    const expiry = Date.now() + (30 * 24 * 60 * 60 * 1000);
+    await chrome.storage.local.set({
+      authToken: data.token,
+      userEmail: userInfo.email,
+      authExpiry: expiry
+    });
+
+    currentUser = { email: userInfo.email, token: data.token };
+    showAuthenticatedUI();
+
+  } catch (error) {
+    console.error('Google sign in error:', error);
+    showAuthError('Google sign in failed. Please try again.');
+  } finally {
+    googleBtn.innerHTML = originalHTML;
+    googleBtn.disabled = false;
+  }
+}
+
+// Create Account
+async function createAccount() {
+  const email = document.getElementById('createEmail')?.value.trim();
+  const password = document.getElementById('createPassword')?.value;
+  const confirmPassword = document.getElementById('confirmPassword')?.value;
+
+  if (!email || !password || !confirmPassword) {
+    showAuthError('Please fill in all fields', true);
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    showAuthError('Please enter a valid email address', true);
+    return;
+  }
+
+  if (password.length < 8) {
+    showAuthError('Password must be at least 8 characters', true);
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    showAuthError('Passwords do not match', true);
+    return;
+  }
+
+  hideAuthError(true);
+
+  const createBtn = document.getElementById('createAccountBtn');
+  const originalHTML = createBtn.innerHTML;
+  createBtn.innerHTML = '<span>Creating account...</span>';
+  createBtn.disabled = true;
+
+  try {
+    const response = await fetch('https://reminiscent-goldfish-690.convex.cloud/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Account creation failed' }));
+      throw new Error(error.message || 'Failed to create account');
+    }
+
+    const data = await response.json();
+
+    const expiry = Date.now() + (30 * 24 * 60 * 60 * 1000);
+    await chrome.storage.local.set({
+      authToken: data.token,
+      userEmail: email,
+      authExpiry: expiry
+    });
+
+    currentUser = { email, token: data.token };
+    showAuthenticatedUI();
+
+  } catch (error) {
+    console.error('Create account error:', error);
+    showAuthError(error.message || 'Failed to create account. Please try again.', true);
+  } finally {
+    createBtn.innerHTML = originalHTML;
+    createBtn.disabled = false;
+  }
+}
+
+// Sign Out
+async function signOut() {
+  try {
+    await chrome.storage.local.remove(['authToken', 'userEmail', 'authExpiry']);
+    currentUser = null;
+
+    // Clear form fields
+    const emailInput = document.getElementById('authEmail');
+    const passwordInput = document.getElementById('authPassword');
+    if (emailInput) emailInput.value = '';
+    if (passwordInput) passwordInput.value = '';
+
+    // Close dropdown
+    const dropdown = document.getElementById('userDropdown');
+    if (dropdown) dropdown.classList.add('hidden');
+
+    showAuthOverlay();
+  } catch (error) {
+    console.error('Sign out error:', error);
+  }
+}
+
+// Toggle between sign in and create account forms
+function showSignInForm() {
+  document.getElementById('signInForm')?.classList.remove('hidden');
+  document.getElementById('createAccountForm')?.classList.add('hidden');
+  document.querySelector('.auth-divider')?.classList.remove('hidden');
+  document.getElementById('googleSignInBtn')?.classList.remove('hidden');
+  document.querySelector('#authSwitchToSignUp')?.parentElement?.classList.remove('hidden');
+  document.getElementById('authSwitchToSignInFooter').style.display = 'none';
+  hideAuthError();
+  hideAuthError(true);
+}
+
+function showCreateAccountForm() {
+  document.getElementById('signInForm')?.classList.add('hidden');
+  document.getElementById('createAccountForm')?.classList.remove('hidden');
+  document.querySelector('.auth-divider')?.classList.add('hidden');
+  document.getElementById('googleSignInBtn')?.classList.add('hidden');
+  document.querySelector('#authSwitchToSignUp')?.parentElement?.classList.add('hidden');
+  document.getElementById('authSwitchToSignInFooter').style.display = 'block';
+  hideAuthError();
+  hideAuthError(true);
+}
+
+// Auth event listeners
+document.getElementById('signInBtn')?.addEventListener('click', signInWithEmail);
+document.getElementById('googleSignInBtn')?.addEventListener('click', signInWithGoogle);
+document.getElementById('createAccountBtn')?.addEventListener('click', createAccount);
+document.getElementById('signOutBtn')?.addEventListener('click', signOut);
+
+document.querySelector('#authSwitchToSignUp button')?.addEventListener('click', showCreateAccountForm);
+document.querySelector('#authSwitchToSignIn button')?.addEventListener('click', showSignInForm);
+
+// Password visibility toggle
+document.getElementById('togglePassword')?.addEventListener('click', () => {
+  const passwordInput = document.getElementById('authPassword');
+  const eyeOpen = document.querySelector('.eye-open');
+  const eyeClosed = document.querySelector('.eye-closed');
+
+  if (passwordInput.type === 'password') {
+    passwordInput.type = 'text';
+    eyeOpen.classList.add('hidden');
+    eyeClosed.classList.remove('hidden');
+  } else {
+    passwordInput.type = 'password';
+    eyeOpen.classList.remove('hidden');
+    eyeClosed.classList.add('hidden');
+  }
+});
+
+// User dropdown toggle
+document.getElementById('userBtn')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const dropdown = document.getElementById('userDropdown');
+  dropdown.classList.toggle('hidden');
+});
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  const userMenu = document.getElementById('userMenu');
+  const dropdown = document.getElementById('userDropdown');
+  if (userMenu && !userMenu.contains(e.target)) {
+    dropdown?.classList.add('hidden');
+  }
+});
+
+// Enter key support for forms
+document.getElementById('authEmail')?.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') document.getElementById('authPassword')?.focus();
+});
+
+document.getElementById('authPassword')?.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') signInWithEmail();
+});
+
+document.getElementById('createEmail')?.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') document.getElementById('createPassword')?.focus();
+});
+
+document.getElementById('createPassword')?.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') document.getElementById('confirmPassword')?.focus();
+});
+
+document.getElementById('confirmPassword')?.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') createAccount();
+});
+
+// Check auth on load
+checkAuthState();
+
 // ===== PANEL MODE DETECTION & MANAGEMENT =====
 let isPanelMode = false;
 let currentDockSide = null;
@@ -1993,28 +2383,11 @@ function checkIfJobIsSaved() {
   document.getElementById('saveJobButton').disabled = false;
   const isSaved = savedJobs.some(job => job.url === currentJobData.url);
   updateSaveJobButton(isSaved);
-
-  // Update goto link
-  const gotoLink = document.getElementById('gotoJobLink');
-  if (gotoLink && currentJobData.url) {
-    gotoLink.href = currentJobData.url;
-  }
 }
 
 // Save Job Button
-document.getElementById('saveJobButton')?.addEventListener('click', async (e) => {
-  // Prevent goto link from triggering
-  if (e.target.closest('.goto-job-link')) return;
+document.getElementById('saveJobButton')?.addEventListener('click', async () => {
   await saveCurrentJob();
-});
-
-// Goto Job Link
-document.getElementById('gotoJobLink')?.addEventListener('click', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  if (currentJobData && currentJobData.url) {
-    chrome.tabs.create({ url: currentJobData.url });
-  }
 });
 
 // Clear Saved Jobs Button
