@@ -61,6 +61,10 @@ initTheme();
 initAuth();
 loadSettings();
 
+// Set MRR chart year to current year immediately
+const mrrYearEl = document.getElementById('mrrChartYear');
+if (mrrYearEl) mrrYearEl.textContent = new Date().getFullYear();
+
 // ===== PERSONALIZED GREETING SYSTEM (4-hour rotation) =====
 function generateFounderGreeting() {
   const now = new Date();
@@ -255,6 +259,37 @@ async function getConvexUrl() {
 
 function showDemoAnalytics() {
   // Demo data for when API is unavailable
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth();
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  // Generate demo MRR monthly data for current year
+  const demoMonthlyMRR = monthNames.map((month, i) => ({
+    month,
+    mrr: i <= currentMonth ? 0 : 0,
+    isProjected: i > currentMonth
+  }));
+
+  // Generate demo growth data (last 30 days)
+  const demoGrowthData = [];
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    demoGrowthData.push({
+      date: date.toISOString(),
+      users: 0,
+      scans: 0
+    });
+  }
+
+  // Generate demo conversion data
+  const demoConversionData = monthNames.slice(0, currentMonth + 1).map(month => ({
+    month,
+    rate: 0,
+    conversions: 0,
+    totalUsers: 0
+  }));
+
   const demoData = {
     totalUsers: 0,
     newUsers24h: 0,
@@ -272,9 +307,36 @@ function showDemoAnalytics() {
     totalFeedback: 0,
     totalReviews: 0,
     proUsers: 0,
+    freeUsers: 0,
     chromeExtScans: 0,
-    growthData: [],
-    detectionBreakdown: []
+    chromeExtDownloadsTotal: 0,
+    chromeExtDownloadsToday: 0,
+    growthData: demoGrowthData,
+    detectionBreakdown: [
+      { type: 'Legitimate', count: 0, color: '#10B981' },
+      { type: 'Scam', count: 0, color: '#EF4444' },
+      { type: 'Ghost', count: 0, color: '#F59E0B' },
+      { type: 'Spam', count: 0, color: '#8B5CF6' }
+    ],
+    mrrProjection: {
+      monthlyData: demoMonthlyMRR,
+      currentMRR: 0,
+      totalYearRevenue: 0,
+      avgMRR: 0,
+      peakMRR: 0,
+      avgMonthlyGrowthRate: 0,
+      yearEndProjectedMRR: 0,
+      yearEndProjectedARR: 0,
+      peakMonth: '--',
+      monthsWithData: 0,
+      lastUpdated: new Date().toISOString()
+    },
+    conversionRateData: {
+      monthlyData: demoConversionData,
+      currentRate: 0,
+      thisMonthConversions: 0,
+      avgMonthlyConversions: 0
+    }
   };
   updateAnalyticsDashboard(demoData);
 }
