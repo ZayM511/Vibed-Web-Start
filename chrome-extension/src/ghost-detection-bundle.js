@@ -80,8 +80,18 @@
     description: '.jobs-description__content, .jobs-description-content__text, .jobs-box__html-content, .jobs-description',
     easyApply: '.jobs-apply-button--top-card, .jobs-apply-button, .jobs-s-apply button',
     promoted: '.job-card-container__footer-job-state, .promoted-badge',
-    // Multiple fallback targets for score injection
+    // Multiple fallback targets for score injection (updated for 2025 LinkedIn layout)
     scoreTargets: [
+      // Modern LinkedIn selectors (2025+)
+      '.jobs-details__main-content .jobs-details-top-card__container',
+      '.jobs-search__job-details .jobs-details-top-card',
+      '.scaffold-layout__detail .jobs-unified-top-card',
+      '.jobs-details .artdeco-card',
+      '.job-details-jobs-unified-top-card',
+      '.jobs-details-top-card__container',
+      '.jobs-search__right-rail .jobs-details-top-card',
+
+      // Legacy selectors (keep for compatibility)
       '.job-details-jobs-unified-top-card__primary-description-container',
       '.job-details-jobs-unified-top-card__primary-description',
       '.jobs-unified-top-card__primary-description',
@@ -93,6 +103,12 @@
       '.job-view-layout header',
       '.jobs-unified-top-card',
       '.jobs-details-top-card',
+
+      // Absolute fallbacks (very broad)
+      '.jobs-search__job-details',
+      '.scaffold-layout__detail',
+      '.jobs-details__main-content',
+      '[data-job-id]',
     ],
   };
 
@@ -594,6 +610,16 @@
         from { opacity: 0; transform: scale(0.9); }
         to { opacity: 1; transform: scale(1); }
       }
+      @keyframes slideInRight {
+        from {
+          opacity: 0;
+          transform: translateX(100px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
       .jobfiltr-ghost-score:hover {
         transform: scale(1.02);
         box-shadow: 0 6px 20px rgba(0,0,0,0.35) !important;
@@ -753,6 +779,7 @@
   function injectScoreUI(score, category, scoreTargets, onClick) {
     injectStyles();
     document.querySelector('.jobfiltr-ghost-score')?.remove();
+    document.getElementById('jobfiltr-floating-badge-container')?.remove();
 
     // Handle both single selector (string) and array of selectors
     const selectors = Array.isArray(scoreTargets) ? scoreTargets : [scoreTargets];
@@ -771,10 +798,24 @@
 
     if (!target) {
       console.warn('[GhostDetection] Could not find injection target. Tried:', selectors.join(', '));
-      return false;
-    }
 
-    console.log('[GhostDetection] Found injection target:', usedSelector);
+      // Last resort fallback: create a floating badge at the top of the viewport
+      console.log('[GhostDetection] Using floating badge fallback');
+      const floatingContainer = document.createElement('div');
+      floatingContainer.id = 'jobfiltr-floating-badge-container';
+      floatingContainer.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        z-index: 9999;
+        animation: slideInRight 0.3s ease-out;
+      `;
+      document.body.appendChild(floatingContainer);
+      target = floatingContainer;
+      usedSelector = 'floating-fallback';
+    } else {
+      console.log('[GhostDetection] Found injection target:', usedSelector);
+    }
 
     const color = SCORE_COLORS[category] || SCORE_COLORS.medium_risk;
     const label = SCORE_LABELS[category] || 'Unknown';
