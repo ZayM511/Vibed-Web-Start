@@ -1375,12 +1375,45 @@ function applyFilters(settings) {
       const applicantCount = getApplicantCount(jobCard);
       if (applicantCount !== null) {
         const range = settings.applicantRange;
-        if (range === 'under10' && applicantCount >= 10) shouldHide = true;
-        if (range === '10-50' && (applicantCount < 10 || applicantCount > 50)) shouldHide = true;
-        if (range === '50-200' && (applicantCount < 50 || applicantCount > 200)) shouldHide = true;
-        if (range === 'over200' && applicantCount < 200) shouldHide = true;
-        if (range === 'over500' && applicantCount < 500) shouldHide = true;
-        if (shouldHide) reasons.push(`Applicants: ${applicantCount}`);
+        let applicantMismatch = false;
+        if (range === 'zero' && applicantCount > 0) applicantMismatch = true;
+        if (range === 'under5' && applicantCount >= 5) applicantMismatch = true;
+        if (range === 'under10' && applicantCount >= 10) applicantMismatch = true;
+        if (range === '10-50' && (applicantCount < 10 || applicantCount > 50)) applicantMismatch = true;
+        if (range === '50-200' && (applicantCount < 50 || applicantCount > 200)) applicantMismatch = true;
+        if (range === 'over200' && applicantCount < 200) applicantMismatch = true;
+        if (range === 'over500' && applicantCount < 500) applicantMismatch = true;
+        if (applicantMismatch) {
+          shouldHide = true;
+          reasons.push(`Applicants: ${applicantCount}`);
+        }
+      } else if (settings.applicantRange === 'zero') {
+        // For "zero applicants" filter, check for early applicant indicators
+        const jobText = getJobCardText(jobCard);
+        const hasEarlyApplicantText = /be among the first|be an early applicant|be one of the first/i.test(jobText);
+        if (!hasEarlyApplicantText) {
+          // If no early applicant indicator, can't confirm zero applicants - don't hide
+        }
+      }
+    }
+
+    // Filter 3.5: Job Posting Age
+    if (settings.filterPostingAge) {
+      const jobAge = getJobAge(jobCard);
+      if (jobAge !== null) {
+        const range = settings.postingAgeRange;
+        let maxDays = 7; // default 1 week
+        if (range === '12h') maxDays = 0.5;
+        if (range === '24h') maxDays = 1;
+        if (range === '3d') maxDays = 3;
+        if (range === '1w') maxDays = 7;
+        if (range === '2w') maxDays = 14;
+        if (range === '1m') maxDays = 30;
+
+        if (jobAge > maxDays) {
+          shouldHide = true;
+          reasons.push(`Posted ${jobAge} days ago (max: ${maxDays})`);
+        }
       }
     }
 
@@ -2148,12 +2181,38 @@ function performFullScan() {
       const applicantCount = getApplicantCount(jobCard);
       if (applicantCount !== null) {
         const range = filterSettings.applicantRange;
-        if (range === 'under10' && applicantCount >= 10) shouldHide = true;
-        if (range === '10-50' && (applicantCount < 10 || applicantCount > 50)) shouldHide = true;
-        if (range === '50-200' && (applicantCount < 50 || applicantCount > 200)) shouldHide = true;
-        if (range === 'over200' && applicantCount < 200) shouldHide = true;
-        if (range === 'over500' && applicantCount < 500) shouldHide = true;
-        if (shouldHide && !reasons.includes('Applicants')) reasons.push(`Applicants: ${applicantCount}`);
+        let applicantMismatch = false;
+        if (range === 'zero' && applicantCount > 0) applicantMismatch = true;
+        if (range === 'under5' && applicantCount >= 5) applicantMismatch = true;
+        if (range === 'under10' && applicantCount >= 10) applicantMismatch = true;
+        if (range === '10-50' && (applicantCount < 10 || applicantCount > 50)) applicantMismatch = true;
+        if (range === '50-200' && (applicantCount < 50 || applicantCount > 200)) applicantMismatch = true;
+        if (range === 'over200' && applicantCount < 200) applicantMismatch = true;
+        if (range === 'over500' && applicantCount < 500) applicantMismatch = true;
+        if (applicantMismatch && !reasons.includes('Applicants')) {
+          shouldHide = true;
+          reasons.push(`Applicants: ${applicantCount}`);
+        }
+      }
+    }
+
+    // Filter 3.5: Job Posting Age
+    if (filterSettings.filterPostingAge) {
+      const jobAge = getJobAge(jobCard);
+      if (jobAge !== null) {
+        const range = filterSettings.postingAgeRange;
+        let maxDays = 7;
+        if (range === '12h') maxDays = 0.5;
+        if (range === '24h') maxDays = 1;
+        if (range === '3d') maxDays = 3;
+        if (range === '1w') maxDays = 7;
+        if (range === '2w') maxDays = 14;
+        if (range === '1m') maxDays = 30;
+
+        if (jobAge > maxDays) {
+          shouldHide = true;
+          reasons.push(`Too old: ${jobAge}d`);
+        }
       }
     }
 

@@ -911,12 +911,12 @@
       ${darkMode ? 'border: 1px solid #3f3f46;' : ''}
     `;
 
-    // SVG ghost icon (regular ghost without tongue) - theme aware
+    // SVG ghost icon - clean, friendly ghost design (no tongue) - theme aware
     const ghostIconSvg = `
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle; margin-right: 8px;">
-        <path d="M12 2C7.58 2 4 5.58 4 10v10.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19c0-.55.45-1 1-1s1 .45 1 1v1.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19c0-.55.45-1 1-1s1 .45 1 1v1.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V10c0-4.42-3.58-8-8-8z" fill="${theme.ghostIconFill}"/>
-        <circle cx="9" cy="10" r="1.5" fill="${theme.ghostEyeFill}"/>
-        <circle cx="15" cy="10" r="1.5" fill="${theme.ghostEyeFill}"/>
+        <path d="M12 2C7.03 2 3 6.03 3 11v9c0 .83.94 1.3 1.58.79L6 19.5l1.42 1.29c.39.35.97.35 1.36 0L10.2 19.5l1.42 1.29c.39.35.97.35 1.36 0L14.4 19.5l1.42 1.29c.39.35.97.35 1.36 0L18.6 19.5l1.42 1.29c.64.51 1.58.04 1.58-.79v-9c0-4.97-4.03-9-9-9z" fill="${theme.ghostIconFill}"/>
+        <circle cx="9" cy="11" r="1.5" fill="${theme.ghostEyeFill}"/>
+        <circle cx="15" cy="11" r="1.5" fill="${theme.ghostEyeFill}"/>
       </svg>
     `;
 

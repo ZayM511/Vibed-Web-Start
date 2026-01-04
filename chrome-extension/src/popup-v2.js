@@ -462,6 +462,10 @@ async function loadFilterSettings() {
     // Applicant Count Display
     document.getElementById('showApplicantCount').checked = filterSettings.showApplicantCount || false;
 
+    // Job Posting Age Filter
+    document.getElementById('filterPostingAge').checked = filterSettings.filterPostingAge || false;
+    document.getElementById('postingAgeRange').value = filterSettings.postingAgeRange || '1w';
+
     // Load keywords
     includeKeywords = filterSettings.includeKeywords || [];
     excludeKeywords = filterSettings.excludeKeywords || [];
@@ -512,7 +516,10 @@ async function saveFilterSettings() {
     // Benefits Indicator
     showBenefitsIndicator: document.getElementById('showBenefitsIndicator').checked,
     // Applicant Count Display
-    showApplicantCount: document.getElementById('showApplicantCount').checked
+    showApplicantCount: document.getElementById('showApplicantCount').checked,
+    // Job Posting Age Filter
+    filterPostingAge: document.getElementById('filterPostingAge').checked,
+    postingAgeRange: document.getElementById('postingAgeRange').value
   };
 
   await chrome.storage.local.set({ filterSettings });
@@ -524,6 +531,7 @@ function updateFilterStats() {
     'hideStaffing',
     'hideSponsored',
     'filterApplicants',
+    'filterPostingAge',
     'entryLevelAccuracy',
     'filterIncludeKeywords',
     'filterExcludeKeywords',
@@ -689,7 +697,7 @@ async function saveTemplates() {
 
 function countActiveFilters(settings) {
   const mainFilters = [
-    'hideStaffing', 'hideSponsored', 'filterApplicants', 'entryLevelAccuracy',
+    'hideStaffing', 'hideSponsored', 'filterApplicants', 'filterPostingAge', 'entryLevelAccuracy',
     'trueRemoteAccuracy', 'filterIncludeKeywords', 'filterExcludeKeywords',
     'filterSalary', 'showActiveRecruiting', 'showJobAge', 'hideApplied',
     'visaOnly', 'easyApplyOnly', 'showBenefitsIndicator', 'showApplicantCount'
@@ -703,6 +711,8 @@ function getCurrentFilterSettings() {
     hideSponsored: document.getElementById('filterSponsored').checked,
     filterApplicants: document.getElementById('filterApplicants').checked,
     applicantRange: document.getElementById('applicantRange').value,
+    filterPostingAge: document.getElementById('filterPostingAge').checked,
+    postingAgeRange: document.getElementById('postingAgeRange').value,
     entryLevelAccuracy: document.getElementById('filterEntryLevel').checked,
     trueRemoteAccuracy: document.getElementById('filterTrueRemote').checked,
     excludeHybrid: document.getElementById('excludeHybrid').checked,
@@ -732,6 +742,8 @@ function applyTemplateSettings(settings) {
   document.getElementById('filterSponsored').checked = settings.hideSponsored || false;
   document.getElementById('filterApplicants').checked = settings.filterApplicants || false;
   document.getElementById('applicantRange').value = settings.applicantRange || 'under10';
+  document.getElementById('filterPostingAge').checked = settings.filterPostingAge || false;
+  document.getElementById('postingAgeRange').value = settings.postingAgeRange || '1w';
   document.getElementById('filterEntryLevel').checked = settings.entryLevelAccuracy || false;
   document.getElementById('filterTrueRemote').checked = settings.trueRemoteAccuracy || false;
   document.getElementById('excludeHybrid').checked = settings.excludeHybrid !== false;
@@ -1360,6 +1372,43 @@ function performLocalGhostAnalysis(jobData) {
   const redFlags = [];
   let score = 100; // Start with perfect score, subtract for issues
 
+  // Track signals for confidence and breakdown calculations
+  const signals = [];
+  const breakdown = {
+    temporal: 0,
+    content: 0,
+    company: 0,
+    behavioral: 0
+  };
+
+  // ===== TEMPORAL SIGNALS =====
+  // Check posting age if available
+  let temporalRisk = 0;
+  let temporalConfidence = 0.5;
+  if (jobData.postedDate) {
+    const daysPosted = parsePostingAge(jobData.postedDate);
+    if (daysPosted !== null) {
+      temporalConfidence = 0.9;
+      if (daysPosted > 60) {
+        temporalRisk = 0.8;
+        redFlags.push(`Job posted ${daysPosted} days ago (stale posting)`);
+        score -= 20;
+      } else if (daysPosted > 30) {
+        temporalRisk = 0.5;
+        redFlags.push(`Job posted ${daysPosted} days ago`);
+        score -= 10;
+      } else if (daysPosted > 14) {
+        temporalRisk = 0.2;
+      }
+    }
+  }
+  signals.push({ category: 'temporal', value: temporalRisk, confidence: temporalConfidence });
+  breakdown.temporal = temporalRisk * 100;
+
+  // ===== COMPANY SIGNALS =====
+  let companyRisk = 0;
+  let companyConfidence = 0.7;
+
   // Check for staffing indicators
   const staffingPatterns = [
     /staffing|recruiting|talent|solutions|workforce/i,
@@ -1372,10 +1421,18 @@ function performLocalGhostAnalysis(jobData) {
   for (const pattern of staffingPatterns) {
     if (pattern.test(companyLower)) {
       redFlags.push('Company appears to be a staffing agency');
+      companyRisk = 0.6;
+      companyConfidence = 0.95;
       score -= 20;
       break;
     }
   }
+  signals.push({ category: 'company', value: companyRisk, confidence: companyConfidence });
+  breakdown.company = companyRisk * 100;
+
+  // ===== CONTENT SIGNALS =====
+  let contentRisk = 0;
+  let contentConfidence = 0.8;
 
   // Check for vague descriptions
   const vagueIndicators = [
@@ -1392,29 +1449,82 @@ function performLocalGhostAnalysis(jobData) {
 
   if (vagueCount >= 3) {
     redFlags.push('Job description contains multiple vague/buzzword phrases');
+    contentRisk += 0.4;
     score -= 15;
   } else if (vagueCount >= 1) {
     redFlags.push('Job description contains some vague language');
+    contentRisk += 0.15;
     score -= 5;
   }
 
   // Check for salary transparency
   if (!/\$[\d,]+/.test(jobData.description || '') && !/salary|pay|compensation/i.test(jobData.description || '')) {
     redFlags.push('No salary information provided');
+    contentRisk += 0.25;
     score -= 10;
   }
 
   // Check description length
-  if ((jobData.description || '').length < 200) {
+  const descLength = (jobData.description || '').length;
+  if (descLength < 200) {
     redFlags.push('Job description is unusually short');
+    contentRisk += 0.35;
+    contentConfidence = 0.9;
     score -= 15;
+  } else if (descLength < 500) {
+    contentRisk += 0.1;
   }
 
   // Check for remote work clarity issues
   if (/remote/i.test(jobData.description || '') && /hybrid|on-?site|in-?office|commute/i.test(jobData.description || '')) {
     redFlags.push('Conflicting remote/in-office requirements');
+    contentRisk += 0.2;
     score -= 10;
   }
+
+  contentRisk = Math.min(1, contentRisk);
+  signals.push({ category: 'content', value: contentRisk, confidence: contentConfidence });
+  breakdown.content = contentRisk * 100;
+
+  // ===== BEHAVIORAL SIGNALS =====
+  let behavioralRisk = 0;
+  let behavioralConfidence = 0.6;
+
+  // Check applicant count if available
+  if (jobData.applicantCount !== undefined && jobData.applicantCount !== null) {
+    behavioralConfidence = 0.85;
+    if (jobData.applicantCount > 500) {
+      behavioralRisk = 0.5;
+      redFlags.push(`High applicant volume (${jobData.applicantCount}+)`);
+      score -= 10;
+    } else if (jobData.applicantCount > 200) {
+      behavioralRisk = 0.3;
+    }
+  }
+
+  // Check for Easy Apply
+  if (jobData.isEasyApply === false) {
+    behavioralRisk += 0.15;
+  }
+
+  behavioralRisk = Math.min(1, behavioralRisk);
+  signals.push({ category: 'behavioral', value: behavioralRisk, confidence: behavioralConfidence });
+  breakdown.behavioral = behavioralRisk * 100;
+
+  // Calculate overall confidence as weighted average of signal confidences
+  const totalConfidence = signals.reduce((sum, s) => sum + s.confidence, 0);
+  const avgConfidence = signals.length > 0 ? totalConfidence / signals.length : 0.5;
+
+  // Adjust confidence based on how much data we have
+  const dataCompleteness = [
+    jobData.description ? 0.3 : 0,
+    jobData.company ? 0.2 : 0,
+    jobData.postedDate ? 0.2 : 0,
+    jobData.title ? 0.15 : 0,
+    jobData.location ? 0.15 : 0
+  ].reduce((a, b) => a + b, 0);
+
+  const finalConfidence = Math.round((avgConfidence * 0.7 + dataCompleteness * 0.3) * 100);
 
   // Clamp score
   score = Math.max(0, Math.min(100, score));
@@ -1422,9 +1532,27 @@ function performLocalGhostAnalysis(jobData) {
   return {
     legitimacyScore: score,
     redFlags: redFlags.length > 0 ? redFlags : ['No significant red flags detected'],
-    confidence: 0.75,
+    confidence: finalConfidence,
+    breakdown: breakdown,
     analyzedAt: Date.now()
   };
+}
+
+// Helper function to parse posting age from date string
+function parsePostingAge(dateString) {
+  if (!dateString) return null;
+  const normalized = dateString.toLowerCase().trim();
+
+  if (/just now|moments? ago/i.test(normalized)) return 0;
+
+  let match;
+  if ((match = normalized.match(/(\d+)\s*minutes?\s*ago/i))) return 0;
+  if ((match = normalized.match(/(\d+)\s*hours?\s*ago/i))) return 0;
+  if ((match = normalized.match(/(\d+)\s*days?\s*ago/i))) return parseInt(match[1]);
+  if ((match = normalized.match(/(\d+)\s*weeks?\s*ago/i))) return parseInt(match[1]) * 7;
+  if ((match = normalized.match(/(\d+)\s*months?\s*ago/i))) return parseInt(match[1]) * 30;
+
+  return null;
 }
 
 function displayScanResults(result) {
@@ -1455,6 +1583,36 @@ function displayScanResults(result) {
 
   // Update result title
   document.getElementById('resultTitle').textContent = currentJobData.title || 'Analysis Complete';
+
+  // Update confidence score
+  const confidenceEl = document.getElementById('confidenceValue');
+  if (confidenceEl) {
+    const confidence = result.confidence || 0;
+    confidenceEl.textContent = `${confidence}%`;
+  }
+
+  // Update breakdown percentages
+  if (result.breakdown) {
+    const breakdownCategories = ['temporal', 'content', 'company', 'behavioral'];
+    breakdownCategories.forEach(cat => {
+      const valueEl = document.getElementById(`breakdown${cat.charAt(0).toUpperCase() + cat.slice(1)}Value`);
+      const barEl = document.getElementById(`breakdown${cat.charAt(0).toUpperCase() + cat.slice(1)}Bar`);
+      if (valueEl && barEl) {
+        const value = Math.round(result.breakdown[cat] || 0);
+        valueEl.textContent = `${value}%`;
+        barEl.style.width = `${value}%`;
+
+        // Update bar color based on risk level
+        if (value > 50) {
+          barEl.className = 'breakdown-bar-fill danger';
+        } else if (value > 25) {
+          barEl.className = 'breakdown-bar-fill warning';
+        } else {
+          barEl.className = 'breakdown-bar-fill';
+        }
+      }
+    });
+  }
 
   // Display flags
   const flagsList = document.getElementById('flagsList');
