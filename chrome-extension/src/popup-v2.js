@@ -211,6 +211,7 @@ async function signInWithEmail() {
     });
 
     currentUser = { email, token: data.token };
+    await resetFiltersToDefault(); // Reset filters on sign-in
     showAuthenticatedUI(true); // Show success animation
 
   } catch (error) {
@@ -332,6 +333,7 @@ async function signInWithGoogle() {
     });
 
     currentUser = { email: userInfo.email, token: backendToken || accessToken };
+    await resetFiltersToDefault(); // Reset filters on sign-in
     showAuthenticatedUI(true); // Show success animation
 
     console.log('JobFiltr: Google sign in successful');
@@ -418,6 +420,7 @@ async function createAccount() {
     });
 
     currentUser = { email, name, token: data.token };
+    await resetFiltersToDefault(); // Reset filters on sign-up
     showAuthenticatedUI(true); // Show success animation
 
   } catch (error) {
@@ -1046,6 +1049,57 @@ async function loadFilterSettings() {
   } catch (error) {
     console.error('Error loading filter settings:', error);
   }
+}
+
+// Reset all filters to default unchecked state (called after sign-in)
+async function resetFiltersToDefault() {
+  // Clear filter settings from storage
+  filterSettings = {};
+  await chrome.storage.local.set({ filterSettings: {} });
+
+  // Reset all checkboxes to unchecked
+  document.getElementById('filterStaffing').checked = false;
+  document.getElementById('filterSponsored').checked = false;
+  document.getElementById('filterApplicants').checked = false;
+  document.getElementById('applicantRange').value = 'under10';
+  document.getElementById('filterEntryLevel').checked = false;
+
+  // True Remote Accuracy settings
+  document.getElementById('filterTrueRemote').checked = false;
+  document.getElementById('excludeHybrid').checked = true;
+  document.getElementById('excludeOnsite').checked = true;
+  document.getElementById('excludeInOffice').checked = true;
+  document.getElementById('excludeInPerson').checked = true;
+
+  document.getElementById('filterIncludeKeywords').checked = false;
+  document.getElementById('filterExcludeKeywords').checked = false;
+  document.getElementById('filterSalary').checked = false;
+  document.getElementById('minSalary').value = '';
+  document.getElementById('maxSalary').value = '';
+  document.getElementById('filterActiveRecruiting').checked = false;
+  document.getElementById('filterJobAge').checked = false;
+  document.getElementById('filterApplied').checked = false;
+  document.getElementById('filterVisa').checked = false;
+  document.getElementById('filterEasyApply').checked = false;
+
+  // Benefits Indicator
+  document.getElementById('showBenefitsIndicator').checked = false;
+  updateBenefitsLegend(false);
+
+  // Applicant Count Display
+  document.getElementById('showApplicantCount').checked = false;
+
+  // Job Posting Age Filter
+  document.getElementById('filterPostingAge').checked = false;
+  document.getElementById('postingAgeRange').value = '1w';
+
+  // Clear keywords
+  includeKeywords = [];
+  excludeKeywords = [];
+  renderKeywordChips();
+
+  // Update filter stats
+  updateFilterStats();
 }
 
 // Benefits legend toggle
