@@ -129,6 +129,66 @@ body.panel-mode .drag-handle {
   display: flex;
 }
 
+/* ============================================
+   RESPONSIVE HEADER SIZING
+   ============================================ */
+
+/* Default button sizing (normal) */
+:root {
+  --btn-size: 28px;
+  --btn-icon-size: 12px;
+  --btn-gap: 4px;
+  --status-padding: 4px 10px;
+  --status-font-size: 10px;
+  --logo-font-size: 17px;
+}
+
+/* Compact mode (width < 320px) */
+body.size-compact {
+  --btn-size: 24px;
+  --btn-icon-size: 10px;
+  --btn-gap: 2px;
+  --status-padding: 3px 6px;
+  --status-font-size: 9px;
+  --logo-font-size: 14px;
+}
+
+body.size-compact .logo-text {
+  font-size: var(--logo-font-size);
+}
+
+body.size-compact .pin-controls {
+  gap: 1px;
+  margin-right: 2px;
+}
+
+body.size-compact .header-actions {
+  gap: 2px;
+}
+
+/* Expanded mode (width > 450px) */
+body.size-expanded {
+  --btn-size: 32px;
+  --btn-icon-size: 14px;
+  --btn-gap: 6px;
+  --status-padding: 5px 12px;
+  --status-font-size: 11px;
+  --logo-font-size: 19px;
+}
+
+body.size-expanded .logo-text {
+  font-size: var(--logo-font-size);
+}
+
+body.size-expanded .pin-controls {
+  gap: 3px;
+  margin-right: var(--spacing-sm);
+}
+
+body.size-expanded .header-actions {
+  gap: var(--spacing-sm);
+}
+
 /* Drag Handle */
 .drag-handle {
   display: none;
@@ -231,8 +291,8 @@ body.panel-mode .drag-handle {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--btn-size);
+  height: var(--btn-size);
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -254,8 +314,8 @@ body.panel-mode .drag-handle {
 }
 
 .pin-btn svg {
-  width: 12px;
-  height: 12px;
+  width: var(--btn-icon-size);
+  height: var(--btn-icon-size);
 }
 
 body.panel-mode .pin-btn#unpinBtn {
@@ -274,8 +334,8 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--btn-size);
+  height: var(--btn-size);
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -291,8 +351,8 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 }
 
 .theme-toggle svg {
-  width: 14px;
-  height: 14px;
+  width: var(--btn-icon-size);
+  height: var(--btn-icon-size);
   transition: transform var(--transition-slow) var(--ease-out);
 }
 
@@ -323,11 +383,11 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
+  padding: var(--status-padding);
   background: var(--success-bg);
   border: 1px solid var(--success-border);
   border-radius: var(--radius-full);
-  font-size: 10px;
+  font-size: var(--status-font-size);
   font-weight: 500;
   color: var(--success);
 }
@@ -2650,8 +2710,8 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--btn-size);
+  height: var(--btn-size);
   background: var(--accent);
   border: none;
   border-radius: var(--radius-sm);

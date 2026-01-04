@@ -2615,6 +2615,30 @@ document.getElementById('openWebApp').addEventListener('click', () => {
   chrome.tabs.create({ url: 'https://jobfiltr.com/dashboard' });
 });
 
+// ===== RESPONSIVE SIZING =====
+function initResponsiveSizing() {
+  const updateSizeClass = () => {
+    const width = document.body.offsetWidth;
+    document.body.classList.remove('size-compact', 'size-expanded');
+
+    if (width < 320) {
+      document.body.classList.add('size-compact');
+    } else if (width > 450) {
+      document.body.classList.add('size-expanded');
+    }
+    // Normal size (320-450px) uses default CSS variables
+  };
+
+  // Initial size check
+  updateSizeClass();
+
+  // Watch for size changes using ResizeObserver
+  const resizeObserver = new ResizeObserver(() => {
+    updateSizeClass();
+  });
+  resizeObserver.observe(document.body);
+}
+
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', () => {
   // Notify background that popup is opened (for notification suppression)
@@ -2622,6 +2646,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Detect if in panel mode first
   detectPanelMode();
+
+  // Initialize responsive button sizing
+  initResponsiveSizing();
 
   // Initialize filters tab by default
   initializeFilters();
