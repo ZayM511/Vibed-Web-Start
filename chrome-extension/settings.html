@@ -244,7 +244,16 @@
     .action-buttons {
       display: flex;
       gap: 12px;
-      margin-top: 28px;
+      margin-top: 12px;
+      margin-bottom: 20px;
+    }
+
+    .toggle-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .settings-section:has(+ .action-buttons) {
+      margin-bottom: 0;
     }
 
     .success-message {
@@ -337,9 +346,7 @@
     }
 
     .info-box {
-      position: relative;
       padding: 16px;
-      padding-bottom: 40px;
       background: var(--accent-subtle);
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -361,8 +368,14 @@
     .info-box-links {
       display: flex;
       align-items: center;
-      gap: 16px;
+      justify-content: space-between;
       margin-top: 4px;
+    }
+
+    .info-box-links-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
     }
 
     .info-box-links a {
@@ -372,9 +385,6 @@
     }
 
     .version-badge {
-      position: absolute;
-      bottom: 12px;
-      right: 12px;
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -1499,14 +1509,16 @@
               AI-powered scam and ghost job detection for smarter job searching.
               <br><br>
               <div class="info-box-links">
-                <a href="https://jobfiltr.com" target="_blank">Visit Website</a>
-                <a href="https://jobfiltr.app/contact" target="_blank">Contact Us</a>
-              </div>
-              <div class="version-badge">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="currentColor" stroke-width="2"/>
-                </svg>
-                v1.0.0
+                <div class="info-box-links-left">
+                  <a href="https://jobfiltr.com" target="_blank">Visit Website</a>
+                  <a href="https://jobfiltr.app/contact" target="_blank">Contact Us</a>
+                </div>
+                <div class="version-badge">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="currentColor" stroke-width="2"/>
+                  </svg>
+                  v1.0.0
+                </div>
               </div>
             </div>
           </div>
