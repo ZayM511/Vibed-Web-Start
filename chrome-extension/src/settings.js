@@ -583,9 +583,20 @@ function updateDetectionChart(data) {
     detectionChart.destroy();
   }
 
-  const labels = data.map(d => d.type);
-  const values = data.map(d => d.count);
-  const colors = data.map(d => d.color);
+  // Handle empty data - show default categories with zero values
+  let chartData = data;
+  if (!data || data.length === 0) {
+    chartData = [
+      { type: 'Legitimate', count: 0, color: '#10B981' },
+      { type: 'Scam', count: 0, color: '#EF4444' },
+      { type: 'Ghost', count: 0, color: '#F59E0B' },
+      { type: 'Spam', count: 0, color: '#8B5CF6' }
+    ];
+  }
+
+  const labels = chartData.map(d => d.type);
+  const values = chartData.map(d => d.count);
+  const colors = chartData.map(d => d.color);
 
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
@@ -1167,6 +1178,124 @@ openExtensionLink.addEventListener('click', () => {
 // Analytics refresh listener
 if (refreshAnalytics) {
   refreshAnalytics.addEventListener('click', loadAnalytics);
+}
+
+// ===== INDIVIDUAL CHART REFRESH HANDLERS =====
+async function refreshIndividualChart(chartType, buttonId) {
+  const button = document.getElementById(buttonId);
+  if (button) {
+    button.classList.add('loading');
+  }
+
+  try {
+    // Fetch fresh data from API
+    const convexUrl = await getConvexUrl();
+    const response = await fetch(`${convexUrl}/api/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        path: 'analytics:getFounderDashboard',
+        args: { userEmail: currentUser?.email || '' }
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to fetch data');
+
+    const result = await response.json();
+    const data = result.value;
+
+    // Update only the specific chart
+    switch (chartType) {
+      case 'mrr':
+        if (data?.mrrProjection) {
+          updateMRRChart(data.mrrProjection);
+          updateMRRProjection(data.mrrProjection);
+        } else {
+          // Use demo data for empty state
+          const demoProjection = generateDemoMRRProjection();
+          updateMRRChart(demoProjection);
+        }
+        break;
+      case 'growth':
+        updateGrowthChart(data?.growthData || []);
+        break;
+      case 'conversion':
+        if (data?.conversionRateData) {
+          updateConversionChart(data.conversionRateData);
+        } else {
+          updateConversionChart({ monthlyData: [], currentRate: 0, thisMonthConversions: 0, avgMonthlyConversions: 0 });
+        }
+        break;
+      case 'detection':
+        updateDetectionChart(data?.detectionBreakdown || []);
+        break;
+    }
+
+    updateLastUpdated();
+  } catch (error) {
+    console.error(`Error refreshing ${chartType} chart:`, error);
+    // Show empty chart on error
+    switch (chartType) {
+      case 'mrr':
+        updateMRRChart(generateDemoMRRProjection());
+        break;
+      case 'growth':
+        updateGrowthChart([]);
+        break;
+      case 'conversion':
+        updateConversionChart({ monthlyData: [], currentRate: 0, thisMonthConversions: 0, avgMonthlyConversions: 0 });
+        break;
+      case 'detection':
+        updateDetectionChart([]);
+        break;
+    }
+  } finally {
+    if (button) {
+      button.classList.remove('loading');
+    }
+  }
+}
+
+// Helper to generate demo MRR projection
+function generateDemoMRRProjection() {
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const currentMonth = new Date().getMonth();
+  return {
+    monthlyData: monthNames.map((month, i) => ({
+      month,
+      mrr: 0,
+      isProjected: i > currentMonth
+    })),
+    currentMRR: 0,
+    totalYearRevenue: 0,
+    avgMRR: 0,
+    peakMRR: 0,
+    avgMonthlyGrowthRate: 0,
+    yearEndProjectedMRR: 0,
+    yearEndProjectedARR: 0,
+    peakMonth: '--',
+    monthsWithData: 0,
+    lastUpdated: new Date().toISOString()
+  };
+}
+
+// Chart refresh button event listeners
+const refreshMrrBtn = document.getElementById('refreshMrrChart');
+const refreshGrowthBtn = document.getElementById('refreshGrowthChart');
+const refreshConversionBtn = document.getElementById('refreshConversionChart');
+const refreshDetectionBtn = document.getElementById('refreshDetectionChart');
+
+if (refreshMrrBtn) {
+  refreshMrrBtn.addEventListener('click', () => refreshIndividualChart('mrr', 'refreshMrrChart'));
+}
+if (refreshGrowthBtn) {
+  refreshGrowthBtn.addEventListener('click', () => refreshIndividualChart('growth', 'refreshGrowthChart'));
+}
+if (refreshConversionBtn) {
+  refreshConversionBtn.addEventListener('click', () => refreshIndividualChart('conversion', 'refreshConversionChart'));
+}
+if (refreshDetectionBtn) {
+  refreshDetectionBtn.addEventListener('click', () => refreshIndividualChart('detection', 'refreshDetectionChart'));
 }
 
 // ===== SETTINGS FUNCTIONS =====
