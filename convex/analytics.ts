@@ -73,6 +73,10 @@ export const getFounderDashboard = query({
     const chromeExtScans = manualScans.filter(s => s.context?.includes("Chrome")).length;
     const webAppScans = totalScans - chromeExtScans;
 
+    // Chrome extension downloads (placeholder - would typically come from Chrome Web Store API)
+    // This can be manually updated or integrated with Chrome Web Store API in the future
+    const chromeExtDownloads = 0; // TODO: Integrate with Chrome Web Store API for actual download count
+
     // ===== DETECTION STATS =====
     const scamDetected = allScans.filter((s: any) => s.report?.isScam).length;
     const ghostDetected = allScans.filter((s: any) => s.report?.isGhostJob).length;
@@ -84,17 +88,29 @@ export const getFounderDashboard = query({
     const spamRate = totalScans > 0 ? Math.round(spamDetected / totalScans * 100) : 0;
 
     // ===== SUBSCRIPTION METRICS =====
+    const PRO_PRICE = 7.99; // Monthly pro subscription price
     const activeSubscriptions = subscriptions.filter(s => s.status === "active").length;
     const trialingSubscriptions = subscriptions.filter(s => s.status === "trialing").length;
     const canceledSubscriptions = subscriptions.filter(s => s.status === "canceled").length;
     const proUsers = subscriptions.filter(s => s.plan === "pro" && s.status === "active").length;
+    const freeUsers = totalUsers - proUsers; // Users without active pro subscription
     const conversionRate = totalUsers > 0 ? Math.round(proUsers / totalUsers * 100) : 0;
+
+    // ===== REVENUE METRICS =====
+    const monthlyMRR = Math.round(proUsers * PRO_PRICE * 100) / 100; // MRR in dollars
+    const projectedARR = Math.round(monthlyMRR * 12 * 100) / 100; // Projected Annual Revenue
 
     // ===== DOCUMENT STATS =====
     const totalDocuments = documents.length;
     const resumeCount = documents.filter(d => d.fileType === "resume").length;
     const coverLetterCount = documents.filter(d => d.fileType === "cover_letter").length;
     const portfolioCount = documents.filter(d => d.fileType === "portfolio").length;
+
+    // Average templates per user (documents/templates per user who has uploaded)
+    const usersWithDocuments = new Set(documents.map(d => d.userId)).size;
+    const avgTemplatesPerUser = usersWithDocuments > 0
+      ? Math.round(totalDocuments / usersWithDocuments * 10) / 10
+      : 0;
 
     // ===== FEEDBACK STATS =====
     const totalFeedback = feedback.length;
@@ -155,6 +171,7 @@ export const getFounderDashboard = query({
       scans7d,
       avgScansPerUser,
       chromeExtScans,
+      chromeExtDownloads,
       webAppScans,
 
       // Detection
@@ -171,13 +188,19 @@ export const getFounderDashboard = query({
       trialingSubscriptions,
       canceledSubscriptions,
       proUsers,
+      freeUsers,
       conversionRate,
+
+      // Revenue
+      monthlyMRR,
+      projectedARR,
 
       // Documents
       totalDocuments,
       resumeCount,
       coverLetterCount,
       portfolioCount,
+      avgTemplatesPerUser,
 
       // Feedback
       totalFeedback,

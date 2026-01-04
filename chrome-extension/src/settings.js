@@ -260,10 +260,22 @@ function showDemoAnalytics() {
 }
 
 function updateAnalyticsDashboard(data) {
+  // Update user tracking cards at top
+  animateNumber('metricFreeUsers', data.freeUsers || 0);
+  animateNumber('metricProSubs', data.proUsers || 0);
+
   // Update metric cards with animation
   animateNumber('metricTotalUsers', data.totalUsers);
   animateNumber('metricActiveUsers', data.activeUsers24h);
   animateNumber('metricTotalScans', data.totalScans);
+
+  // Update MRR with currency animation
+  animateCurrency('metricMRR', data.monthlyMRR || 0);
+  animateCurrency('metricARR', data.projectedARR || 0);
+
+  // Update Pro subscriber count
+  const metricProCount = document.getElementById('metricProCount');
+  if (metricProCount) metricProCount.textContent = data.proUsers || 0;
 
   // Update sub-values
   const newUsers24h = document.getElementById('metricNewUsers24h');
@@ -289,16 +301,18 @@ function updateAnalyticsDashboard(data) {
 
   // Update platform stats
   const statDocuments = document.getElementById('statDocuments');
+  const statAvgTemplates = document.getElementById('statAvgTemplates');
   const statFeedback = document.getElementById('statFeedback');
   const statReviews = document.getElementById('statReviews');
   const statProUsers = document.getElementById('statProUsers');
-  const statChromeScans = document.getElementById('statChromeScans');
+  const statChromeDownloads = document.getElementById('statChromeDownloads');
 
   if (statDocuments) statDocuments.textContent = data.totalDocuments;
+  if (statAvgTemplates) statAvgTemplates.textContent = data.avgTemplatesPerUser || 0;
   if (statFeedback) statFeedback.textContent = data.totalFeedback;
   if (statReviews) statReviews.textContent = data.totalReviews;
   if (statProUsers) statProUsers.textContent = data.proUsers;
-  if (statChromeScans) statChromeScans.textContent = data.chromeExtScans;
+  if (statChromeDownloads) statChromeDownloads.textContent = data.chromeExtDownloads || 0;
 
   // Update charts
   updateGrowthChart(data.growthData || []);
@@ -319,6 +333,31 @@ function animateNumber(elementId, targetValue) {
     const easeOut = 1 - Math.pow(1 - progress, 3);
     const currentValue = Math.round(startValue + (targetValue - startValue) * easeOut);
     element.textContent = currentValue.toLocaleString();
+
+    if (progress < 1) {
+      requestAnimationFrame(update);
+    }
+  }
+
+  requestAnimationFrame(update);
+}
+
+function animateCurrency(elementId, targetValue) {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+
+  // Parse current value (remove $ and parse as float)
+  const currentText = element.textContent.replace(/[$,]/g, '');
+  const startValue = parseFloat(currentText) || 0;
+  const duration = 1200;
+  const startTime = performance.now();
+
+  function update(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const easeOut = 1 - Math.pow(1 - progress, 3);
+    const currentValue = startValue + (targetValue - startValue) * easeOut;
+    element.textContent = '$' + currentValue.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
     if (progress < 1) {
       requestAnimationFrame(update);
@@ -580,11 +619,14 @@ function showAuthenticatedProfile() {
   profileName.textContent = currentUser.name || 'No display name set';
   profileEmail.textContent = currentUser.email;
 
-  // Check if founder - show backend section
+  // Check if founder - show backend section and crown
+  const founderCrown = document.getElementById('founderCrown');
   if (isFounder(currentUser.email)) {
     backendSection.classList.remove('hidden');
+    if (founderCrown) founderCrown.classList.remove('hidden');
   } else {
     backendSection.classList.add('hidden');
+    if (founderCrown) founderCrown.classList.add('hidden');
   }
 }
 
@@ -592,6 +634,9 @@ function showNotSignedIn() {
   profileCard.classList.add('hidden');
   notSignedInMessage.classList.remove('hidden');
   backendSection.classList.add('hidden');
+  // Hide founder crown when not signed in
+  const founderCrown = document.getElementById('founderCrown');
+  if (founderCrown) founderCrown.classList.add('hidden');
   disableFounderMode();
 }
 

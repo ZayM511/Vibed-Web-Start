@@ -55,7 +55,9 @@
       padding: 20px 24px;
       background: linear-gradient(135deg, var(--accent) 0%, #6366f1 100%);
       color: white;
+      margin: 16px;
       margin-bottom: 0;
+      border-radius: 16px;
     }
 
     body.founder-mode .founder-greeting {
@@ -428,6 +430,45 @@
 
     .hidden {
       display: none !important;
+    }
+
+    /* Founder Crown Icon */
+    .founder-crown {
+      display: inline-flex;
+      align-items: center;
+      margin-left: auto;
+      padding: 4px 8px;
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(255, 165, 0, 0.1) 100%);
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      border-radius: 8px;
+      animation: crownShimmer 3s ease-in-out infinite;
+    }
+
+    .founder-crown svg {
+      width: 20px;
+      height: 20px;
+      filter: drop-shadow(0 2px 4px rgba(255, 215, 0, 0.4));
+    }
+
+    .founder-crown:hover {
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.25) 0%, rgba(255, 165, 0, 0.2) 100%);
+      border-color: rgba(255, 215, 0, 0.5);
+      transform: scale(1.05);
+      transition: all 0.2s ease;
+    }
+
+    @keyframes crownShimmer {
+      0%, 100% {
+        box-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
+      }
+      50% {
+        box-shadow: 0 0 16px rgba(255, 215, 0, 0.5), 0 0 24px rgba(255, 165, 0, 0.3);
+      }
+    }
+
+    .settings-section h2 {
+      display: flex;
+      align-items: center;
     }
 
     .not-signed-in-message {
@@ -810,6 +851,26 @@
                 <path d="M4 20c0-4 4-6 8-6s8 2 8 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
               </svg>
               Account
+              <span class="founder-crown hidden" id="founderCrown" title="Founder Account">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M2 17L5 8L9 12L12 4L15 12L19 8L22 17H2Z" fill="url(#crownGradient)" stroke="url(#crownStroke)" stroke-width="1.5" stroke-linejoin="round"/>
+                  <path d="M4 17H20V19C20 19.5523 19.5523 20 19 20H5C4.44772 20 4 19.5523 4 19V17Z" fill="url(#crownGradient)" stroke="url(#crownStroke)" stroke-width="1.5"/>
+                  <circle cx="5" cy="8" r="1.5" fill="#FFD700"/>
+                  <circle cx="12" cy="4" r="1.5" fill="#FFD700"/>
+                  <circle cx="19" cy="8" r="1.5" fill="#FFD700"/>
+                  <defs>
+                    <linearGradient id="crownGradient" x1="2" y1="4" x2="22" y2="20" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#FFD700"/>
+                      <stop offset="0.5" stop-color="#FFA500"/>
+                      <stop offset="1" stop-color="#FFD700"/>
+                    </linearGradient>
+                    <linearGradient id="crownStroke" x1="2" y1="4" x2="22" y2="20" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#DAA520"/>
+                      <stop offset="1" stop-color="#B8860B"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </span>
             </h2>
 
             <div class="profile-card" id="profileCard">
@@ -951,6 +1012,20 @@
 
           <!-- Analytics Content -->
           <div id="analyticsContent" class="hidden">
+            <!-- User Tracking Section -->
+            <div class="metrics-grid" style="margin-bottom: 12px;">
+              <div class="metric-card" style="background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%); border-color: #3B82F6;">
+                <div class="metric-label" style="color: rgba(255,255,255,0.8);">Free Users</div>
+                <div class="metric-value" id="metricFreeUsers" style="color: white; font-weight: 700;">0</div>
+                <div class="metric-subvalue" style="color: rgba(255,255,255,0.7);">currently active</div>
+              </div>
+              <div class="metric-card" style="background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%); border-color: #8B5CF6;">
+                <div class="metric-label" style="color: rgba(255,255,255,0.8);">Pro Subs</div>
+                <div class="metric-value" id="metricProSubs" style="color: white; font-weight: 700;">0</div>
+                <div class="metric-subvalue" style="color: rgba(255,255,255,0.7);">currently active</div>
+              </div>
+            </div>
+
             <!-- Key Metrics Grid -->
             <div class="metrics-grid">
               <div class="metric-card highlight">
@@ -963,6 +1038,11 @@
                 <div class="metric-value" id="metricActiveUsers">0</div>
                 <div class="metric-subvalue"><span id="metricActiveUsers7d">0</span> this week</div>
               </div>
+              <div class="metric-card highlight" style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); border-color: #10B981;">
+                <div class="metric-label" style="color: rgba(255,255,255,0.8);">Monthly MRR</div>
+                <div class="metric-value" id="metricMRR" style="color: white; font-weight: 700;">$0.00</div>
+                <div class="metric-subvalue" style="color: rgba(255,255,255,0.7);"><span id="metricProCount">0</span> Pro subscribers × $7.99</div>
+              </div>
               <div class="metric-card">
                 <div class="metric-label">Total Scans</div>
                 <div class="metric-value" id="metricTotalScans">0</div>
@@ -972,6 +1052,11 @@
                 <div class="metric-label">Avg per User</div>
                 <div class="metric-value" id="metricAvgScans">0</div>
                 <div class="metric-subvalue">scans per user</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Projected ARR</div>
+                <div class="metric-value" id="metricARR" style="font-weight: 600;">$0.00</div>
+                <div class="metric-subvalue">annual recurring revenue</div>
               </div>
             </div>
 
@@ -1036,10 +1121,24 @@
               <div class="quick-stats">
                 <div class="stat-row">
                   <span class="stat-row-label">
+                    <svg viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" stroke-width="2"/><polyline points="7,10 12,15 17,10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    Chrome Extension Downloads
+                  </span>
+                  <span class="stat-row-value" id="statChromeDownloads">0</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-row-label">
                     <svg viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="2"/></svg>
                     Documents Uploaded
                   </span>
                   <span class="stat-row-value" id="statDocuments">0</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-row-label">
+                    <svg viewBox="0 0 24 24" fill="none"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" stroke="currentColor" stroke-width="2"/><rect x="8" y="2" width="8" height="4" rx="1" stroke="currentColor" stroke-width="2"/></svg>
+                    Avg Templates/User
+                  </span>
+                  <span class="stat-row-value" id="statAvgTemplates">0</span>
                 </div>
                 <div class="stat-row">
                   <span class="stat-row-label">
@@ -1061,13 +1160,6 @@
                     Pro Subscribers
                   </span>
                   <span class="stat-row-value" id="statProUsers">0</span>
-                </div>
-                <div class="stat-row">
-                  <span class="stat-row-label">
-                    <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5z" stroke="currentColor" stroke-width="2"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2"/></svg>
-                    Chrome Extension Scans
-                  </span>
-                  <span class="stat-row-value" id="statChromeScans">0</span>
                 </div>
               </div>
             </div>
