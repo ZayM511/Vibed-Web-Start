@@ -2698,6 +2698,15 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 .user-info {
   padding: var(--spacing-md);
   border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-greeting {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .user-email {

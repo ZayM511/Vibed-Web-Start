@@ -73,12 +73,19 @@ function hideAuthOverlay() {
 
 function showAuthenticatedUI(showAnimation = false) {
   const userMenu = document.getElementById('userMenu');
+  const userGreeting = document.getElementById('userGreeting');
   const userEmail = document.getElementById('userEmail');
 
   if (userMenu) userMenu.classList.remove('hidden');
-  if (userEmail && currentUser) {
-    // Display name if available, otherwise show email
-    userEmail.textContent = currentUser.name || currentUser.email;
+  if (currentUser) {
+    // Set greeting with name if available
+    if (userGreeting) {
+      userGreeting.textContent = currentUser.name ? `Hi ${currentUser.name}!` : 'Hi there!';
+    }
+    // Always show email
+    if (userEmail) {
+      userEmail.textContent = currentUser.email;
+    }
   }
 
   if (showAnimation) {
