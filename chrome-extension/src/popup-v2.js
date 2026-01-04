@@ -1205,26 +1205,63 @@ async function detectCurrentJob() {
   }
 }
 
+// Format location to show only city and state
+function formatLocationCityState(location) {
+  if (!location || location === 'Not detected') return location;
+
+  // Handle special cases
+  const lowerLocation = location.toLowerCase().trim();
+  if (lowerLocation === 'remote' || lowerLocation.includes('remote')) {
+    return 'Remote';
+  }
+
+  // Remove common suffixes and work type indicators
+  let cleaned = location
+    .replace(/\s*\(On-?site\)/gi, '')
+    .replace(/\s*\(Hybrid\)/gi, '')
+    .replace(/\s*\(Remote\)/gi, '')
+    .replace(/,?\s*United States$/i, '')
+    .replace(/,?\s*USA$/i, '')
+    .replace(/,?\s*US$/i, '')
+    .trim();
+
+  // Split by comma
+  const parts = cleaned.split(',').map(p => p.trim()).filter(p => p);
+
+  if (parts.length === 0) return location;
+  if (parts.length === 1) return parts[0];
+
+  // Return first two parts (city, state)
+  return `${parts[0]}, ${parts[1]}`;
+}
+
 function updateDetectedJobInfo(data) {
   if (data) {
     document.getElementById('detectedTitle').textContent = data.title || 'Not detected';
     document.getElementById('detectedCompany').textContent = data.company || 'Not detected';
-    document.getElementById('detectedLocation').textContent = data.location || 'Not detected';
+    document.getElementById('detectedLocation').textContent = formatLocationCityState(data.location) || 'Not detected';
     document.getElementById('detectedUrl').textContent = data.url || 'Not detected';
     document.getElementById('detectedUrl').title = data.url || '';
 
     // Enable scan button
     document.getElementById('scanButton').disabled = false;
+
+    // Check if job is saved and update save button
+    checkIfJobIsSaved();
   } else {
     document.getElementById('detectedTitle').textContent = 'Not detected';
     document.getElementById('detectedCompany').textContent = 'Not detected';
     document.getElementById('detectedLocation').textContent = 'Not detected';
     document.getElementById('detectedUrl').textContent = 'Not on a job posting page';
 
-    // Disable scan button
+    // Disable scan and save buttons
     document.getElementById('scanButton').disabled = true;
+    document.getElementById('saveJobButton').disabled = true;
   }
 }
+
+// Minimum scan time in milliseconds (2.5 seconds for accurate analysis)
+const MIN_SCAN_TIME = 2500;
 
 // Scan Button
 document.getElementById('scanButton').addEventListener('click', async () => {
@@ -1239,6 +1276,8 @@ document.getElementById('scanButton').addEventListener('click', async () => {
   // Show loading state
   document.querySelector('.scan-results').classList.add('hidden');
   document.querySelector('.loading-section').classList.remove('hidden');
+
+  const scanStartTime = Date.now();
 
   try {
     // Get the tab ID to send message to
@@ -1274,6 +1313,12 @@ document.getElementById('scanButton').addEventListener('click', async () => {
       }
     }
 
+    // Ensure minimum scan time for accurate results
+    const elapsedTime = Date.now() - scanStartTime;
+    if (elapsedTime < MIN_SCAN_TIME) {
+      await new Promise(resolve => setTimeout(resolve, MIN_SCAN_TIME - elapsedTime));
+    }
+
     // Hide loading, show results
     document.querySelector('.loading-section').classList.add('hidden');
     document.querySelector('.scan-results').classList.remove('hidden');
@@ -1291,6 +1336,11 @@ document.getElementById('scanButton').addEventListener('click', async () => {
 
   } catch (error) {
     console.error('Error scanning job:', error);
+    // Ensure minimum scan time even on error
+    const elapsedTime = Date.now() - scanStartTime;
+    if (elapsedTime < MIN_SCAN_TIME) {
+      await new Promise(resolve => setTimeout(resolve, MIN_SCAN_TIME - elapsedTime));
+    }
     // Fallback: perform local analysis
     try {
       const localResult = performLocalGhostAnalysis(currentJobData);
@@ -1465,24 +1515,41 @@ async function loadScanHistory() {
     historyList.innerHTML = '';
     scanHistory.forEach((scan, index) => {
       const historyItem = document.createElement('div');
-      historyItem.className = 'history-item';
 
-      // Format date and time with timezone
+      // Determine status class based on score
+      const score = scan.legitimacyScore || 0;
+      let statusClass = '';
+      if (score < 40) {
+        statusClass = 'danger';
+      } else if (score < 70) {
+        statusClass = 'warning';
+      }
+
+      historyItem.className = `history-item ${statusClass}`;
+
+      // Format date and time separately
       const scanDate = new Date(scan.timestamp);
-      const dateStr = scanDate.toLocaleDateString();
+      const dateStr = scanDate.toLocaleDateString([], {
+        month: 'short',
+        day: 'numeric'
+      });
       const timeStr = scanDate.toLocaleTimeString([], {
         hour: '2-digit',
-        minute: '2-digit',
-        timeZoneName: 'short'
+        minute: '2-digit'
       });
 
       historyItem.innerHTML = `
-        <div class="history-item-header">
-          <span class="history-item-title">${scan.title || 'Unknown Job'}</span>
-          <span class="history-item-score">${scan.legitimacyScore}/100</span>
+        <div class="history-info">
+          <div class="history-item-header">
+            <span class="history-item-title">${scan.title || 'Unknown Job'}</span>
+            <span class="history-item-score">${score}/100</span>
+          </div>
+          <div class="history-item-company">${scan.company || 'Unknown Company'}</div>
         </div>
-        <div class="history-item-company">${scan.company || 'Unknown Company'}</div>
-        <div class="history-item-date">${dateStr} at ${timeStr}</div>
+        <div class="history-item-datetime">
+          <span class="history-item-date">${dateStr}</span>
+          <span class="history-item-time">${timeStr}</span>
+        </div>
       `;
       historyList.appendChild(historyItem);
     });
@@ -1506,6 +1573,186 @@ document.getElementById('clearHistory').addEventListener('click', async () => {
   }
 });
 
+// ===== SAVED JOBS FUNCTIONALITY =====
+let savedJobs = [];
+
+// Load saved jobs from storage
+async function loadSavedJobs() {
+  try {
+    const result = await chrome.storage.local.get('savedJobs');
+    savedJobs = result.savedJobs || [];
+    renderSavedJobs();
+  } catch (error) {
+    console.error('Error loading saved jobs:', error);
+    savedJobs = [];
+  }
+}
+
+// Save jobs to storage
+async function saveSavedJobsToStorage() {
+  try {
+    await chrome.storage.local.set({ savedJobs });
+    renderSavedJobs();
+  } catch (error) {
+    console.error('Error saving jobs to storage:', error);
+  }
+}
+
+// Save current job
+async function saveCurrentJob() {
+  if (!currentJobData) return;
+
+  // Check if already saved
+  const exists = savedJobs.some(job => job.url === currentJobData.url);
+  if (exists) {
+    // Toggle save - remove if already saved
+    savedJobs = savedJobs.filter(job => job.url !== currentJobData.url);
+    await saveSavedJobsToStorage();
+    updateSaveJobButton(false);
+    return;
+  }
+
+  // Add new saved job
+  const savedJob = {
+    id: Date.now().toString(),
+    title: currentJobData.title || 'Unknown Job',
+    company: currentJobData.company || 'Unknown Company',
+    location: formatLocationCityState(currentJobData.location) || 'Not specified',
+    url: currentJobData.url,
+    savedAt: Date.now()
+  };
+
+  savedJobs.unshift(savedJob);
+
+  // Keep only last 20 saved jobs
+  if (savedJobs.length > 20) {
+    savedJobs.pop();
+  }
+
+  await saveSavedJobsToStorage();
+  updateSaveJobButton(true);
+}
+
+// Render saved jobs list
+function renderSavedJobs() {
+  const savedJobsList = document.getElementById('savedJobsList');
+  if (!savedJobsList) return;
+
+  if (savedJobs.length === 0) {
+    savedJobsList.innerHTML = '<div class="empty-state"><p>No saved jobs</p></div>';
+    return;
+  }
+
+  savedJobsList.innerHTML = '';
+  savedJobs.forEach(job => {
+    const jobItem = document.createElement('div');
+    jobItem.className = 'saved-job-item';
+    jobItem.innerHTML = `
+      <div class="saved-job-info">
+        <div class="saved-job-title">${job.title}</div>
+        <div class="saved-job-company">${job.company}</div>
+        <div class="saved-job-location">${job.location}</div>
+      </div>
+      <div class="saved-job-actions">
+        <button class="saved-job-goto" title="Go to job posting" data-url="${job.url}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="saved-job-delete" title="Remove" data-id="${job.id}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    `;
+
+    // Go to job posting
+    jobItem.querySelector('.saved-job-goto').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const url = e.currentTarget.dataset.url;
+      if (url) {
+        chrome.tabs.create({ url });
+      }
+    });
+
+    // Delete saved job
+    jobItem.querySelector('.saved-job-delete').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = e.currentTarget.dataset.id;
+      savedJobs = savedJobs.filter(j => j.id !== id);
+      await saveSavedJobsToStorage();
+      // Update button state if current job was unsaved
+      if (currentJobData) {
+        const isSaved = savedJobs.some(j => j.url === currentJobData.url);
+        updateSaveJobButton(isSaved);
+      }
+    });
+
+    savedJobsList.appendChild(jobItem);
+  });
+}
+
+// Update save job button state
+function updateSaveJobButton(isSaved) {
+  const saveBtn = document.getElementById('saveJobButton');
+  if (!saveBtn) return;
+
+  if (isSaved) {
+    saveBtn.classList.add('saved');
+    saveBtn.querySelector('span').textContent = 'Saved';
+  } else {
+    saveBtn.classList.remove('saved');
+    saveBtn.querySelector('span').textContent = 'Save Job';
+  }
+}
+
+// Check if current job is saved and update button
+function checkIfJobIsSaved() {
+  if (!currentJobData || !currentJobData.url) {
+    document.getElementById('saveJobButton').disabled = true;
+    return;
+  }
+
+  document.getElementById('saveJobButton').disabled = false;
+  const isSaved = savedJobs.some(job => job.url === currentJobData.url);
+  updateSaveJobButton(isSaved);
+
+  // Update goto link
+  const gotoLink = document.getElementById('gotoJobLink');
+  if (gotoLink && currentJobData.url) {
+    gotoLink.href = currentJobData.url;
+  }
+}
+
+// Save Job Button
+document.getElementById('saveJobButton')?.addEventListener('click', async (e) => {
+  // Prevent goto link from triggering
+  if (e.target.closest('.goto-job-link')) return;
+  await saveCurrentJob();
+});
+
+// Goto Job Link
+document.getElementById('gotoJobLink')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  if (currentJobData && currentJobData.url) {
+    chrome.tabs.create({ url: currentJobData.url });
+  }
+});
+
+// Clear Saved Jobs Button
+document.getElementById('clearSavedJobs')?.addEventListener('click', async () => {
+  if (confirm('Are you sure you want to clear all saved jobs?')) {
+    savedJobs = [];
+    await chrome.storage.local.set({ savedJobs: [] });
+    renderSavedJobs();
+    if (currentJobData) {
+      updateSaveJobButton(false);
+    }
+  }
+});
+
 // ===== FOOTER ACTIONS =====
 document.getElementById('openSettings').addEventListener('click', () => {
   chrome.runtime.openOptionsPage();
@@ -1523,6 +1770,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize filters tab by default
   initializeFilters();
   loadScanHistory();
+  loadSavedJobs();
 
   // Load templates
   loadTemplates();

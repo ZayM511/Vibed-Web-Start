@@ -291,36 +291,80 @@ function getApplicantCount(jobCard) {
                        jobCard.getAttribute('data-occludable-job-id');
 
     if (isSelected) {
-      // Try to get applicant count from the job detail panel
-      const detailApplicantSelectors = [
-        '.jobs-unified-top-card__applicant-count',
-        '.job-details-jobs-unified-top-card__job-insight',
-        '.jobs-details-top-card__bullet',
-        '.tvm__text--positive',
-        '.jobs-unified-top-card__subtitle-secondary-grouping span',
-        '.job-details-jobs-unified-top-card__primary-description span'
-      ];
-
-      for (const selector of detailApplicantSelectors) {
-        const elems = document.querySelectorAll(selector);
-        for (const elem of elems) {
-          const text = elem.textContent.trim().toLowerCase();
-
-          if (text.includes('be among the first') || text.includes('be an early applicant')) {
-            return 5;
-          }
-
-          const match = text.match(/(?:over\s+)?(\d+)\+?\s*applicants?/i);
-          if (match) {
-            return parseInt(match[1]);
-          }
-        }
+      // Try to get applicant count from the job detail panel using enhanced function
+      const detailCount = getDetailPanelApplicantCount();
+      if (detailCount) {
+        // Return just the count for filtering purposes
+        return typeof detailCount === 'object' ? detailCount.count : detailCount;
       }
     }
 
     return null;
   } catch (error) {
     log('Error getting applicant count:', error);
+    return null;
+  }
+}
+
+// Round to nearest multiple of 5 for fallback display
+function roundToNearestFive(num) {
+  return Math.round(num / 5) * 5;
+}
+
+// Estimate applicant count based on job age if exact count not available
+function estimateApplicantCount() {
+  try {
+    // Look for job posting age indicators
+    const ageSelectors = [
+      '.jobs-unified-top-card__posted-date',
+      '.job-details-jobs-unified-top-card__job-insight span',
+      '.jobs-unified-top-card__subtitle-secondary-grouping span',
+      '.tvm__text'
+    ];
+
+    for (const selector of ageSelectors) {
+      const elems = document.querySelectorAll(selector);
+      for (const elem of elems) {
+        const text = elem.textContent.trim().toLowerCase();
+
+        // Check for time-based indicators
+        if (text.includes('just now') || text.includes('moment')) {
+          return { count: 5, isEstimate: true };
+        }
+        if (text.includes('hour') || text.includes('minute')) {
+          const hourMatch = text.match(/(\d+)\s*hour/);
+          if (hourMatch) {
+            const hours = parseInt(hourMatch[1]);
+            // Estimate ~2-3 applicants per hour for competitive jobs
+            return { count: roundToNearestFive(Math.max(5, hours * 2)), isEstimate: true };
+          }
+          return { count: 5, isEstimate: true };
+        }
+        if (text.includes('day')) {
+          const dayMatch = text.match(/(\d+)\s*day/);
+          if (dayMatch) {
+            const days = parseInt(dayMatch[1]);
+            // Estimate ~20-30 applicants per day average
+            return { count: roundToNearestFive(Math.max(10, days * 25)), isEstimate: true };
+          }
+          return { count: 25, isEstimate: true };
+        }
+        if (text.includes('week')) {
+          const weekMatch = text.match(/(\d+)\s*week/);
+          if (weekMatch) {
+            const weeks = parseInt(weekMatch[1]);
+            return { count: roundToNearestFive(Math.max(50, weeks * 100)), isEstimate: true };
+          }
+          return { count: 100, isEstimate: true };
+        }
+        if (text.includes('month')) {
+          return { count: 200, isEstimate: true };
+        }
+      }
+    }
+
+    return null;
+  } catch (error) {
     return null;
   }
 }
@@ -335,7 +379,13 @@ function getDetailPanelApplicantCount() {
       '.tvm__text--positive',
       '.jobs-unified-top-card__subtitle-secondary-grouping span',
       '.job-details-jobs-unified-top-card__primary-description span',
-      '.jobs-unified-top-card__job-insight span'
+      '.jobs-unified-top-card__job-insight span',
+      // Additional selectors for better coverage
+      '.job-details-jobs-unified-top-card__container span',
+      '.jobs-box__html-content span',
+      '.jobs-unified-top-card__content span',
+      '[data-test-job-insight]',
+      '.job-details-how-you-match__skills-item'
     ];
 
     for (const selector of detailSelectors) {
@@ -343,14 +393,24 @@ function getDetailPanelApplicantCount() {
       for (const elem of elems) {
         const text = elem.textContent.trim().toLowerCase();
 
+        // Check for early applicant indicators
         if (text.includes('be among the first') || text.includes('be an early applicant') ||
-            text.includes('be one of the first')) {
-          return 5;
+            text.includes('be one of the first') || text.includes('early applicant')) {
+          return { count: 5, isEstimate: false };
         }
 
-        const match = text.match(/(?:over\s+)?(\d+)\+?\s*applicants?/i);
-        if (match) {
-          return parseInt(match[1]);
+        // Match various patterns for applicant count
+        // "25 applicants", "100+ applicants", "Over 200 applicants", "200+ people clicked apply"
+        const applicantMatch = text.match(/(?:over\s+)?(\d+)\+?\s*(?:applicants?|people\s+(?:clicked\s+)?appl)/i);
+        if (applicantMatch) {
+          return { count: parseInt(applicantMatch[1]), isEstimate: false };
+        }
+
+        // "Fewer than 25 applicants"
+        const fewerMatch = text.match(/fewer\s+than\s+(\d+)\s*applicants?/i);
+        if (fewerMatch) {
+          const maxCount = parseInt(fewerMatch[1]);
+          return { count: roundToNearestFive(Math.max(5, maxCount - 10)), isEstimate: true };
         }
       }
     }
@@ -359,13 +419,28 @@ function getDetailPanelApplicantCount() {
     const detailPanel = document.querySelector('.jobs-details, .job-view-layout, .scaffold-layout__detail');
     if (detailPanel) {
       const panelText = detailPanel.textContent.toLowerCase();
-      if (panelText.includes('be among the first') || panelText.includes('be an early applicant')) {
-        return 5;
+
+      if (panelText.includes('be among the first') || panelText.includes('be an early applicant') ||
+          panelText.includes('early applicant')) {
+        return { count: 5, isEstimate: false };
       }
-      const match = panelText.match(/(?:over\s+)?(\d+)\+?\s*applicants?/i);
-      if (match) {
-        return parseInt(match[1]);
+
+      const applicantMatch = panelText.match(/(?:over\s+)?(\d+)\+?\s*(?:applicants?|people\s+(?:clicked\s+)?appl)/i);
+      if (applicantMatch) {
+        return { count: parseInt(applicantMatch[1]), isEstimate: false };
       }
+
+      const fewerMatch = panelText.match(/fewer\s+than\s+(\d+)\s*applicants?/i);
+      if (fewerMatch) {
+        const maxCount = parseInt(fewerMatch[1]);
+        return { count: roundToNearestFive(Math.max(5, maxCount - 10)), isEstimate: true };
+      }
+    }
+
+    // Fallback: estimate based on job age
+    const estimate = estimateApplicantCount();
+    if (estimate) {
+      return estimate;
     }
 
     return null;
@@ -375,12 +450,24 @@ function getDetailPanelApplicantCount() {
 }
 
 // Add applicant count badge to the job detail panel (not job cards)
-function addApplicantCountBadgeToDetailPanel(count) {
+function addApplicantCountBadgeToDetailPanel(countData) {
   // Remove any existing badge in the detail panel
   const existingBadge = document.querySelector('.jobfiltr-detail-applicant-badge');
   if (existingBadge) existingBadge.remove();
 
-  if (count === null) return;
+  if (countData === null) return;
+
+  // Handle both old format (number) and new format (object)
+  let count, isEstimate;
+  if (typeof countData === 'object') {
+    count = countData.count;
+    isEstimate = countData.isEstimate;
+  } else {
+    count = countData;
+    isEstimate = false;
+  }
+
+  if (count === null || count === undefined) return;
 
   // Determine color based on count
   let bgColor, textColor, icon, oddsText;
@@ -411,13 +498,24 @@ function addApplicantCountBadgeToDetailPanel(count) {
     oddsText = 'Very competitive';
   }
 
+  // Format the count display
+  let countDisplay;
+  if (isEstimate) {
+    // Show as "Under X" for estimates
+    const nextMultiple = Math.ceil(count / 5) * 5 + 5;
+    countDisplay = `Under ${nextMultiple}`;
+    oddsText += ' (est.)';
+  } else {
+    countDisplay = `${count}${count >= 100 ? '+' : ''}`;
+  }
+
   const badge = document.createElement('div');
   badge.className = 'jobfiltr-detail-applicant-badge';
   badge.innerHTML = `
     <div style="display: flex; align-items: center; gap: 8px;">
       <span style="font-size: 18px;">${icon}</span>
       <div>
-        <div style="font-weight: 700; font-size: 14px;">${count}${count >= 100 ? '+' : ''} applicants</div>
+        <div style="font-weight: 700; font-size: 14px;">${countDisplay} applicants</div>
         <div style="font-size: 11px; opacity: 0.8;">${oddsText}</div>
       </div>
     </div>
@@ -1896,19 +1994,90 @@ currentPage = detectCurrentPage();
 document.addEventListener('click', (e) => {
   const jobCard = e.target.closest('li.jobs-search-results__list-item, .scaffold-layout__list-item, div.job-card-container');
   if (jobCard) {
-    // Wait for the job description panel to load
-    setTimeout(() => {
-      // Update benefits badge from detail panel
-      if (filterSettings.showBenefitsIndicator) {
-        updateBenefitsFromDetailPanel();
-      }
-      // Update applicant count in detail panel
-      if (filterSettings.showApplicantCount) {
-        updateApplicantCountInDetailPanel();
-      }
-    }, 500);
+    // Wait for the job description panel to load - multiple attempts
+    [300, 600, 1000, 1500].forEach(delay => {
+      setTimeout(() => {
+        // Update benefits badge from detail panel
+        if (filterSettings.showBenefitsIndicator) {
+          updateBenefitsFromDetailPanel();
+        }
+        // Update applicant count in detail panel
+        if (filterSettings.showApplicantCount) {
+          updateApplicantCountInDetailPanel();
+        }
+      }, delay);
+    });
   }
 }, true);
+
+// ===== MUTATION OBSERVER FOR JOB DETAIL PANEL =====
+// Watch for changes in the job detail panel to update applicant count
+let detailPanelObserver = null;
+let lastDetailPanelContent = '';
+
+function setupDetailPanelObserver() {
+  // Find the detail panel container
+  const detailPanelSelectors = [
+    '.jobs-details',
+    '.job-view-layout',
+    '.scaffold-layout__detail',
+    '.jobs-search__job-details'
+  ];
+
+  let detailPanel = null;
+  for (const selector of detailPanelSelectors) {
+    detailPanel = document.querySelector(selector);
+    if (detailPanel) break;
+  }
+
+  if (!detailPanel) return;
+
+  // Disconnect existing observer
+  if (detailPanelObserver) {
+    detailPanelObserver.disconnect();
+  }
+
+  // Create new observer
+  detailPanelObserver = new MutationObserver((mutations) => {
+    // Check if the content has actually changed
+    const currentContent = detailPanel.querySelector('.jobs-unified-top-card, .job-details-jobs-unified-top-card')?.textContent || '';
+
+    if (currentContent !== lastDetailPanelContent) {
+      lastDetailPanelContent = currentContent;
+
+      // Debounce the update
+      clearTimeout(window.detailPanelUpdateTimeout);
+      window.detailPanelUpdateTimeout = setTimeout(() => {
+        if (filterSettings.showApplicantCount) {
+          updateApplicantCountInDetailPanel();
+        }
+        if (filterSettings.showBenefitsIndicator) {
+          updateBenefitsFromDetailPanel();
+        }
+      }, 200);
+    }
+  });
+
+  detailPanelObserver.observe(detailPanel, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+
+  log('Detail panel observer set up');
+}
+
+// Set up the observer after page load
+setTimeout(setupDetailPanelObserver, 2000);
+
+// Re-setup observer when URL changes (SPA navigation)
+let lastSetupUrl = location.href;
+setInterval(() => {
+  if (location.href !== lastSetupUrl) {
+    lastSetupUrl = location.href;
+    setTimeout(setupDetailPanelObserver, 1000);
+  }
+}, 1000);
 
 // ===== PERIODIC FULL SCAN (Every 2 seconds) =====
 // Ensures filters are always applied to all visible jobs, including dynamically loaded content
