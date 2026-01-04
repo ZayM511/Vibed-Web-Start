@@ -3710,10 +3710,6 @@ function renderActiveTodos() {
   if (todos.active.length === 0) {
     list.innerHTML = `
       <div class="todo-empty">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
         <span>No active tasks</span>
       </div>
     `;
@@ -3722,10 +3718,10 @@ function renderActiveTodos() {
 
   list.innerHTML = todos.active.map(todo => `
     <div class="todo-item" data-id="${todo.id}" draggable="true">
-      <input type="checkbox" class="todo-checkbox" data-id="${todo.id}" onchange="toggleTodoCompletion('${todo.id}', true)">
+      <input type="checkbox" class="todo-checkbox" data-id="${todo.id}">
       <span class="todo-text">${escapeHtml(todo.text)}</span>
-      <button class="todo-delete-btn" onclick="deleteTodo('${todo.id}', false)" title="Delete task">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <button class="todo-delete-btn" data-id="${todo.id}" title="Delete task">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
       </button>
@@ -3742,6 +3738,9 @@ function renderActiveTodos() {
     </div>
   `).join('');
 
+  // Setup event listeners for checkboxes and delete buttons
+  setupTodoEventHandlers(list, false);
+
   // Setup drag and drop for active list
   setupTodoDragAndDrop(list, 'active');
 }
@@ -3754,10 +3753,6 @@ function renderCompletedTodos() {
   if (todos.completed.length === 0) {
     list.innerHTML = `
       <div class="todo-empty">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-          <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
         <span>No completed tasks yet</span>
       </div>
     `;
@@ -3766,16 +3761,38 @@ function renderCompletedTodos() {
 
   list.innerHTML = todos.completed.map(todo => `
     <div class="todo-item completed" data-id="${todo.id}">
-      <input type="checkbox" class="todo-checkbox" checked data-id="${todo.id}" onchange="toggleTodoCompletion('${todo.id}', false)">
+      <input type="checkbox" class="todo-checkbox" checked data-id="${todo.id}">
       <span class="todo-text">${escapeHtml(todo.text)}</span>
       <span class="todo-completed-time">${formatCompletedTime(todo.completedAt)}</span>
-      <button class="todo-delete-btn" onclick="deleteTodo('${todo.id}', true)" title="Delete task">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <button class="todo-delete-btn" data-id="${todo.id}" title="Delete task">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
       </button>
     </div>
   `).join('');
+
+  // Setup event listeners for checkboxes and delete buttons
+  setupTodoEventHandlers(list, true);
+}
+
+// Setup event handlers for todo checkboxes and delete buttons
+function setupTodoEventHandlers(list, isCompleted) {
+  // Handle checkbox changes
+  list.querySelectorAll('.todo-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', () => {
+      const todoId = checkbox.getAttribute('data-id');
+      toggleTodoCompletion(todoId, !isCompleted);
+    });
+  });
+
+  // Handle delete button clicks
+  list.querySelectorAll('.todo-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const todoId = btn.getAttribute('data-id');
+      deleteTodo(todoId, isCompleted);
+    });
+  });
 }
 
 // Format completed time

@@ -2939,8 +2939,8 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
@@ -2948,6 +2948,7 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   cursor: pointer;
   opacity: 0;
   transition: all var(--transition-fast);
+  flex-shrink: 0;
 }
 
 .todo-item:hover .todo-delete-btn {
@@ -2957,6 +2958,16 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 .todo-delete-btn:hover {
   background: var(--danger-bg);
   color: var(--danger);
+}
+
+/* Empty state for todo lists */
+.todo-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+  color: var(--text-tertiary);
+  font-size: 11px;
 }
 
 /* To-Do Footer */
