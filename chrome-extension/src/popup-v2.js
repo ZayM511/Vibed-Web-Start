@@ -822,27 +822,38 @@ document.querySelectorAll('.tab-button').forEach(button => {
 let currentSite = null;
 let currentTabId = null; // Track the active job site tab ID
 
+// Helper function to safely get active job tab (handles service worker being inactive)
+async function safeGetActiveJobTab() {
+  // First try background script
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'getActiveJobTab' });
+    if (response && response.tab) {
+      return response.tab;
+    }
+  } catch (error) {
+    // Service worker may be inactive - this is expected in MV3
+    console.log('Background script not available, using fallback');
+  }
+
+  // Fallback: query tabs directly
+  const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  let tab = tabs.find(t => t.url && !t.url.startsWith('chrome-extension://'));
+
+  if (!tab && tabs.length > 0) {
+    const allTabs = await chrome.tabs.query({ active: true });
+    tab = allTabs.find(t => t.url && !t.url.startsWith('chrome-extension://'));
+  }
+
+  return tab || null;
+}
+
 async function detectCurrentSite() {
   try {
     let tab;
 
     if (isPanelMode) {
-      // In panel mode, we need to get the active tab from the last focused browser window
-      // Ask background script to find it for us
-      const response = await chrome.runtime.sendMessage({ action: 'getActiveJobTab' });
-      if (response && response.tab) {
-        tab = response.tab;
-      } else {
-        // Fallback: query all windows for active tabs
-        const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-        // Filter out extension pages
-        tab = tabs.find(t => t.url && !t.url.startsWith('chrome-extension://'));
-        if (!tab && tabs.length > 0) {
-          // Try to find any tab in a normal window
-          const allTabs = await chrome.tabs.query({ active: true });
-          tab = allTabs.find(t => t.url && !t.url.startsWith('chrome-extension://'));
-        }
-      }
+      // In panel mode, use helper to safely get active tab
+      tab = await safeGetActiveJobTab();
     } else {
       // Normal popup mode - get active tab in current window
       const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -975,8 +986,8 @@ async function requestPageInfo() {
     let tabId = currentTabId;
     if (!tabId) {
       if (isPanelMode) {
-        const response = await chrome.runtime.sendMessage({ action: 'getActiveJobTab' });
-        tabId = response?.tab?.id;
+        const tab = await safeGetActiveJobTab();
+        tabId = tab?.id;
       } else {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         tabId = tab?.id;
@@ -1692,9 +1703,9 @@ document.getElementById('applyFilters').addEventListener('click', async () => {
     let tabId = currentTabId;
     if (!tabId) {
       if (isPanelMode) {
-        // In panel mode, get tab from background script
-        const response = await chrome.runtime.sendMessage({ action: 'getActiveJobTab' });
-        tabId = response?.tab?.id;
+        // In panel mode, use safe helper
+        const tab = await safeGetActiveJobTab();
+        tabId = tab?.id;
       } else {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         tabId = tab?.id;
@@ -1811,8 +1822,8 @@ document.getElementById('resetFilters').addEventListener('click', async () => {
     let tabId = currentTabId;
     if (!tabId) {
       if (isPanelMode) {
-        const response = await chrome.runtime.sendMessage({ action: 'getActiveJobTab' });
-        tabId = response?.tab?.id;
+        const tab = await safeGetActiveJobTab();
+        tabId = tab?.id;
       } else {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         tabId = tab?.id;
@@ -1883,8 +1894,8 @@ async function detectCurrentJob() {
     let tabId = currentTabId;
     if (!tabId) {
       if (isPanelMode) {
-        const response = await chrome.runtime.sendMessage({ action: 'getActiveJobTab' });
-        tabId = response?.tab?.id;
+        const tab = await safeGetActiveJobTab();
+        tabId = tab?.id;
       } else {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         tabId = tab?.id;
@@ -2017,8 +2028,8 @@ document.getElementById('scanButton').addEventListener('click', async () => {
     let tabId = currentTabId;
     if (!tabId) {
       if (isPanelMode) {
-        const response = await chrome.runtime.sendMessage({ action: 'getActiveJobTab' });
-        tabId = response?.tab?.id;
+        const tab = await safeGetActiveJobTab();
+        tabId = tab?.id;
       } else {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         tabId = tab?.id;
