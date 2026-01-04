@@ -586,13 +586,17 @@ function updateGrowthChart(data) {
           }
         },
         y: {
-          grid: { color: gridColor },
+          grid: { color: gridColor, display: true },
           ticks: {
             color: textColor,
-            font: { size: 10 }
+            font: { size: 10 },
+            stepSize: 2, // Force regular intervals
+            count: 6 // Minimum number of ticks
           },
           beginAtZero: true,
-          suggestedMax: 10 // Ensure visible y-axis even with all zero values
+          suggestedMin: 0,
+          suggestedMax: 10, // Ensure visible y-axis even with all zero values
+          grace: '5%' // Add padding so lines aren't at edges
         }
       }
     }
@@ -618,7 +622,7 @@ function updateDetectionChart(data) {
     detectionChart.destroy();
   }
 
-  // Handle empty data - show default categories with zero values
+  // Handle empty data - show default categories with VISIBLE values for empty state
   let chartData = data;
   if (!data || data.length === 0) {
     chartData = [
@@ -630,7 +634,12 @@ function updateDetectionChart(data) {
   }
 
   const labels = chartData.map(d => d.type);
-  const values = chartData.map(d => d.count);
+  // CRITICAL FIX: Doughnut charts with all zeros show nothing
+  // Use small equal values to show structure in empty state
+  const hasAnyData = chartData.some(d => d.count > 0);
+  const values = hasAnyData
+    ? chartData.map(d => d.count)
+    : chartData.map(() => 1); // Equal slices to show empty state structure
   const colors = chartData.map(d => d.color);
 
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -661,6 +670,13 @@ function updateDetectionChart(data) {
           borderColor: isDark ? '#374151' : '#e5e7eb',
           borderWidth: 1,
           padding: 12,
+          callbacks: {
+            label: function(context) {
+              // Show actual count, or "No Data" if in empty state
+              const actualCount = chartData[context.dataIndex]?.count || 0;
+              return context.label + ': ' + (actualCount > 0 ? actualCount : '0 (Empty State)');
+            }
+          }
         }
       }
     }
@@ -785,16 +801,20 @@ function updateMRRChart(projection) {
           }
         },
         y: {
-          grid: { color: gridColor },
+          grid: { color: gridColor, display: true },
           ticks: {
             color: textColor,
             font: { size: 10 },
+            stepSize: 20, // Force regular intervals ($0, $20, $40, etc.)
+            count: 6, // Minimum number of ticks
             callback: function(value) {
               return '$' + value;
             }
           },
           beginAtZero: true,
-          suggestedMax: 100 // Ensure visible y-axis even with all zero values
+          suggestedMin: 0,
+          suggestedMax: 100, // Ensure visible y-axis even with all zero values
+          grace: '5%' // Add padding
         }
       }
     }
@@ -1000,16 +1020,20 @@ function updateConversionChart(conversionData) {
           }
         },
         y: {
-          grid: { color: gridColor },
+          grid: { color: gridColor, display: true },
           ticks: {
             color: textColor,
             font: { size: 10 },
+            stepSize: 2, // Force regular intervals (0%, 2%, 4%, etc.)
+            count: 6, // Minimum number of ticks
             callback: function(value) {
               return value + '%';
             }
           },
           beginAtZero: true,
-          suggestedMax: 10
+          suggestedMin: 0,
+          suggestedMax: 10,
+          grace: '5%' // Add padding
         }
       }
     }
