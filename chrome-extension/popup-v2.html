@@ -159,7 +159,7 @@
           </svg>
           <span id="currentSite">Not on a supported job site</span>
         </div>
-        <p class="site-help">Visit LinkedIn, Indeed, or Google Jobs to enable filters</p>
+        <p class="site-help">Visit LinkedIn or Indeed to enable filters</p>
       </div>
 
       <div class="filters-container" id="filtersContainer">
@@ -525,7 +525,7 @@
       <div class="scanner-section">
         <div class="scan-header">
           <h2>Scan Job Posting</h2>
-          <p>Detect scam jobs, spam, and ghost jobs</p>
+          <p>Detect Scam, Spam, and Ghost jobs</p>
         </div>
 
         <!-- Auto-Detected Job Info -->
@@ -690,6 +690,73 @@
           <span class="sync-status" id="syncStatus">Local only</span>
         </div>
 
+        <!-- To-Do List Section -->
+        <div class="todo-section" id="todoSection">
+          <div class="todo-header" id="todoHeader">
+            <div class="todo-header-left">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span>To-Do List</span>
+              <span class="todo-count" id="todoCount">0</span>
+            </div>
+            <svg class="todo-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <div class="todo-content hidden" id="todoContent">
+            <!-- Tab Buttons -->
+            <div class="todo-tabs">
+              <button class="todo-tab active" id="activeTasksTab" data-tab="active">Active</button>
+              <button class="todo-tab" id="completedTasksTab" data-tab="completed">Completed <span class="completed-count" id="completedCount">0</span></button>
+            </div>
+
+            <!-- Add Task Input -->
+            <div class="todo-add-section">
+              <input type="text" class="todo-input" id="todoInput" placeholder="Add a new task..." maxlength="200">
+              <button class="todo-add-btn" id="addTodoBtn" title="Add task">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Active Tasks List -->
+            <div class="todo-list" id="activeTodoList">
+              <div class="todo-empty-state">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 2"/>
+                  <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 2"/>
+                </svg>
+                <p>No active tasks</p>
+              </div>
+            </div>
+
+            <!-- Completed Tasks List -->
+            <div class="todo-list hidden" id="completedTodoList">
+              <div class="todo-empty-state">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <p>No completed tasks</p>
+              </div>
+            </div>
+
+            <!-- Clear All Button -->
+            <div class="todo-footer">
+              <button class="todo-clear-btn" id="clearAllTodosBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span id="clearAllText">Clear All Active</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Resumes Section -->
         <div class="document-category" id="resumesCategory">
           <div class="category-header">
@@ -781,73 +848,6 @@
               </svg>
               <p>No portfolio items uploaded</p>
               <span>Click "Add" to upload portfolio work</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- To-Do List Section -->
-        <div class="todo-section" id="todoSection">
-          <div class="todo-header" id="todoHeader">
-            <div class="todo-header-left">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span>To-Do List</span>
-              <span class="todo-count" id="todoCount">0</span>
-            </div>
-            <svg class="todo-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-
-          <div class="todo-content hidden" id="todoContent">
-            <!-- Tab Buttons -->
-            <div class="todo-tabs">
-              <button class="todo-tab active" id="activeTasksTab" data-tab="active">Active</button>
-              <button class="todo-tab" id="completedTasksTab" data-tab="completed">Completed <span class="completed-count" id="completedCount">0</span></button>
-            </div>
-
-            <!-- Add Task Input -->
-            <div class="todo-add-section">
-              <input type="text" class="todo-input" id="todoInput" placeholder="Add a new task..." maxlength="200">
-              <button class="todo-add-btn" id="addTodoBtn" title="Add task">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-              </button>
-            </div>
-
-            <!-- Active Tasks List -->
-            <div class="todo-list" id="activeTodoList">
-              <div class="todo-empty-state">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 2"/>
-                  <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 2"/>
-                </svg>
-                <p>No active tasks</p>
-              </div>
-            </div>
-
-            <!-- Completed Tasks List -->
-            <div class="todo-list hidden" id="completedTodoList">
-              <div class="todo-empty-state">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <p>No completed tasks</p>
-              </div>
-            </div>
-
-            <!-- Clear All Button -->
-            <div class="todo-footer">
-              <button class="todo-clear-btn" id="clearAllTodosBtn">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span id="clearAllText">Clear All Active</span>
-              </button>
             </div>
           </div>
         </div>

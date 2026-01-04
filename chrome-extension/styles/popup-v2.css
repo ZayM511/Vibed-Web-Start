@@ -161,21 +161,21 @@ body.panel-mode .drag-handle {
 
 /* Default button sizing (normal) */
 :root {
-  --btn-size: 28px;
-  --btn-icon-size: 12px;
-  --btn-gap: 4px;
-  --status-padding: 4px 10px;
-  --status-font-size: 10px;
+  --btn-size: 26px;
+  --btn-icon-size: 11px;
+  --btn-gap: 3px;
+  --status-padding: 3px 8px;
+  --status-font-size: 9px;
   --logo-font-size: 17px;
 }
 
 /* Compact mode (width < 320px) */
 body.size-compact {
-  --btn-size: 24px;
-  --btn-icon-size: 10px;
+  --btn-size: 22px;
+  --btn-icon-size: 9px;
   --btn-gap: 2px;
   --status-padding: 3px 6px;
-  --status-font-size: 9px;
+  --status-font-size: 8px;
   --logo-font-size: 14px;
 }
 
@@ -194,11 +194,11 @@ body.size-compact .header-actions {
 
 /* Expanded mode (width > 450px) */
 body.size-expanded {
-  --btn-size: 32px;
-  --btn-icon-size: 14px;
-  --btn-gap: 6px;
-  --status-padding: 5px 12px;
-  --status-font-size: 11px;
+  --btn-size: 28px;
+  --btn-icon-size: 12px;
+  --btn-gap: 4px;
+  --status-padding: 4px 10px;
+  --status-font-size: 10px;
   --logo-font-size: 19px;
 }
 
