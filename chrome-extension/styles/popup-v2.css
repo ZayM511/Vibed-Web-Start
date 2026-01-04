@@ -98,6 +98,32 @@
 }
 
 /* ============================================
+   LIGHT MODE - Documents Section Overrides
+   ============================================ */
+
+/* Light mode: Slightly darker section boxes */
+:root:not([data-theme="dark"]) .document-category,
+[data-theme="light"] .document-category {
+  background: #F5F5F7;
+}
+
+:root:not([data-theme="dark"]) .sync-toggle-section,
+[data-theme="light"] .sync-toggle-section {
+  background: #EDEDEF;
+}
+
+/* Light mode: Slightly darker document cards */
+:root:not([data-theme="dark"]) .doc-card,
+[data-theme="light"] .doc-card {
+  background: #E9E9EB;
+}
+
+:root:not([data-theme="dark"]) .doc-card:hover,
+[data-theme="light"] .doc-card:hover {
+  background: var(--accent-subtle);
+}
+
+/* ============================================
    BASE STYLES
    ============================================ */
 
