@@ -1418,11 +1418,27 @@ async function saveSettings() {
 
     await chrome.storage.sync.set(settings);
     showSuccessMessage();
+    showSaveButtonAnimation();
     console.log('Settings saved:', settings);
   } catch (error) {
     console.error('Error saving settings:', error);
     alert('Failed to save settings. Please try again.');
   }
+}
+
+function showSaveButtonAnimation() {
+  const btnText = saveButton.querySelector('.btn-text');
+  const originalText = btnText.textContent;
+
+  // Add saved class and change text
+  saveButton.classList.add('saved');
+  btnText.textContent = 'Saved!';
+
+  // Reset after animation
+  setTimeout(() => {
+    saveButton.classList.remove('saved');
+    btnText.textContent = originalText;
+  }, 1500);
 }
 
 async function resetToDefaults() {

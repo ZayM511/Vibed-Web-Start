@@ -272,8 +272,74 @@
       flex-shrink: 0;
     }
 
+    /* Save Button Animation */
+    #saveButton {
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    #saveButton .btn-text {
+      transition: opacity 0.2s ease;
+    }
+
+    #saveButton .btn-icon {
+      display: none;
+      width: 16px;
+      height: 16px;
+    }
+
+    #saveButton.saved {
+      background: var(--success);
+      pointer-events: none;
+    }
+
+    #saveButton.saved .btn-text {
+      opacity: 1;
+    }
+
+    #saveButton.saved .btn-icon {
+      display: block;
+      animation: checkPop 0.3s ease-out;
+    }
+
+    @keyframes checkPop {
+      0% {
+        transform: scale(0);
+        opacity: 0;
+      }
+      50% {
+        transform: scale(1.2);
+      }
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    @keyframes btnPulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+      }
+      70% {
+        box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+      }
+    }
+
+    #saveButton.saved {
+      animation: btnPulse 0.6s ease-out;
+    }
+
     .info-box {
+      position: relative;
       padding: 16px;
+      padding-bottom: 40px;
       background: var(--accent-subtle);
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -292,7 +358,23 @@
       text-decoration: underline;
     }
 
+    .info-box-links {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 4px;
+    }
+
+    .info-box-links a {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
     .version-badge {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -302,7 +384,7 @@
       font-size: 11px;
       font-weight: 500;
       color: var(--text-tertiary);
-      margin-top: 8px;
+      margin: 0;
     }
 
     /* Account Profile Section */
@@ -1390,6 +1472,18 @@
             </div>
           </div>
 
+          <div class="action-buttons">
+            <button class="btn btn-primary" id="saveButton" style="flex: 2;">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span class="btn-text">Save Settings</span>
+            </button>
+            <button class="btn btn-secondary" id="resetButton" style="flex: 1;">
+              Reset
+            </button>
+          </div>
+
           <!-- About -->
           <div class="settings-section">
             <h2>
@@ -1404,7 +1498,10 @@
               <strong>JobFiltr</strong><br>
               AI-powered scam and ghost job detection for smarter job searching.
               <br><br>
-              <a href="https://jobfiltr.com" target="_blank">Visit Website</a>
+              <div class="info-box-links">
+                <a href="https://jobfiltr.com" target="_blank">Visit Website</a>
+                <a href="https://jobfiltr.app/contact" target="_blank">Contact Us</a>
+              </div>
               <div class="version-badge">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
                   <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="currentColor" stroke-width="2"/>
@@ -1412,15 +1509,6 @@
                 v1.0.0
               </div>
             </div>
-          </div>
-
-          <div class="action-buttons">
-            <button class="btn btn-primary" id="saveButton" style="flex: 2;">
-              Save Settings
-            </button>
-            <button class="btn btn-secondary" id="resetButton" style="flex: 1;">
-              Reset
-            </button>
           </div>
         </div>
       </div>

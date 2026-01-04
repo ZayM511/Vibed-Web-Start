@@ -2277,7 +2277,6 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--bg-tertiary);
   border-radius: var(--radius-md);
-  margin-bottom: var(--spacing-xs);
 }
 
 .sync-toggle-label {
@@ -2651,7 +2650,6 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   background: var(--bg-tertiary);
   border-radius: var(--radius-md);
   overflow: hidden;
-  margin-bottom: var(--spacing-xs);
 }
 
 .todo-header {
@@ -3615,7 +3613,6 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
    ============================================ */
 
 .saved-jobs-section {
-  margin-top: var(--spacing-lg);
   padding: var(--spacing-md);
   background: var(--bg-secondary);
   border: 1px solid var(--border);
