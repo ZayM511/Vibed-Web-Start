@@ -2277,10 +2277,10 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 .motivation-text {
   font-style: italic;
   font-size: 12px;
-  line-height: 1.6;
+  line-height: 1.3;
   color: var(--text-secondary);
   margin: 0;
-  text-align: center;
+  text-align: left;
 }
 
 /* Cloud Sync Toggle */
