@@ -1639,7 +1639,51 @@ function showFirstSignInNotification() {
   }, 5000);
 }
 
-// Show notification after a short delay to ensure page is loaded
-setTimeout(() => {
-  showJobFiltrActiveNotification();
+// Check if user is signed in before showing notification
+async function isUserSignedIn() {
+  try {
+    const result = await chrome.storage.local.get(['authToken', 'authExpiry']);
+    if (result.authToken && result.authExpiry && Date.now() < result.authExpiry) {
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('JobFiltr: Error checking auth state:', error);
+    return false;
+  }
+}
+
+// Show notification only if user is signed in
+async function showNotificationIfSignedIn() {
+  const signedIn = await isUserSignedIn();
+  if (signedIn) {
+    showJobFiltrActiveNotification();
+  }
+}
+
+// Track if tab was previously hidden (user was on another tab/window)
+let wasTabHidden = false;
+
+// Listen for visibility changes to detect when user returns from non-compatible sites
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'hidden') {
+    // Tab is being hidden - user is navigating away
+    wasTabHidden = true;
+  } else if (document.visibilityState === 'visible' && wasTabHidden) {
+    // Tab became visible again after being hidden
+    wasTabHidden = false;
+
+    // Clear the session notification flag so it can show again
+    sessionStorage.removeItem('jobfiltr_notification_shown');
+
+    // Show notification if user is signed in
+    setTimeout(async () => {
+      await showNotificationIfSignedIn();
+    }, 500);
+  }
+});
+
+// Show notification after a short delay to ensure page is loaded (only if signed in)
+setTimeout(async () => {
+  await showNotificationIfSignedIn();
 }, 1500);
