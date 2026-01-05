@@ -1717,6 +1717,11 @@ function getJobAge(jobCard) {
         if (match) return parseInt(match[1]) * 30;
         return 30;
       }
+      if (text.includes('year')) {
+        const match = text.match(/(\d+)/);
+        if (match) return parseInt(match[1]) * 365;
+        return 365;
+      }
 
       return null;
     };
@@ -1886,47 +1891,11 @@ function addJobAgeBadge(jobCard, days) {
     if (isNaN(days) || days < 0) return;
   }
 
-  // Find the best container for the badge - ALWAYS use the top-level job card
-  // This ensures consistent positioning across all job card types
-  // The outer <li> element is the most reliable container for absolute positioning
-  let badgeContainer = jobCard;
-
-  // If jobCard is not an LI element, try to find a suitable container within it
-  if (jobCard.tagName !== 'LI') {
-    const containerSelectors = [
-      '.job-card-container',
-      '.job-card-list__entity-lockup',
-      '.artdeco-entity-lockup',
-      '.job-card-container__link'
-    ];
-
-    for (const sel of containerSelectors) {
-      const inner = jobCard.querySelector(sel);
-      if (inner) {
-        badgeContainer = inner;
-        break;
-      }
-    }
-  }
-
-  // Check if badge already exists with correct value - if so, don't recreate
-  const allExistingBadges = jobCard.querySelectorAll('.jobfiltr-age-badge');
-
-  // If we already have a badge with the correct age, don't add another one
-  for (const existingBadge of allExistingBadges) {
-    if (existingBadge.dataset.age === days.toString()) {
-      // Badge already exists with correct value, no need to recreate
-      return;
-    }
-  }
-
-  // Remove all existing badges since they have wrong values
-  allExistingBadges.forEach(badge => badge.remove());
-
-  // Also check in the badge container if it's different
-  if (badgeContainer !== jobCard) {
-    const containerBadges = badgeContainer.querySelectorAll('.jobfiltr-age-badge');
-    containerBadges.forEach(badge => badge.remove());
+  // Check if badge already exists - if so, just return (don't recreate)
+  const existingBadge = jobCard.querySelector('.jobfiltr-age-badge');
+  if (existingBadge) {
+    // Badge already exists, don't create duplicate
+    return;
   }
 
   const ageText = formatJobAge(days);
@@ -2016,24 +1985,13 @@ function addJobAgeBadge(jobCard, days) {
     line-height: 1 !important;
   `;
 
-  // Ensure the container has relative positioning for the absolute badge
-  const containerPosition = window.getComputedStyle(badgeContainer).position;
-  if (containerPosition === 'static' || !containerPosition) {
-    badgeContainer.style.position = 'relative';
+  // Ensure the jobCard has relative positioning for the absolute badge
+  const cardPosition = window.getComputedStyle(jobCard).position;
+  if (cardPosition === 'static' || !cardPosition) {
+    jobCard.style.position = 'relative';
   }
 
-  // Ensure container doesn't have overflow hidden that would clip the badge
-  const containerOverflow = window.getComputedStyle(badgeContainer).overflow;
-  if (containerOverflow === 'hidden') {
-    badgeContainer.style.overflow = 'visible';
-  }
-
-  badgeContainer.appendChild(badge);
-
-  // Also mark the outer job card for tracking purposes
-  if (badgeContainer !== jobCard) {
-    jobCard.dataset.jobfiltrBadgeAdded = 'true';
-  }
+  jobCard.appendChild(badge);
 }
 
 // ===== MAIN FILTER APPLICATION =====
