@@ -235,21 +235,60 @@ function isStaffingFirm(jobCard) {
 // ===== SPONSORED/PROMOTED POST DETECTION =====
 function isSponsored(jobCard) {
   try {
-    const sponsoredIndicators = [
+    // Layer 1: Data attributes (most reliable)
+    const attributeIndicators = [
       jobCard.hasAttribute('data-is-promoted'),
       jobCard.querySelector('[data-promoted-badge]'),
-      jobCard.querySelector('.job-card-container__footer-job-state'),
-      jobCard.classList.contains('promoted')
+      jobCard.querySelector('[data-is-promoted="true"]')
     ];
 
-    // Check text content for "Promoted" label
-    const footerText = jobCard.querySelector('.job-card-list__footer-wrapper');
-    if (footerText && footerText.textContent.toLowerCase().includes('promoted')) {
+    if (attributeIndicators.some(indicator => indicator)) {
       return true;
     }
 
-    return sponsoredIndicators.some(indicator => indicator);
+    // Layer 2: Class-based detection
+    const classIndicators = [
+      jobCard.classList.contains('promoted'),
+      jobCard.querySelector('.job-card-container__footer-job-state'),
+      jobCard.querySelector('.promoted-badge'),
+      jobCard.querySelector('.job-card-container__footer-item--promoted')
+    ];
+
+    if (classIndicators.some(indicator => indicator)) {
+      return true;
+    }
+
+    // Layer 3: Text-based detection (catches "Promoted by hirer" and variations)
+    const textElements = [
+      jobCard.querySelector('.job-card-list__footer-wrapper'),
+      jobCard.querySelector('.job-card-container__footer'),
+      jobCard.querySelector('.job-card-container__footer-item'),
+      jobCard.querySelector('.artdeco-entity-lockup__caption'),
+      jobCard.querySelector('.job-card-container__metadata-item')
+    ];
+
+    for (const elem of textElements) {
+      if (elem) {
+        const text = elem.textContent.trim();
+
+        // Enhanced pattern matching for promoted variations
+        const promotedPatterns = [
+          /\bpromoted\b/i,              // Standard "Promoted"
+          /\bpromoted by\b/i,           // "Promoted by hirer"
+          /\bsponsored\b/i,             // Alternative "Sponsored"
+          /\bfeatured\b/i               // Some use "Featured"
+        ];
+
+        if (promotedPatterns.some(pattern => pattern.test(text))) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   } catch (error) {
+    // Return false on error to avoid hiding legitimate jobs
+    log('Error detecting promoted status:', error);
     return false;
   }
 }
@@ -1618,7 +1657,8 @@ function getJobAge(jobCard) {
       { pattern: /(\d+)\s*(?:days?|d)\s*ago/i, multiplier: 1 },
       { pattern: /(\d+)\s*(?:weeks?|wk|w)\s*ago/i, multiplier: 7 },
       { pattern: /(\d+)\s*(?:months?|mo)\s*ago/i, multiplier: 30 },
-      // Without "ago" (e.g., "Posted 3 days", "Reposted 1 week")
+      // Without "ago" (e.g., "Posted 3 days", "Reposted 1 week", "Reposted 1 hour")
+      { pattern: /(?:posted|reposted|listed)\s*(\d+)\s*(?:hours?|hr|h)/i, multiplier: 0 },
       { pattern: /(?:posted|reposted|listed)\s*(\d+)\s*(?:days?|d)/i, multiplier: 1 },
       { pattern: /(?:posted|reposted|listed)\s*(\d+)\s*(?:weeks?|wk|w)/i, multiplier: 7 },
       { pattern: /(?:posted|reposted|listed)\s*(\d+)\s*(?:months?|mo)/i, multiplier: 30 },
@@ -1951,27 +1991,37 @@ function addJobAgeBadge(jobCard, days) {
   const rightPosition = hasDismissButton ? (dismissButtonWidth + 12) : 8;
 
   badge.style.cssText = `
-    position: absolute;
-    top: 8px;
-    right: ${rightPosition}px;
-    background: ${bgColor};
-    color: ${textColor};
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
-    z-index: 1000;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    border: 1px solid ${textColor}30;
-    display: flex;
-    align-items: center;
-    pointer-events: none;
+    position: absolute !important;
+    top: 8px !important;
+    right: ${rightPosition}px !important;
+    background: ${bgColor} !important;
+    color: ${textColor} !important;
+    padding: 4px 10px !important;
+    border-radius: 12px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    z-index: 10000 !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15) !important;
+    border: 1px solid ${textColor}30 !important;
+    display: flex !important;
+    align-items: center !important;
+    pointer-events: none !important;
+    white-space: nowrap !important;
+    line-height: 1 !important;
   `;
 
   // Ensure the container has relative positioning for the absolute badge
-  if (window.getComputedStyle(badgeContainer).position === 'static') {
+  const containerPosition = window.getComputedStyle(badgeContainer).position;
+  if (containerPosition === 'static' || !containerPosition) {
     badgeContainer.style.position = 'relative';
   }
+
+  // Ensure container doesn't have overflow hidden that would clip the badge
+  const containerOverflow = window.getComputedStyle(badgeContainer).overflow;
+  if (containerOverflow === 'hidden') {
+    badgeContainer.style.overflow = 'visible';
+  }
+
   badgeContainer.appendChild(badge);
 
   // Also mark the outer job card for tracking purposes
@@ -2150,7 +2200,8 @@ function applyFilters(settings) {
     }
 
     // Job Age Display (display only, doesn't hide)
-    if (settings.showJobAge && !shouldHide) {
+    // IMPORTANT: Show job age on ALL cards, even hidden ones
+    if (settings.showJobAge) {
       // IMPORTANT: Check cached value FIRST to prevent age from changing on re-process
       // Only call getJobAge() if there's no cached value yet
       let jobAge = null;
@@ -2647,7 +2698,8 @@ function performIncrementalScan() {
     }
 
     // Job Age Display (display only)
-    if (filterSettings.showJobAge && !shouldHide) {
+    // IMPORTANT: Show job age on ALL cards, even hidden ones
+    if (filterSettings.showJobAge) {
       // IMPORTANT: Check cached value FIRST to prevent age from changing on re-process
       let jobAge = null;
       if (jobCard.dataset.jobfiltrAge) {

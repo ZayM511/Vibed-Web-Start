@@ -72,10 +72,41 @@ class LinkedInAdapter {
       const applicantText = getText(SELECTORS.applicants);
       const applicantMatch = applicantText.match(/(\d+)/);
 
-      // Check for promoted/sponsored
-      const promotedEl = document.querySelector(SELECTORS.promoted);
-      const isSponsored =
-        !!promotedEl || document.body.innerHTML.includes('Promoted');
+      // Check for promoted/sponsored (improved detection)
+      const isSponsored = (() => {
+        // Layer 1: Selector-based detection
+        const promotedSelectors = [
+          '.job-card-container__footer-job-state',
+          '.promoted-badge',
+          '.job-details-jobs-unified-top-card__job-insight--promoted',
+          '.jobs-unified-top-card__subtitle--promoted'
+        ];
+
+        for (const selector of promotedSelectors) {
+          const elem = document.querySelector(selector);
+          if (elem) return true;
+        }
+
+        // Layer 2: Text-based detection in specific containers (NOT entire body)
+        const textCheckSelectors = [
+          '.jobs-unified-top-card',
+          '.job-details-jobs-unified-top-card',
+          '.jobs-details-top-card'
+        ];
+
+        for (const selector of textCheckSelectors) {
+          const container = document.querySelector(selector);
+          if (container) {
+            const text = container.textContent;
+            // Check for "Promoted by hirer" and variations
+            if (/\b(promoted|sponsored|featured)(\s+by)?\b/i.test(text)) {
+              return true;
+            }
+          }
+        }
+
+        return false;
+      })();
 
       return {
         id: `linkedin_${id}`,
