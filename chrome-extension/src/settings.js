@@ -69,11 +69,23 @@ if (mrrYearEl) mrrYearEl.textContent = new Date().getFullYear();
 
 // Track recently used greetings to prevent repetition within 2 weeks
 let recentGreetings = {};
+let currentGreetingCache = null; // Cache for current 4-hour window greeting
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+
+// Calculate the start timestamp of the current 4-hour window
+function getFourHourWindowStart() {
+  const now = new Date();
+  const hour = now.getHours();
+  const fourHourWindow = Math.floor(hour / 4);
+  const windowStart = new Date(now);
+  windowStart.setHours(fourHourWindow * 4, 0, 0, 0);
+  return windowStart.getTime();
+}
 
 async function loadRecentGreetings() {
   try {
-    const result = await chrome.storage.local.get('founderGreetingHistory');
+    const result = await chrome.storage.local.get(['founderGreetingHistory', 'currentFounderGreeting']);
     if (result.founderGreetingHistory) {
       recentGreetings = result.founderGreetingHistory;
       // Clean up entries older than 2 weeks
@@ -84,15 +96,34 @@ async function loadRecentGreetings() {
         }
       });
     }
+    // Load cached greeting for current window
+    if (result.currentFounderGreeting) {
+      const cached = result.currentFounderGreeting;
+      const currentWindowStart = getFourHourWindowStart();
+      // Only use cache if it's from the current 4-hour window
+      if (cached.windowStart === currentWindowStart) {
+        currentGreetingCache = cached;
+      }
+    }
   } catch (error) {
     console.error('Error loading greeting history:', error);
   }
 }
 
-async function saveGreetingToHistory(greetingKey) {
+async function saveGreetingToHistory(greetingKey, greetingData) {
   recentGreetings[greetingKey] = Date.now();
+  const windowStart = getFourHourWindowStart();
+  currentGreetingCache = {
+    windowStart,
+    greeting: greetingData.greeting,
+    icon: greetingData.icon,
+    subtext: greetingData.subtext
+  };
   try {
-    await chrome.storage.local.set({ founderGreetingHistory: recentGreetings });
+    await chrome.storage.local.set({
+      founderGreetingHistory: recentGreetings,
+      currentFounderGreeting: currentGreetingCache
+    });
   } catch (error) {
     console.error('Error saving greeting history:', error);
   }
@@ -104,6 +135,35 @@ function generateFounderGreeting() {
   const month = now.getMonth();
   const day = now.getDate();
   const dayOfWeek = now.getDay();
+
+  // Check for day of week special messages first (these override everything)
+  // Monday
+  if (dayOfWeek === 1) {
+    return { greeting: 'Happy Monday, Founder!', icon: '💪', subtext: 'New week, new opportunities. Let\'s crush it!' };
+  }
+  // Friday
+  if (dayOfWeek === 5) {
+    return { greeting: 'Happy Friday, Founder!', icon: '🎉', subtext: 'End of week stats looking good?' };
+  }
+  // Weekend daytime
+  if ((dayOfWeek === 0 || dayOfWeek === 6) && hour >= 8 && hour < 20) {
+    return { greeting: 'Weekend Mode, Founder!', icon: '☕', subtext: 'Building on the weekend? That\'s dedication.' };
+  }
+
+  // Check for holiday overrides
+  const holidays = getHolidayGreeting(month, day);
+  if (holidays) {
+    return { greeting: holidays.greeting, icon: holidays.icon, subtext: holidays.subtext };
+  }
+
+  // Check if we have a cached greeting for the current 4-hour window
+  if (currentGreetingCache) {
+    return {
+      greeting: currentGreetingCache.greeting,
+      icon: currentGreetingCache.icon,
+      subtext: currentGreetingCache.subtext
+    };
+  }
 
   // Calculate 4-hour window (0-3, 4-7, 8-11, 12-15, 16-19, 20-23)
   const fourHourWindow = Math.floor(hour / 4);
@@ -187,35 +247,12 @@ function generateFounderGreeting() {
     selectedKey = `${fourHourWindow}-${variants.indexOf(selected)}`;
   }
 
-  // Save this greeting to history
-  saveGreetingToHistory(selectedKey);
+  // Save this greeting to history and cache for current window
+  saveGreetingToHistory(selectedKey, selected);
 
   timeGreeting = selected.greeting;
   icon = selected.icon;
   subtext = selected.subtext;
-
-  // Day of week special messages (override time-based)
-  if (dayOfWeek === 1) { // Monday
-    timeGreeting = 'Happy Monday, Founder!';
-    icon = '💪';
-    subtext = 'New week, new opportunities. Let\'s crush it!';
-  } else if (dayOfWeek === 5) { // Friday
-    timeGreeting = 'Happy Friday, Founder!';
-    icon = '🎉';
-    subtext = 'End of week stats looking good?';
-  } else if ((dayOfWeek === 0 || dayOfWeek === 6) && hour >= 8 && hour < 20) { // Weekend daytime
-    timeGreeting = 'Weekend Mode, Founder!';
-    icon = '☕';
-    subtext = 'Building on the weekend? That\'s dedication.';
-  }
-
-  // Holiday overrides (highest priority)
-  const holidays = getHolidayGreeting(month, day);
-  if (holidays) {
-    timeGreeting = holidays.greeting;
-    icon = holidays.icon;
-    subtext = holidays.subtext;
-  }
 
   return { greeting: timeGreeting, icon, subtext };
 }
