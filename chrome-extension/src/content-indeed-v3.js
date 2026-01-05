@@ -679,23 +679,49 @@ function extractJobAgesFromPageData() {
           if (!job.jobkey) return;
 
           let ageDays = null;
+          const now = Date.now();
 
-          // Method 1: Use formattedRelativeTime (e.g., "1 day ago", "30+ days ago", "Just posted")
-          if (job.formattedRelativeTime) {
+          // PRIORITY 1: Calculate EXACT age from pubDate Unix timestamp (most accurate)
+          // This gives us the precise number of days, unlike "30+ days ago" which caps at 30
+          if (job.pubDate && job.pubDate > 0) {
+            const pubDateMs = typeof job.pubDate === 'number' ? job.pubDate : parseInt(job.pubDate);
+            if (!isNaN(pubDateMs) && pubDateMs > 0) {
+              ageDays = Math.floor((now - pubDateMs) / (1000 * 60 * 60 * 24));
+              // Validate: age should be reasonable (0 to 365 days, warn if older)
+              if (ageDays < 0) {
+                ageDays = 0; // Future date, treat as today
+              } else if (ageDays > 365) {
+                log(`Warning: Job ${job.jobkey} shows age of ${ageDays} days (very old)`);
+              }
+            }
+          }
+
+          // PRIORITY 2: Calculate from createDate Unix timestamp
+          if (ageDays === null && job.createDate && job.createDate > 0) {
+            const createDateMs = typeof job.createDate === 'number' ? job.createDate : parseInt(job.createDate);
+            if (!isNaN(createDateMs) && createDateMs > 0) {
+              ageDays = Math.floor((now - createDateMs) / (1000 * 60 * 60 * 24));
+              if (ageDays < 0) ageDays = 0;
+            }
+          }
+
+          // PRIORITY 3: Fallback to formattedRelativeTime (less accurate but better than nothing)
+          // Note: This is a string like "1 day ago", "30+ days ago", "Just posted"
+          // Use only if timestamps are not available
+          if (ageDays === null && job.formattedRelativeTime) {
             const relTime = job.formattedRelativeTime.toString().trim().toLowerCase();
 
-            // Handle special cases
             if (relTime.includes('just posted') || relTime.includes('today') || relTime === 'just now') {
               ageDays = 0;
             } else if (relTime.includes('30+') || relTime.includes('30 +')) {
-              ageDays = 30; // Cap at 30 for "30+ days ago"
+              // For "30+ days ago", we don't have exact age - use 30 as minimum
+              // Note: pubDate would give us the exact age if it was available
+              ageDays = 30;
             } else if (relTime.includes('hour') || relTime.includes('minute')) {
               ageDays = 0; // Posted today
             } else if (relTime.includes('day')) {
               const numMatch = relTime.match(/(\d+)/);
-              if (numMatch) {
-                ageDays = parseInt(numMatch[1]);
-              }
+              if (numMatch) ageDays = parseInt(numMatch[1]);
             } else if (relTime.includes('week')) {
               const numMatch = relTime.match(/(\d+)/);
               ageDays = numMatch ? parseInt(numMatch[1]) * 7 : 7;
@@ -703,28 +729,12 @@ function extractJobAgesFromPageData() {
               const numMatch = relTime.match(/(\d+)/);
               ageDays = numMatch ? parseInt(numMatch[1]) * 30 : 30;
             } else {
-              // Try to extract just a number (e.g., "1", "5")
               const numMatch = relTime.match(/^(\d+)/);
-              if (numMatch) {
-                ageDays = parseInt(numMatch[1]);
-              }
+              if (numMatch) ageDays = parseInt(numMatch[1]);
             }
           }
 
-          // Method 2: Calculate from pubDate Unix timestamp
-          if (ageDays === null && job.pubDate) {
-            const pubDate = new Date(job.pubDate);
-            const now = new Date();
-            ageDays = Math.floor((now - pubDate) / (1000 * 60 * 60 * 24));
-          }
-
-          // Method 3: Calculate from createDate Unix timestamp
-          if (ageDays === null && job.createDate) {
-            const createDate = new Date(job.createDate);
-            const now = new Date();
-            ageDays = Math.floor((now - createDate) / (1000 * 60 * 60 * 24));
-          }
-
+          // Store in cache if we found a valid age
           if (ageDays !== null && ageDays >= 0) {
             jobAgeCache[job.jobkey] = ageDays;
           }
@@ -897,11 +907,28 @@ function getJobAge(jobCard) {
   }
 }
 
-// Format job age for display - shows exact age
+// Format job age for display
+// For jobs 30+ days old, show "30+ days" with estimated exact age
 function formatJobAge(days) {
   if (days === 0) return 'Today';
   if (days === 1) return '1 day';
-  return `${days} days`;
+  if (days <= 30) return `${days} days`;
+
+  // For jobs over 30 days, show "30+ days" with estimate
+  // Format the estimate based on how old it is
+  if (days <= 60) {
+    return `30+ days (~${days}d)`;
+  } else if (days <= 90) {
+    const weeks = Math.round(days / 7);
+    return `30+ days (~${weeks}w)`;
+  } else if (days <= 365) {
+    const months = Math.round(days / 30);
+    return `30+ days (~${months}mo)`;
+  } else {
+    // Over a year old
+    const years = Math.floor(days / 365);
+    return `30+ days (~${years}y+)`;
+  }
 }
 
 // Add job age badge to job card (positioned on the RIGHT side)
