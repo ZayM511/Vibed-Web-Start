@@ -1237,92 +1237,353 @@ function updateBenefitsFromDetailPanel() {
   }
 }
 
-// ===== JOB AGE DETECTION =====
-function getJobAge(jobCard) {
-  try {
-    // Try multiple selectors for time/date elements - comprehensive list
-    const timeSelectors = [
-      'time',
-      '.job-card-container__listed-time',
-      '.job-card-list__footer-wrapper time',
-      '.artdeco-entity-lockup__caption',
-      '.job-card-container__metadata-item--workplace-type',
-      '.job-card-container__footer-item',
-      '.job-card-list__footer-wrapper',
-      '.jobs-unified-top-card__posted-date',
-      '.job-card-container__footer-job-state',
-      '.job-card-list__insight',
-      '.job-card-container__primary-description',
-      '.job-card-container__metadata-wrapper',
-      // Selectors for visited/viewed jobs
-      '.job-card-container--visited time',
-      '.job-card-container--visited .job-card-container__footer-item',
-      '.scaffold-layout__list-item--is-viewed time',
-      '.jobs-search-results-list__list-item--visited time',
-      // More general selectors
-      '[class*="listed"]',
-      '[class*="posted"]',
-      '[class*="time"]',
-      'li[class*="job"] time',
-      'div[class*="job-card"] time'
+// ===== JOB AGE IN DETAIL PANEL =====
+// Shows job age badge near the top of the expanded job posting detail panel
+// IMPORTANT: This must show the SAME age as the job card badge to avoid confusion
+
+function addJobAgeToDetailPanel() {
+  if (!filterSettings.showJobAge) return;
+
+  // Remove any existing detail panel job age badge
+  const existingBadge = document.querySelector('.jobfiltr-detail-age-badge');
+  if (existingBadge) existingBadge.remove();
+
+  let jobAge = null;
+
+  // Helper function to check if a card is the active/selected card
+  const isCardActive = (card) => {
+    if (!card) return false;
+    // Check card's own classes
+    if (card.classList.contains('jobs-search-results-list__list-item--active') ||
+        card.classList.contains('scaffold-layout__list-item--active') ||
+        card.classList.contains('job-card-container--active') ||
+        card.classList.contains('jobs-job-card-list__item--active') ||
+        card.classList.contains('job-card-list__item--active')) {
+      return true;
+    }
+    // Check for active/selected class in className string (handles dynamic classes)
+    if (/active|selected|is-active/i.test(card.className)) {
+      return true;
+    }
+    // Check for active child container
+    if (card.querySelector('.job-card-container--active, .jobs-search-two-pane__job-card-container--is-active, [class*="--active"]')) {
+      return true;
+    }
+    // Check if this card has focus or contains the focused element
+    if (card.contains(document.activeElement)) {
+      return true;
+    }
+    // Check for aria-selected attribute
+    if (card.getAttribute('aria-selected') === 'true') {
+      return true;
+    }
+    // Check for background color change (LinkedIn often uses this for selection)
+    const computedStyle = window.getComputedStyle(card);
+    if (computedStyle.backgroundColor && computedStyle.backgroundColor !== 'rgba(0, 0, 0, 0)' &&
+        computedStyle.backgroundColor !== 'transparent' &&
+        computedStyle.backgroundColor !== 'rgb(255, 255, 255)') {
+      // This card has a non-white background, might be selected
+      // But this is a weak signal, so only use if no other method works
+    }
+    return false;
+  };
+
+  // STRATEGY 1: Find the job card with a visible age badge that is selected/active
+  // This ensures we show the EXACT SAME age as what's displayed on the job card
+  // We ONLY READ from job cards, never write back to avoid corrupting cached values
+
+  // First, look for any job card with an age badge that appears to be selected
+  const allAgeBadges = document.querySelectorAll('.jobfiltr-age-badge[data-age]');
+  for (const badge of allAgeBadges) {
+    const card = badge.closest('li, div.job-card-container, .scaffold-layout__list-item, .jobs-search-results__list-item, .jobs-unified-list li, .jobs-job-card-list li, .job-card-list li');
+    if (card && isCardActive(card)) {
+      jobAge = parseInt(badge.dataset.age, 10);
+      log('Found job age from active card badge:', jobAge);
+      break;
+    }
+  }
+
+  // STRATEGY 2: If no active card with badge, find card with cached age that's active
+  if (jobAge === null) {
+    const jobCardSelectors = [
+      '.scaffold-layout__list-item',
+      'li.jobs-search-results__list-item',
+      'li[data-occludable-job-id]',
+      '.jobs-search-results-list__list-item',
+      '.job-card-container',
+      // Dismissible card selectors
+      '.jobs-unified-list li',
+      '.jobs-job-card-list li',
+      '.jobs-job-card-list__item',
+      '.job-card-list li',
+      '.job-card-list__entity-lockup',
+      '.jobs-home-recommendations li',
+      '.jobs-save-list li'
     ];
 
-    for (const selector of timeSelectors) {
-      const timeElems = jobCard.querySelectorAll(selector);
-      for (const timeElem of timeElems) {
-        // Try datetime attribute first
-        const datetime = timeElem.getAttribute('datetime');
-        if (datetime) {
-          const postDate = new Date(datetime);
-          const now = new Date();
-          const daysAgo = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
-          if (!isNaN(daysAgo) && daysAgo >= 0) {
-            return daysAgo;
+    for (const selector of jobCardSelectors) {
+      try {
+        const cards = document.querySelectorAll(selector);
+        for (const card of cards) {
+          if (isCardActive(card) && card.dataset.jobfiltrAge) {
+            jobAge = parseInt(card.dataset.jobfiltrAge, 10);
+            log('Found job age from active card cache:', jobAge);
+            break;
           }
         }
+      } catch (e) {
+        // Skip invalid selectors
+      }
+      if (jobAge !== null) break;
+    }
+  }
 
-        // Fallback: parse text
-        const text = timeElem.textContent.trim().toLowerCase();
+  // STRATEGY 3: Try to extract age from the active card if not cached
+  if (jobAge === null) {
+    const jobCardSelectors = [
+      '.scaffold-layout__list-item',
+      'li.jobs-search-results__list-item',
+      '.job-card-container',
+      // Dismissible card selectors
+      '.jobs-unified-list li',
+      '.jobs-job-card-list li',
+      '.jobs-job-card-list__item',
+      '.job-card-list li'
+    ];
 
-        // Match patterns like "1 hour ago", "2 days ago", "3 weeks ago", "1 month ago"
-        if (text.includes('just now') || text.includes('moment') || text.includes('today')) return 0;
-        if (text.includes('hour') || text.includes('minute') || text.includes('second')) return 0;
-
-        // Check for "Xd" or "Xw" or "Xmo" shorthand
-        const shortMatch = text.match(/\b(\d+)\s*(d|w|mo|m)\b/i);
-        if (shortMatch) {
-          const num = parseInt(shortMatch[1]);
-          const unit = shortMatch[2].toLowerCase();
-          if (unit === 'd') return num;
-          if (unit === 'w') return num * 7;
-          if (unit === 'mo' || unit === 'm') return num * 30;
+    for (const selector of jobCardSelectors) {
+      try {
+        const cards = document.querySelectorAll(selector);
+        for (const card of cards) {
+          if (isCardActive(card)) {
+            // Try to get the age from this card
+            const extractedAge = getJobAge(card);
+            if (extractedAge !== null && extractedAge >= 0) {
+              jobAge = extractedAge;
+              // Cache it for future use
+              card.dataset.jobfiltrAge = extractedAge.toString();
+              // Also add the badge to the card
+              addJobAgeBadge(card, extractedAge);
+              log('Extracted and cached job age from active card:', jobAge);
+              break;
+            }
+          }
         }
+      } catch (e) {
+        // Skip invalid selectors
+      }
+      if (jobAge !== null) break;
+    }
+  }
 
-        if (text.includes('day')) {
-          const match = text.match(/(\d+)/);
-          if (match) return parseInt(match[1]);
-        }
-        if (text.includes('week')) {
-          const match = text.match(/(\d+)/);
-          if (match) return parseInt(match[1]) * 7;
-          return 7; // Default to 1 week if no number found
-        }
-        if (text.includes('month')) {
-          const match = text.match(/(\d+)/);
-          if (match) return parseInt(match[1]) * 30;
-          return 30; // Default to 1 month if no number found
+  // STRATEGY 4: Extract age directly from the detail panel
+  if (jobAge === null) {
+    const detailPanelSelectors = [
+      '.jobs-unified-top-card',
+      '.job-details-jobs-unified-top-card',
+      '.jobs-details-top-card',
+      '.jobs-details__main-content',
+      '.job-view-layout'
+    ];
+
+    for (const selector of detailPanelSelectors) {
+      const panel = document.querySelector(selector);
+      if (panel) {
+        // Look for time elements in the detail panel
+        const timeEl = panel.querySelector('time');
+        if (timeEl) {
+          const datetime = timeEl.getAttribute('datetime');
+          if (datetime) {
+            const postDate = new Date(datetime);
+            const now = new Date();
+            const daysAgo = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
+            if (!isNaN(daysAgo) && daysAgo >= 0 && daysAgo <= 365) {
+              jobAge = daysAgo;
+              log('Extracted job age from detail panel time element:', jobAge);
+              break;
+            }
+          }
+          // Try text parsing
+          const text = timeEl.textContent.toLowerCase();
+          if (text.includes('just now') || text.includes('today') || text.includes('hour') || text.includes('minute')) {
+            jobAge = 0;
+            log('Extracted job age from detail panel (today):', jobAge);
+            break;
+          }
+          const dayMatch = text.match(/(\d+)\s*(?:days?|d)\b/i);
+          if (dayMatch) {
+            jobAge = parseInt(dayMatch[1]);
+            log('Extracted job age from detail panel text:', jobAge);
+            break;
+          }
+          const weekMatch = text.match(/(\d+)\s*(?:weeks?|w)\b/i);
+          if (weekMatch) {
+            jobAge = parseInt(weekMatch[1]) * 7;
+            log('Extracted job age from detail panel text:', jobAge);
+            break;
+          }
+          const monthMatch = text.match(/(\d+)\s*(?:months?|mo)\b/i);
+          if (monthMatch) {
+            jobAge = parseInt(monthMatch[1]) * 30;
+            log('Extracted job age from detail panel text:', jobAge);
+            break;
+          }
         }
       }
     }
+  }
 
-    // Check the full job card text for time references - more comprehensive patterns
-    const fullText = jobCard.textContent.toLowerCase();
+  // STRATEGY 5: Don't use fallback badges from other jobs
+  if (jobAge === null && allAgeBadges.length > 0) {
+    // Don't use this - it could be a different job's badge
+    log('No matching job age found for detail panel');
+    return;
+  }
 
-    // Check for "just now", "today", etc.
-    if (fullText.includes('just now') || fullText.includes('posted today') || fullText.includes('just posted')) {
-      return 0;
+  if (jobAge === null) {
+    log('Could not determine job age for detail panel');
+    return;
+  }
+
+  // Don't show if the age seems unreasonable
+  if (isNaN(jobAge) || jobAge < 0 || jobAge > 365) {
+    log('Invalid job age for detail panel:', jobAge);
+    return;
+  }
+
+  // Format the age text
+  const ageText = formatJobAge(jobAge);
+
+  // Determine color based on age
+  let bgColor, textColor, icon;
+  if (jobAge <= 3) {
+    bgColor = 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)';
+    textColor = '#166534';
+    icon = '🟢';
+  } else if (jobAge <= 7) {
+    bgColor = 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)';
+    textColor = '#1e40af';
+    icon = '🔵';
+  } else if (jobAge <= 14) {
+    bgColor = 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)';
+    textColor = '#92400e';
+    icon = '🟡';
+  } else if (jobAge <= 30) {
+    bgColor = 'linear-gradient(135deg, #fed7aa 0%, #fdba74 100%)';
+    textColor = '#9a3412';
+    icon = '🟠';
+  } else {
+    bgColor = 'linear-gradient(135deg, #fecaca 0%, #fca5a5 100%)';
+    textColor = '#991b1b';
+    icon = '🔴';
+  }
+
+  // Create the badge
+  const badge = document.createElement('div');
+  badge.className = 'jobfiltr-detail-age-badge';
+  badge.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 18px;">${icon}</span>
+      <div>
+        <div style="font-weight: 700; font-size: 14px;">Posted ${ageText}${jobAge > 30 ? ' ago' : ''}</div>
+        <div style="font-size: 11px; opacity: 0.8;">${jobAge <= 3 ? 'Fresh posting!' : jobAge <= 7 ? 'Recent posting' : jobAge <= 14 ? 'Moderately recent' : jobAge <= 30 ? 'Getting older' : 'May be stale'}</div>
+      </div>
+    </div>
+  `;
+
+  // Check if Ghost Job Analysis badge exists - if so, position next to it
+  const ghostBadge = document.querySelector('.jobfiltr-ghost-score');
+  if (ghostBadge) {
+    // Style for inline placement next to ghost badge
+    badge.style.cssText = `
+      background: ${bgColor};
+      color: ${textColor};
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      border: 1px solid ${textColor}30;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: inline-flex;
+      align-items: center;
+      height: fit-content;
+    `;
+
+    // Check if we already have a wrapper container
+    let wrapper = document.getElementById('jobfiltr-badges-wrapper');
+    if (!wrapper) {
+      // Create a flex wrapper to hold both badges side by side
+      wrapper = document.createElement('div');
+      wrapper.id = 'jobfiltr-badges-wrapper';
+      wrapper.style.cssText = `
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        margin: 12px 0;
+      `;
+      // Insert wrapper where the ghost badge currently is
+      ghostBadge.parentNode.insertBefore(wrapper, ghostBadge);
+      // Move ghost badge into wrapper
+      wrapper.appendChild(ghostBadge);
+      // Reset ghost badge margin since wrapper handles spacing
+      const ghostInner = ghostBadge.querySelector('div');
+      if (ghostInner) {
+        ghostInner.style.margin = '0';
+      }
     }
+    // Add age badge to wrapper
+    wrapper.appendChild(badge);
+    log('Added job age badge next to Ghost Job Analysis badge');
+    return;
+  }
 
+  // Standard styling when ghost badge is not present
+  badge.style.cssText = `
+    background: ${bgColor};
+    color: ${textColor};
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    margin: 12px 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid ${textColor}30;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: fit-content;
+  `;
+
+  // Find the best place to insert in the detail panel (similar to applicant count badge)
+  const insertTargets = [
+    '.job-details-jobs-unified-top-card__primary-description-container',
+    '.jobs-unified-top-card__primary-description',
+    '.jobs-details-top-card__content-container',
+    '.jobs-unified-top-card__content--two-pane',
+    '.jobs-details__main-content header',
+    '.job-view-layout header',
+    '.jobs-unified-top-card__job-insight',
+    '.jobs-unified-top-card'
+  ];
+
+  for (const selector of insertTargets) {
+    const target = document.querySelector(selector);
+    if (target) {
+      // Insert after the target element
+      target.insertAdjacentElement('afterend', badge);
+      log('Added job age badge to LinkedIn detail panel');
+      return;
+    }
+  }
+
+  log('Could not find suitable location for job age badge in LinkedIn detail panel');
+}
+
+// ===== JOB AGE DETECTION =====
+// Enhanced to handle all job card types including dismissible cards with X button
+function getJobAge(jobCard) {
+  try {
+    // Time patterns used throughout this function
     const timePatterns = [
       // With "ago"
       { pattern: /(\d+)\s*(?:hours?|hr|h)\s*ago/i, multiplier: 0 },
@@ -1333,26 +1594,153 @@ function getJobAge(jobCard) {
       { pattern: /(?:posted|reposted|listed)\s*(\d+)\s*(?:days?|d)/i, multiplier: 1 },
       { pattern: /(?:posted|reposted|listed)\s*(\d+)\s*(?:weeks?|wk|w)/i, multiplier: 7 },
       { pattern: /(?:posted|reposted|listed)\s*(\d+)\s*(?:months?|mo)/i, multiplier: 30 },
-      // Shorthand format (e.g., "2d", "1w", "3mo")
-      { pattern: /\b(\d+)\s*d\b/i, multiplier: 1 },
-      { pattern: /\b(\d+)\s*w\b/i, multiplier: 7 },
-      { pattern: /\b(\d+)\s*mo\b/i, multiplier: 30 }
+      // Shorthand format (e.g., "2d", "1w", "3mo") - must be word boundary
+      { pattern: /\b(\d+)d\b/i, multiplier: 1 },
+      { pattern: /\b(\d+)w\b/i, multiplier: 7 },
+      { pattern: /\b(\d+)mo\b/i, multiplier: 30 }
     ];
 
-    for (const { pattern, multiplier } of timePatterns) {
-      const match = fullText.match(pattern);
-      if (match) {
-        const value = parseInt(match[1]) * multiplier;
-        // Sanity check - job age should be reasonable (0-365 days)
-        if (value >= 0 && value <= 365) {
-          return value;
+    // Helper function to parse age from text
+    const parseAgeFromText = (text) => {
+      if (!text) return null;
+      text = text.toLowerCase().trim();
+
+      // Check for "just now", "today", etc.
+      if (text.includes('just now') || text.includes('moment') || text.includes('today') || text.includes('just posted')) {
+        return 0;
+      }
+      if (text.includes('hour') || text.includes('minute') || text.includes('second')) {
+        return 0;
+      }
+
+      // Check for "Xd" or "Xw" or "Xmo" shorthand first (most common on LinkedIn)
+      const shortMatch = text.match(/\b(\d+)(d|w|mo)\b/i);
+      if (shortMatch) {
+        const num = parseInt(shortMatch[1]);
+        const unit = shortMatch[2].toLowerCase();
+        if (unit === 'd') return num;
+        if (unit === 'w') return num * 7;
+        if (unit === 'mo') return num * 30;
+      }
+
+      // Check for patterns with "ago"
+      for (const { pattern, multiplier } of timePatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          const value = parseInt(match[1]) * multiplier;
+          if (value >= 0 && value <= 365) {
+            return value;
+          }
         }
+      }
+
+      // Check for patterns with units
+      if (text.includes('day')) {
+        const match = text.match(/(\d+)/);
+        if (match) return parseInt(match[1]);
+      }
+      if (text.includes('week')) {
+        const match = text.match(/(\d+)/);
+        if (match) return parseInt(match[1]) * 7;
+        return 7;
+      }
+      if (text.includes('month')) {
+        const match = text.match(/(\d+)/);
+        if (match) return parseInt(match[1]) * 30;
+        return 30;
+      }
+
+      return null;
+    };
+
+    // COMPREHENSIVE time/date element selectors for all card types
+    const timeSelectors = [
+      // Primary time elements
+      'time',
+      'time[datetime]',
+      // Standard job card selectors
+      '.job-card-container__listed-time',
+      '.job-card-list__footer-wrapper time',
+      '.job-card-container__footer-item',
+      '.job-card-list__footer-wrapper',
+      '.job-card-container__footer-job-state',
+      '.job-card-list__insight',
+      '.job-card-container__primary-description',
+      '.job-card-container__metadata-wrapper',
+      // Dismissible job cards with X button (collections, saved, alerts)
+      '.job-card-list__entity-lockup time',
+      '.job-card-list__entity-lockup .artdeco-entity-lockup__caption',
+      '.jobs-job-card-list__item time',
+      '.jobs-job-card-list__footer time',
+      '.jobs-unified-list time',
+      '.jobs-save-list time',
+      '.jobs-home-recommendations time',
+      // Caption/subtitle areas where time often appears
+      '.artdeco-entity-lockup__caption',
+      '.artdeco-entity-lockup__metadata',
+      '.job-card-container__metadata-item',
+      // Viewed/visited job cards
+      '.job-card-container--visited time',
+      '.scaffold-layout__list-item--is-viewed time',
+      // Additional LinkedIn 2024/2025 selectors
+      '[class*="job-card"] time',
+      '[class*="job-card"] [class*="time"]',
+      '[class*="job-card"] [class*="footer"]',
+      '[class*="job-card"] [class*="caption"]',
+      // General fallback selectors
+      '[class*="listed"]',
+      '[class*="posted"]',
+      'span[class*="time"]',
+      'div[class*="time"]'
+    ];
+
+    // STEP 1: Look for time elements with datetime attribute (most reliable)
+    for (const selector of timeSelectors) {
+      try {
+        const timeElems = jobCard.querySelectorAll(selector);
+        for (const timeElem of timeElems) {
+          const datetime = timeElem.getAttribute('datetime');
+          if (datetime) {
+            const postDate = new Date(datetime);
+            const now = new Date();
+            const daysAgo = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
+            if (!isNaN(daysAgo) && daysAgo >= 0 && daysAgo <= 365) {
+              return daysAgo;
+            }
+          }
+        }
+      } catch (e) {
+        // Invalid selector, skip
       }
     }
 
-    // Last resort: check for time element anywhere in the card's parent list item
+    // STEP 2: Look for time elements with parseable text
+    for (const selector of timeSelectors) {
+      try {
+        const timeElems = jobCard.querySelectorAll(selector);
+        for (const timeElem of timeElems) {
+          const text = timeElem.textContent;
+          const age = parseAgeFromText(text);
+          if (age !== null) {
+            return age;
+          }
+        }
+      } catch (e) {
+        // Invalid selector, skip
+      }
+    }
+
+    // STEP 3: Check the full job card text for time patterns
+    const fullText = jobCard.textContent;
+    const ageFromFullText = parseAgeFromText(fullText);
+    if (ageFromFullText !== null) {
+      return ageFromFullText;
+    }
+
+    // STEP 4: Check parent elements (for nested card structures)
     const parentListItem = jobCard.closest('li');
     if (parentListItem && parentListItem !== jobCard) {
+      // Check parent for time element
       const parentTime = parentListItem.querySelector('time');
       if (parentTime) {
         const datetime = parentTime.getAttribute('datetime');
@@ -1364,14 +1752,42 @@ function getJobAge(jobCard) {
             return daysAgo;
           }
         }
+        const age = parseAgeFromText(parentTime.textContent);
+        if (age !== null) {
+          return age;
+        }
+      }
 
-        const timeText = parentTime.textContent.trim().toLowerCase();
-        for (const { pattern, multiplier } of timePatterns) {
-          const match = timeText.match(pattern);
-          if (match) {
-            return parseInt(match[1]) * multiplier;
+      // Check parent full text
+      const parentAge = parseAgeFromText(parentListItem.textContent);
+      if (parentAge !== null) {
+        return parentAge;
+      }
+    }
+
+    // STEP 5: Check child container elements (job card might be wrapper)
+    const innerCard = jobCard.querySelector('.job-card-container, .job-card-list__entity-lockup, .artdeco-entity-lockup');
+    if (innerCard) {
+      const innerTime = innerCard.querySelector('time');
+      if (innerTime) {
+        const datetime = innerTime.getAttribute('datetime');
+        if (datetime) {
+          const postDate = new Date(datetime);
+          const now = new Date();
+          const daysAgo = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
+          if (!isNaN(daysAgo) && daysAgo >= 0 && daysAgo <= 365) {
+            return daysAgo;
           }
         }
+        const age = parseAgeFromText(innerTime.textContent);
+        if (age !== null) {
+          return age;
+        }
+      }
+
+      const innerAge = parseAgeFromText(innerCard.textContent);
+      if (innerAge !== null) {
+        return innerAge;
       }
     }
 
@@ -1390,12 +1806,48 @@ function formatJobAge(days) {
 }
 
 // Add job age badge to job card (positioned on the RIGHT side)
+// Handles dismissible cards with X buttons by adjusting position
 function addJobAgeBadge(jobCard, days) {
-  // Cache the job age on the job card for persistence
-  jobCard.dataset.jobfiltrAge = days.toString();
+  // Only cache if there's no existing cache - the first extracted value is authoritative
+  if (!jobCard.dataset.jobfiltrAge) {
+    jobCard.dataset.jobfiltrAge = days.toString();
+  } else {
+    // If there's already a cached value, use it instead of the passed value
+    // This prevents overwriting with potentially incorrect re-parsed values
+    days = parseInt(jobCard.dataset.jobfiltrAge, 10);
+    if (isNaN(days) || days < 0) return;
+  }
 
-  // Check if badge already exists with correct value
-  const existingBadge = jobCard.querySelector('.jobfiltr-age-badge');
+  // Find the best container for the badge - prefer inner card containers
+  // This ensures proper positioning within the actual card element
+  const containerSelectors = [
+    '.job-card-container',
+    '.job-card-list__entity-lockup',
+    '.artdeco-entity-lockup',
+    '.job-card-container__link'
+  ];
+
+  let badgeContainer = jobCard;
+  for (const sel of containerSelectors) {
+    const inner = jobCard.querySelector(sel);
+    if (inner) {
+      badgeContainer = inner;
+      break;
+    }
+  }
+
+  // Also check if jobCard itself is already one of these types
+  if (jobCard.classList.contains('job-card-container') ||
+      jobCard.classList.contains('job-card-list__entity-lockup')) {
+    badgeContainer = jobCard;
+  }
+
+  // Check if badge already exists with correct value (check both containers)
+  let existingBadge = badgeContainer.querySelector('.jobfiltr-age-badge');
+  if (!existingBadge && badgeContainer !== jobCard) {
+    existingBadge = jobCard.querySelector('.jobfiltr-age-badge');
+  }
+
   if (existingBadge && existingBadge.dataset.age === days.toString()) {
     return; // Badge already exists with correct value, no need to recreate
   }
@@ -1429,14 +1881,51 @@ function addJobAgeBadge(jobCard, days) {
     icon = '🔴';
   }
 
+  // Check for dismiss button (X button) - common on dismissible job cards
+  // If found, we need to adjust badge position to avoid overlap
+  const dismissButtonSelectors = [
+    'button[aria-label*="Dismiss"]',
+    'button[aria-label*="dismiss"]',
+    'button[aria-label*="Remove"]',
+    'button[aria-label*="remove"]',
+    'button[data-control-name*="dismiss"]',
+    '.job-card-container__action',
+    '.artdeco-button--circle[aria-label]'
+  ];
+
+  let hasDismissButton = false;
+  let dismissButtonWidth = 32; // Default button width
+
+  for (const sel of dismissButtonSelectors) {
+    const dismissBtn = jobCard.querySelector(sel);
+    if (dismissBtn) {
+      // Check if button is in top-right area
+      const btnRect = dismissBtn.getBoundingClientRect();
+      const cardRect = jobCard.getBoundingClientRect();
+      const relativeRight = cardRect.right - btnRect.right;
+      const relativeTop = btnRect.top - cardRect.top;
+
+      // If button is in top-right area (within 50px of top and 50px of right)
+      if (relativeTop < 50 && relativeRight < 50) {
+        hasDismissButton = true;
+        dismissButtonWidth = btnRect.width || 32;
+        break;
+      }
+    }
+  }
+
   const badge = document.createElement('div');
   badge.className = 'jobfiltr-age-badge';
   badge.dataset.age = days.toString(); // Store age for comparison
   badge.innerHTML = `<span style="margin-right: 4px;">${icon}</span>${ageText}`;
+
+  // Adjust right position if dismiss button exists
+  const rightPosition = hasDismissButton ? (dismissButtonWidth + 12) : 8;
+
   badge.style.cssText = `
     position: absolute;
     top: 8px;
-    right: 8px;
+    right: ${rightPosition}px;
     background: ${bgColor};
     color: ${textColor};
     padding: 4px 10px;
@@ -1448,12 +1937,19 @@ function addJobAgeBadge(jobCard, days) {
     border: 1px solid ${textColor}30;
     display: flex;
     align-items: center;
+    pointer-events: none;
   `;
 
-  if (window.getComputedStyle(jobCard).position === 'static') {
-    jobCard.style.position = 'relative';
+  // Ensure the container has relative positioning for the absolute badge
+  if (window.getComputedStyle(badgeContainer).position === 'static') {
+    badgeContainer.style.position = 'relative';
   }
-  jobCard.appendChild(badge);
+  badgeContainer.appendChild(badge);
+
+  // Also mark the outer job card for tracking purposes
+  if (badgeContainer !== jobCard) {
+    jobCard.dataset.jobfiltrBadgeAdded = 'true';
+  }
 }
 
 // ===== MAIN FILTER APPLICATION =====
@@ -1611,8 +2107,8 @@ function applyFilters(settings) {
       }
     }
 
-    // Filter 8: Hide jobs without salary info
-    if (settings.hideNoSalary) {
+    // Filter 8: Hide jobs without salary info (only if salary filter is active)
+    if (settings.filterSalary && settings.hideNoSalary) {
       if (!hasSalaryInfo(jobCard)) {
         shouldHide = true;
         reasons.push('No salary info');
@@ -1627,12 +2123,17 @@ function applyFilters(settings) {
 
     // Job Age Display (display only, doesn't hide)
     if (settings.showJobAge && !shouldHide) {
-      let jobAge = getJobAge(jobCard);
-      // Use cached age if getJobAge returns null but we have a cached value
-      if (jobAge === null && jobCard.dataset.jobfiltrAge) {
+      // IMPORTANT: Check cached value FIRST to prevent age from changing on re-process
+      // Only call getJobAge() if there's no cached value yet
+      let jobAge = null;
+      if (jobCard.dataset.jobfiltrAge) {
+        // Use the cached age - this is the authoritative value
         jobAge = parseInt(jobCard.dataset.jobfiltrAge, 10);
+      } else {
+        // No cached age yet - extract from the job card
+        jobAge = getJobAge(jobCard);
       }
-      if (jobAge !== null) {
+      if (jobAge !== null && !isNaN(jobAge) && jobAge >= 0) {
         addJobAgeBadge(jobCard, jobAge);
       }
     }
@@ -1724,13 +2225,13 @@ function resetFilters() {
     jobCard.style.display = '';
     delete jobCard.dataset.jobfiltrHidden;
     delete jobCard.dataset.jobfiltrReasons;
-    // Remove badges but NOT age badges - those persist permanently
-    const badges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge, .jobfiltr-entry-level-badge');
+    // Remove all badges including age badges on reset
+    const badges = jobCard.querySelectorAll('.jobfiltr-badge, .jobfiltr-benefits-badge, .jobfiltr-entry-level-badge, .jobfiltr-age-badge');
     badges.forEach(badge => badge.remove());
   });
 
   // Also remove detail panel badges
-  const detailBadges = document.querySelectorAll('.jobfiltr-detail-applicant-badge');
+  const detailBadges = document.querySelectorAll('.jobfiltr-detail-applicant-badge, .jobfiltr-detail-age-badge');
   detailBadges.forEach(badge => badge.remove());
 
   hiddenJobsCount = 0;
@@ -1805,9 +2306,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 // ===== GHOST JOB ANALYSIS =====
+// Helper to parse posting age from various text formats
+function parseGhostPostingAge(text) {
+  if (!text) return null;
+  const normalized = text.toLowerCase().trim();
+
+  if (/just now|moments? ago/i.test(normalized)) return 0;
+
+  let match;
+  if ((match = normalized.match(/(\d+)\s*minutes?\s*ago/i))) return 0;
+  if ((match = normalized.match(/(\d+)\s*hours?\s*ago/i))) return 0;
+  if ((match = normalized.match(/(\d+)\s*days?\s*ago/i))) return parseInt(match[1]);
+  if ((match = normalized.match(/(\d+)\s*weeks?\s*ago/i))) return parseInt(match[1]) * 7;
+  if ((match = normalized.match(/(\d+)\s*months?\s*ago/i))) return parseInt(match[1]) * 30;
+
+  return null;
+}
+
 function performGhostAnalysis(jobData) {
   const redFlags = [];
   let score = 100; // Start with perfect score, subtract for issues
+  let isStaffing = false;
 
   // Check for staffing indicators
   const staffingPatterns = [
@@ -1821,7 +2340,8 @@ function performGhostAnalysis(jobData) {
   for (const pattern of staffingPatterns) {
     if (pattern.test(companyLower)) {
       redFlags.push('Company appears to be a staffing agency');
-      score -= 20;
+      score -= 25;
+      isStaffing = true;
       break;
     }
   }
@@ -1841,23 +2361,25 @@ function performGhostAnalysis(jobData) {
 
   if (vagueCount >= 3) {
     redFlags.push('Job description contains multiple vague/buzzword phrases');
-    score -= 15;
+    score -= 20;
   } else if (vagueCount >= 1) {
     redFlags.push('Job description contains some vague language');
-    score -= 5;
+    score -= 8;
   }
 
   // Check for salary transparency
   const descText = jobData.description || '';
   if (!/\$[\d,]+/.test(descText) && !/salary|pay|compensation/i.test(descText)) {
     redFlags.push('No salary information provided');
-    score -= 10;
+    score -= 12;
   }
 
   // Check description length
   if (descText.length < 200) {
     redFlags.push('Job description is unusually short');
-    score -= 15;
+    score -= 20;
+  } else if (descText.length < 500) {
+    score -= 5;
   }
 
   // Check for remote work clarity issues
@@ -1866,18 +2388,84 @@ function performGhostAnalysis(jobData) {
     score -= 10;
   }
 
-  // Check posting age (if available from page)
-  const timeSelectors = ['time', '.job-card-container__listed-time'];
-  for (const selector of timeSelectors) {
-    const timeElem = document.querySelector(selector);
-    if (timeElem) {
-      const text = timeElem.textContent.trim().toLowerCase();
-      if (text.includes('month') && parseInt(text) >= 2) {
-        redFlags.push('Job has been posted for over 2 months');
-        score -= 15;
-        break;
+  // Check for reposted indicator
+  const isReposted = /reposted/i.test(descText) || /reposted/i.test(jobData.title || '');
+  if (isReposted) {
+    redFlags.push('Job has been reposted (possibly unfilled for long time)');
+    score -= 15;
+  }
+
+  // Parse posting age from jobData or try to extract from page
+  let daysPosted = parseGhostPostingAge(jobData.postedDate);
+
+  if (daysPosted === null) {
+    // Try to find posting date from the page
+    const dateSelectors = [
+      '.job-details-jobs-unified-top-card__posted-date',
+      '.jobs-unified-top-card__posted-date',
+      '.tvm__text--positive',
+      'time[datetime]'
+    ];
+    for (const selector of dateSelectors) {
+      const el = document.querySelector(selector);
+      if (el) {
+        const text = el.textContent?.trim() || '';
+        const datetime = el.getAttribute?.('datetime');
+        if (datetime) {
+          const postDate = new Date(datetime);
+          const now = new Date();
+          daysPosted = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
+          break;
+        } else if (text) {
+          daysPosted = parseGhostPostingAge(text);
+          if (daysPosted !== null) break;
+        }
       }
     }
+  }
+
+  // Apply penalties and ceilings based on posting age
+  if (daysPosted !== null) {
+    if (daysPosted >= 90) {
+      redFlags.push(`Job posted ${daysPosted} days ago - very stale posting`);
+      score -= 35;
+      score = Math.min(score, 35); // Ceiling: max 35 legitimacy
+    } else if (daysPosted >= 60) {
+      redFlags.push(`Job posted ${daysPosted} days ago - stale posting`);
+      score -= 25;
+      score = Math.min(score, 50);
+    } else if (daysPosted >= 45) {
+      redFlags.push(`Job posted ${daysPosted} days ago`);
+      score -= 15;
+      score = Math.min(score, 65);
+    } else if (daysPosted >= 30) {
+      redFlags.push(`Job posted ${daysPosted} days ago`);
+      score -= 10;
+    } else if (daysPosted >= 14) {
+      score -= 5;
+    }
+  }
+
+  // Check for high applicant count
+  if (jobData.applicantCount && jobData.applicantCount >= 500) {
+    redFlags.push(`High applicant volume (${jobData.applicantCount}+)`);
+    score -= 15;
+    score = Math.min(score, 55);
+    if (daysPosted && daysPosted >= 30) {
+      score = Math.min(score, 45); // Old + high applicants = very suspicious
+    }
+  } else if (jobData.applicantCount && jobData.applicantCount >= 200) {
+    score -= 8;
+  }
+
+  // Staffing agencies should have ceiling
+  if (isStaffing) {
+    score = Math.min(score, 60);
+  }
+
+  // Reposted jobs should have ceiling
+  if (isReposted) {
+    score = Math.min(score, 50);
   }
 
   // Clamp score
@@ -2016,8 +2604,8 @@ function performIncrementalScan() {
       }
     }
 
-    // Hide jobs without salary info
-    if (filterSettings.hideNoSalary) {
+    // Hide jobs without salary info (only if salary filter is active)
+    if (filterSettings.filterSalary && filterSettings.hideNoSalary) {
       if (!hasSalaryInfo(jobCard)) {
         shouldHide = true;
         reasons.push('No salary info');
@@ -2032,12 +2620,16 @@ function performIncrementalScan() {
 
     // Job Age Display (display only)
     if (filterSettings.showJobAge && !shouldHide) {
-      let jobAge = getJobAge(jobCard);
-      // Use cached age if getJobAge returns null but we have a cached value
-      if (jobAge === null && jobCard.dataset.jobfiltrAge) {
+      // IMPORTANT: Check cached value FIRST to prevent age from changing on re-process
+      let jobAge = null;
+      if (jobCard.dataset.jobfiltrAge) {
+        // Use the cached age - this is the authoritative value
         jobAge = parseInt(jobCard.dataset.jobfiltrAge, 10);
+      } else {
+        // No cached age yet - extract from the job card
+        jobAge = getJobAge(jobCard);
       }
-      if (jobAge !== null) {
+      if (jobAge !== null && !isNaN(jobAge) && jobAge >= 0) {
         addJobAgeBadge(jobCard, jobAge);
       }
     }
@@ -2281,6 +2873,10 @@ document.addEventListener('click', (e) => {
         if (filterSettings.showApplicantCount) {
           updateApplicantCountInDetailPanel();
         }
+        // Update job age badge in detail panel
+        if (filterSettings.showJobAge) {
+          addJobAgeToDetailPanel();
+        }
       }, delay);
     });
   }
@@ -2330,6 +2926,9 @@ function setupDetailPanelObserver() {
         if (filterSettings.showBenefitsIndicator) {
           updateBenefitsFromDetailPanel();
         }
+        if (filterSettings.showJobAge) {
+          addJobAgeToDetailPanel();
+        }
       }, 200);
     }
   });
@@ -2370,6 +2969,11 @@ function performFullScan() {
   // Update applicant count in detail panel for selected job
   if (filterSettings.showApplicantCount) {
     updateApplicantCountInDetailPanel();
+  }
+
+  // Update job age badge in detail panel for selected job
+  if (filterSettings.showJobAge) {
+    addJobAgeToDetailPanel();
   }
 
   // Comprehensive job card selectors - includes viewed/visited jobs and dismissible jobs with X button
@@ -2504,8 +3108,8 @@ function performFullScan() {
       }
     }
 
-    // Filter 8: Hide jobs without salary info
-    if (filterSettings.hideNoSalary) {
+    // Filter 8: Hide jobs without salary info (only if salary filter is active)
+    if (filterSettings.filterSalary && filterSettings.hideNoSalary) {
       if (!hasSalaryInfo(jobCard)) {
         shouldHide = true;
         reasons.push('No salary info');
@@ -2537,15 +3141,37 @@ function performFullScan() {
 
       // Job Age Display (display only, on visible jobs)
       if (filterSettings.showJobAge) {
-        if (!jobCard.querySelector('.jobfiltr-age-badge')) {
-          let jobAge = getJobAge(jobCard);
-          // Use cached age if getJobAge returns null but we have a cached value
-          if (jobAge === null && jobCard.dataset.jobfiltrAge) {
-            jobAge = parseInt(jobCard.dataset.jobfiltrAge, 10);
+        // Check if badge already exists (could be on card or inner container)
+        const existingBadge = jobCard.querySelector('.jobfiltr-age-badge');
+
+        // IMPORTANT: Check cached value FIRST to prevent age from changing on re-process
+        let jobAge = null;
+        if (jobCard.dataset.jobfiltrAge) {
+          // Use the cached age - this is the authoritative value
+          jobAge = parseInt(jobCard.dataset.jobfiltrAge, 10);
+        } else if (jobCard.dataset.jobfiltrBadgeAdded) {
+          // Badge was added to inner container, age should be cached - try to find it
+          if (existingBadge && existingBadge.dataset.age) {
+            jobAge = parseInt(existingBadge.dataset.age, 10);
+            // Cache it on the outer card too
+            jobCard.dataset.jobfiltrAge = jobAge.toString();
           }
-          if (jobAge !== null) {
-            addJobAgeBadge(jobCard, jobAge);
+        }
+
+        // If no cached age and no badge, try to extract
+        if (jobAge === null && !existingBadge) {
+          jobAge = getJobAge(jobCard);
+          // If still null, try getting from parent list item
+          if (jobAge === null) {
+            const parentLi = jobCard.closest('li');
+            if (parentLi && parentLi !== jobCard) {
+              jobAge = getJobAge(parentLi);
+            }
           }
+        }
+
+        if (jobAge !== null && !isNaN(jobAge) && jobAge >= 0) {
+          addJobAgeBadge(jobCard, jobAge);
         }
       }
 
@@ -2579,16 +3205,103 @@ function performFullScan() {
   }
 }
 
+// Aggressive catch-all function to ensure ALL visible job cards have age badges
+// This runs after the main scan to catch any cards that were missed
+function ensureAllVisibleCardsHaveAgeBadges() {
+  if (!filterSettings.showJobAge) return;
+
+  // Very comprehensive selectors to find ALL possible job cards
+  const allCardSelectors = [
+    '.scaffold-layout__list-item:not([style*="display: none"])',
+    'li.jobs-search-results__list-item:not([style*="display: none"])',
+    '.job-card-container:not([style*="display: none"])',
+    '.jobs-unified-list li:not([style*="display: none"])',
+    '.jobs-job-card-list li:not([style*="display: none"])',
+    '.jobs-job-card-list__item:not([style*="display: none"])',
+    '.job-card-list li:not([style*="display: none"])',
+    '.jobs-home-recommendations li:not([style*="display: none"])',
+    '.jobs-save-list li:not([style*="display: none"])',
+    '.job-card-list__entity-lockup:not([style*="display: none"])'
+  ];
+
+  const cardsSet = new Set();
+  for (const sel of allCardSelectors) {
+    try {
+      document.querySelectorAll(sel).forEach(c => cardsSet.add(c));
+    } catch (e) { /* ignore invalid selectors */ }
+  }
+
+  for (const card of cardsSet) {
+    // Skip if card is hidden
+    if (card.style.display === 'none' || card.dataset.jobfiltrHidden) continue;
+
+    // Check if badge exists anywhere in this card
+    const existingBadge = card.querySelector('.jobfiltr-age-badge');
+    if (existingBadge) continue; // Already has badge
+
+    // Check if age is cached
+    let jobAge = null;
+    if (card.dataset.jobfiltrAge) {
+      jobAge = parseInt(card.dataset.jobfiltrAge, 10);
+    }
+
+    // If no cached age, try to extract
+    if (jobAge === null) {
+      jobAge = getJobAge(card);
+    }
+
+    // Try parent element if card is a container
+    if (jobAge === null) {
+      const parent = card.closest('li');
+      if (parent && parent !== card) {
+        if (parent.dataset.jobfiltrAge) {
+          jobAge = parseInt(parent.dataset.jobfiltrAge, 10);
+        } else {
+          jobAge = getJobAge(parent);
+        }
+      }
+    }
+
+    // Try inner containers
+    if (jobAge === null) {
+      const innerContainers = [
+        '.job-card-container',
+        '.job-card-list__entity-lockup',
+        '.artdeco-entity-lockup'
+      ];
+      for (const sel of innerContainers) {
+        const inner = card.querySelector(sel);
+        if (inner) {
+          if (inner.dataset.jobfiltrAge) {
+            jobAge = parseInt(inner.dataset.jobfiltrAge, 10);
+          } else {
+            jobAge = getJobAge(inner);
+          }
+          if (jobAge !== null) break;
+        }
+      }
+    }
+
+    // If we found an age, add the badge
+    if (jobAge !== null && !isNaN(jobAge) && jobAge >= 0) {
+      addJobAgeBadge(card, jobAge);
+    }
+  }
+}
+
 function startPeriodicScan() {
   if (periodicScanInterval) return; // Already running
 
   log('Starting periodic filter scan (every 2s)');
   periodicScanInterval = setInterval(() => {
     performFullScan();
+    // Run catch-all badge check after main scan
+    ensureAllVisibleCardsHaveAgeBadges();
   }, 2000);
 
   // Also run immediately
   performFullScan();
+  ensureAllVisibleCardsHaveAgeBadges();
 }
 
 function stopPeriodicScan() {
@@ -3037,6 +3750,29 @@ document.addEventListener('visibilitychange', async () => {
     }, 500);
   }
 });
+
+// Clear notification flag if user navigated from a different origin (not just tab switching)
+// This ensures notification shows when navigating to LinkedIn from another site
+try {
+  const referrer = document.referrer;
+  const currentOrigin = window.location.origin;
+  // If there's a referrer and it's from a different origin, clear the flag
+  if (referrer) {
+    const referrerOrigin = new URL(referrer).origin;
+    if (referrerOrigin !== currentOrigin) {
+      sessionStorage.removeItem('jobfiltr_notification_shown');
+      log('Cleared notification flag - navigated from different origin');
+    }
+  } else {
+    // No referrer typically means direct navigation, typed URL, or bookmark
+    // Clear the flag to show notification for fresh navigation
+    sessionStorage.removeItem('jobfiltr_notification_shown');
+    log('Cleared notification flag - direct navigation or no referrer');
+  }
+} catch (e) {
+  // If URL parsing fails, play it safe and clear the flag
+  sessionStorage.removeItem('jobfiltr_notification_shown');
+}
 
 // Show notification after a short delay to ensure page is loaded (only if signed in)
 setTimeout(async () => {

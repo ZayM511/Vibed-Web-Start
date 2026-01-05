@@ -13,11 +13,11 @@
 
   const SIGNAL_WEIGHTS = {
     temporal: {
-      categoryWeight: 25,
-      signals: { postingAge: 35, seasonalPattern: 15 },
+      categoryWeight: 40, // INCREASED: Posting age is the strongest ghost indicator
+      signals: { postingAge: 45, seasonalPattern: 10 },
     },
     content: {
-      categoryWeight: 25,
+      categoryWeight: 20,
       signals: { descriptionVagueness: 25, salaryTransparency: 20, buzzwordDensity: 15 },
     },
     company: {
@@ -26,10 +26,10 @@
     },
     behavioral: {
       categoryWeight: 15,
-      signals: { applicationMethod: 35, sponsoredPost: 25, applicantCount: 25 },
+      signals: { applicationMethod: 30, sponsoredPost: 20, applicantCount: 30 },
     },
-    community: { categoryWeight: 10, signals: { userReports: 50 } },
-    structural: { categoryWeight: 5, signals: {} },
+    community: { categoryWeight: 5, signals: { userReports: 50 } },
+    structural: { categoryWeight: 0, signals: {} }, // Reduced - less important
   };
 
   const SCORE_COLORS = {
@@ -159,8 +159,81 @@
   // ============================================
 
   function getText(selector) {
-    const el = document.querySelector(selector);
-    return el?.textContent?.trim() || '';
+    // Handle comma-separated selectors as fallbacks
+    const selectors = selector.split(',').map(s => s.trim());
+    for (const sel of selectors) {
+      try {
+        const el = document.querySelector(sel);
+        if (el?.textContent?.trim()) {
+          return el.textContent.trim();
+        }
+      } catch (e) {
+        // Invalid selector, try next
+      }
+    }
+    return '';
+  }
+
+  // Specialized function to extract posting date with multiple strategies
+  function extractPostedDate() {
+    // Strategy 1: Try direct selectors for posted date
+    const dateSelectors = [
+      '.job-details-jobs-unified-top-card__posted-date',
+      '.jobs-unified-top-card__posted-date',
+      '.tvm__text--positive', // Sometimes shows "Posted X ago"
+      'time[datetime]',
+      '.jobs-details-top-card__bullet:contains("ago")', // jQuery-like but won't work
+    ];
+
+    for (const sel of dateSelectors) {
+      try {
+        const el = document.querySelector(sel);
+        if (el) {
+          const text = el.textContent?.trim()?.toLowerCase() || '';
+          // Check if it looks like a posting date
+          if (text.includes('ago') || text.includes('posted') || text.includes('reposted') ||
+              /^\d+\s*(d|w|mo|day|week|month|hour|minute)/i.test(text)) {
+            return text;
+          }
+        }
+      } catch (e) { /* skip */ }
+    }
+
+    // Strategy 2: Look for time element with datetime attribute
+    const timeEl = document.querySelector('.jobs-details time[datetime], .scaffold-layout__detail time[datetime]');
+    if (timeEl) {
+      const datetime = timeEl.getAttribute('datetime');
+      if (datetime) {
+        const postDate = new Date(datetime);
+        const now = new Date();
+        const daysAgo = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
+        if (!isNaN(daysAgo) && daysAgo >= 0) {
+          return `${daysAgo} days ago`;
+        }
+      }
+    }
+
+    // Strategy 3: Search for "X days/weeks/months ago" pattern in the detail area
+    const detailArea = document.querySelector('.jobs-details, .scaffold-layout__detail');
+    if (detailArea) {
+      const allText = detailArea.textContent || '';
+      const patterns = [
+        /(\d+)\s*months?\s*ago/i,
+        /(\d+)\s*weeks?\s*ago/i,
+        /(\d+)\s*days?\s*ago/i,
+        /(\d+)\s*hours?\s*ago/i,
+        /posted\s+(\d+)\s*(d|w|mo|months?|weeks?|days?)/i,
+        /reposted\s+(\d+)\s*(d|w|mo|months?|weeks?|days?)/i,
+      ];
+      for (const pattern of patterns) {
+        const match = allText.match(pattern);
+        if (match) {
+          return match[0];
+        }
+      }
+    }
+
+    return null;
   }
 
   function parsePostingDays(dateString) {
@@ -180,12 +253,16 @@
   }
 
   function calculateTemporalRisk(days) {
-    if (days === null) return 0.5;
-    if (days <= 7) return 0;
-    if (days <= 30) return 0.2;
-    if (days <= 60) return 0.5;
-    if (days <= 90) return 0.75;
-    return 1;
+    if (days === null) return 0.3; // Reduced default - unknown is still concerning
+    if (days <= 3) return 0;       // Fresh posting - no risk
+    if (days <= 7) return 0.05;    // Very recent
+    if (days <= 14) return 0.15;   // Recent
+    if (days <= 21) return 0.25;   // 2-3 weeks
+    if (days <= 30) return 0.4;    // A month old - getting concerning
+    if (days <= 45) return 0.6;    // 6 weeks - significant risk
+    if (days <= 60) return 0.75;   // 2 months - high risk
+    if (days <= 90) return 0.9;    // 3 months - very high risk
+    return 1;                       // 3+ months - almost certain ghost
   }
 
   function calculateVagueness(text) {
@@ -573,7 +650,50 @@
     signals.push(...analyzeBehavioralSignals(job));
 
     const breakdown = calculateBreakdown(signals);
-    const overall = calculateOverall(breakdown);
+    let overall = calculateOverall(breakdown);
+
+    // Apply floor scores for obvious ghost job indicators
+    const days = parsePostingDays(job.postedDate);
+
+    // Very old postings should have minimum scores regardless of other factors
+    if (days !== null) {
+      if (days >= 90) {
+        // 3+ months old = minimum 65 (high_risk)
+        overall = Math.max(overall, 65);
+        console.log('[GhostDetection] Floor applied: 90+ days old');
+      } else if (days >= 60) {
+        // 2+ months old = minimum 50 (medium_risk)
+        overall = Math.max(overall, 50);
+        console.log('[GhostDetection] Floor applied: 60+ days old');
+      } else if (days >= 45) {
+        // 6+ weeks old = minimum 35 (low_risk leaning medium)
+        overall = Math.max(overall, 35);
+      }
+    }
+
+    // Staffing agencies should have minimum score
+    const staffingCheck = checkStaffingAgency(job.company || '');
+    if (staffingCheck.isLikely) {
+      overall = Math.max(overall, 40); // Minimum medium_risk for staffing
+    }
+
+    // Very high applicant count is a strong ghost signal
+    if (job.applicantCount && job.applicantCount >= 500) {
+      overall = Math.max(overall, 45);
+      if (days && days >= 30) {
+        // Old posting with high applicants = very suspicious
+        overall = Math.max(overall, 55);
+      }
+    }
+
+    // Reposted indicator (if detected in description or title)
+    const isReposted = /reposted/i.test(job.description || '') || /reposted/i.test(job.title || '');
+    if (isReposted) {
+      overall = Math.max(overall, 50); // Reposted jobs are suspicious
+    }
+
+    overall = Math.min(100, Math.max(0, overall));
+
     const category = getCategory(overall);
     const confidence = signals.length > 0
       ? signals.reduce((sum, s) => sum + s.confidence, 0) / signals.length
@@ -1126,20 +1246,32 @@
       const applicantText = getText(LINKEDIN_SELECTORS.applicants);
       const applicantMatch = applicantText.match(/(\d+)/);
 
-      return {
+      // Use enhanced posted date extraction
+      const postedDate = extractPostedDate() || getText(LINKEDIN_SELECTORS.posted) || null;
+
+      const job = {
         id: `linkedin_${id}`,
         platform: 'linkedin',
         url: window.location.href,
         title: getText(LINKEDIN_SELECTORS.title),
         company: getText(LINKEDIN_SELECTORS.company),
         location: getText(LINKEDIN_SELECTORS.location),
-        postedDate: getText(LINKEDIN_SELECTORS.posted) || null,
+        postedDate: postedDate,
         description: getText(LINKEDIN_SELECTORS.description),
         applicantCount: applicantMatch ? parseInt(applicantMatch[1]) : undefined,
         isEasyApply: !!document.querySelector(LINKEDIN_SELECTORS.easyApply),
         isSponsored: !!document.querySelector(LINKEDIN_SELECTORS.promoted) ||
                      document.body.innerHTML.includes('Promoted'),
       };
+
+      console.log('[GhostDetection] Extracted LinkedIn job:', {
+        title: job.title?.substring(0, 50),
+        company: job.company,
+        postedDate: job.postedDate,
+        applicantCount: job.applicantCount
+      });
+
+      return job;
     } catch (e) {
       console.error('[GhostDetection] LinkedIn extraction error:', e);
       return null;

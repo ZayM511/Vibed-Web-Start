@@ -16,6 +16,17 @@ function log(message, data = null) {
   }
 }
 
+// ===== EXTENSION CONTEXT VALIDATION =====
+// Check if the extension context is still valid (not invalidated after reload)
+function isExtensionContextValid() {
+  try {
+    // Accessing chrome.runtime.id will throw if context is invalidated
+    return !!(chrome.runtime && chrome.runtime.id);
+  } catch (e) {
+    return false;
+  }
+}
+
 // ===== JOB INFORMATION EXTRACTION (UPDATED 2025) =====
 function extractJobInfo() {
   try {
@@ -652,101 +663,328 @@ function updateBenefitsFromDetailPanel() {
   });
 }
 
+// ===== JOB AGE IN DETAIL PANEL =====
+// Shows job age badge near the top of the expanded job posting detail panel
+
+function addJobAgeToDetailPanel() {
+  if (!filterSettings.showJobAge) return;
+
+  // Remove any existing detail panel job age badge
+  const existingBadge = document.querySelector('.jobfiltr-detail-age-badge');
+  if (existingBadge) existingBadge.remove();
+
+  // First, ensure we have job ages extracted
+  extractJobAgesFromPageData();
+
+  // Find the job key of the currently selected/viewed job
+  // Try to find it from the URL first
+  const urlParams = new URLSearchParams(window.location.search);
+  let currentJobKey = urlParams.get('vjk') || urlParams.get('jk');
+
+  // If not in URL, try to find from the selected job card
+  if (!currentJobKey) {
+    const selectedSelectors = [
+      '.jobsearch-ResultsList li.vjs-highlight',
+      '.job_seen_beacon.vjs-highlight',
+      'a.jcs-JobTitle[data-jk]',
+      '[data-testid="job-result"].active',
+      'li[data-jk].clicked'
+    ];
+
+    for (const selector of selectedSelectors) {
+      const selectedJob = document.querySelector(selector);
+      if (selectedJob) {
+        currentJobKey = selectedJob.getAttribute('data-jk') ||
+                        selectedJob.closest('[data-jk]')?.getAttribute('data-jk');
+        if (currentJobKey) break;
+      }
+    }
+  }
+
+  // If still no job key, try to extract from the detail panel itself
+  if (!currentJobKey) {
+    // Look for job key in any hidden input or data attribute
+    const detailPanel = document.querySelector('.jobsearch-JobComponent, .jobsearch-ViewJobLayout');
+    if (detailPanel) {
+      const jobLink = detailPanel.querySelector('a[data-jk], [data-job-id]');
+      if (jobLink) {
+        currentJobKey = jobLink.getAttribute('data-jk') || jobLink.getAttribute('data-job-id');
+      }
+    }
+  }
+
+  // Look up the job age from cache
+  let jobAge = null;
+  if (currentJobKey && jobAgeCache[currentJobKey] !== undefined) {
+    jobAge = jobAgeCache[currentJobKey];
+  }
+
+  // If we don't have age from cache, try to get it from the detail panel text
+  if (jobAge === null) {
+    // Look for posting date in the detail panel
+    const dateSelectors = [
+      '.jobsearch-JobMetadataFooter span',
+      '.jobsearch-HiringInsights-entry--age',
+      '[data-testid="myJobsStateDate"]',
+      '.jobsearch-JobComponent .date',
+      '.jobsearch-ViewJobLayout .date'
+    ];
+
+    for (const selector of dateSelectors) {
+      const dateEl = document.querySelector(selector);
+      if (dateEl) {
+        const text = dateEl.textContent.trim().toLowerCase();
+        if (text.includes('just posted') || text.includes('today')) {
+          jobAge = 0;
+          break;
+        }
+        if (text.includes('hour') || text.includes('minute')) {
+          jobAge = 0;
+          break;
+        }
+        const dayMatch = text.match(/(\d+)\s*days?\s*ago/);
+        if (dayMatch) {
+          jobAge = parseInt(dayMatch[1]);
+          break;
+        }
+        const weekMatch = text.match(/(\d+)\s*weeks?\s*ago/);
+        if (weekMatch) {
+          jobAge = parseInt(weekMatch[1]) * 7;
+          break;
+        }
+        if (text.includes('30+') || text.includes('month')) {
+          jobAge = 30;
+          break;
+        }
+      }
+    }
+  }
+
+  if (jobAge === null) {
+    log('Could not determine job age for detail panel');
+    return;
+  }
+
+  // Format the age text
+  const ageText = formatJobAge(jobAge);
+
+  // Determine color based on age
+  let bgColor, textColor, icon;
+  if (jobAge <= 3) {
+    bgColor = 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)';
+    textColor = '#166534';
+    icon = '🟢';
+  } else if (jobAge <= 7) {
+    bgColor = 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)';
+    textColor = '#1e40af';
+    icon = '🔵';
+  } else if (jobAge <= 14) {
+    bgColor = 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)';
+    textColor = '#92400e';
+    icon = '🟡';
+  } else if (jobAge <= 30) {
+    bgColor = 'linear-gradient(135deg, #fed7aa 0%, #fdba74 100%)';
+    textColor = '#9a3412';
+    icon = '🟠';
+  } else {
+    bgColor = 'linear-gradient(135deg, #fecaca 0%, #fca5a5 100%)';
+    textColor = '#991b1b';
+    icon = '🔴';
+  }
+
+  // Create the badge
+  const badge = document.createElement('div');
+  badge.className = 'jobfiltr-detail-age-badge';
+  badge.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 18px;">${icon}</span>
+      <div>
+        <div style="font-weight: 700; font-size: 14px;">Posted ${ageText}${jobAge > 30 ? ' ago' : ''}</div>
+        <div style="font-size: 11px; opacity: 0.8;">${jobAge <= 3 ? 'Fresh posting!' : jobAge <= 7 ? 'Recent posting' : jobAge <= 14 ? 'Moderately recent' : jobAge <= 30 ? 'Getting older' : 'May be stale'}</div>
+      </div>
+    </div>
+  `;
+  badge.style.cssText = `
+    background: ${bgColor};
+    color: ${textColor};
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    margin: 12px 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid ${textColor}30;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: fit-content;
+  `;
+
+  // Find the best place to insert in the detail panel
+  const insertTargets = [
+    '.jobsearch-JobInfoHeader-title-container',
+    '.jobsearch-InlineCompanyRating',
+    '.jobsearch-JobInfoHeader',
+    'h1.jobsearch-JobInfoHeader-title',
+    '.jobsearch-CompanyInfoContainer',
+    '.jobsearch-ViewJobLayout-jobDisplay',
+    '.jobsearch-JobComponent-description',
+    '#jobDescriptionText'
+  ];
+
+  for (const selector of insertTargets) {
+    const target = document.querySelector(selector);
+    if (target) {
+      // Insert after the target element
+      target.insertAdjacentElement('afterend', badge);
+      log('Added job age badge to Indeed detail panel');
+      return;
+    }
+  }
+
+  log('Could not find suitable location for job age badge in detail panel');
+}
+
 // ===== JOB AGE DETECTION =====
 
 // Cache for job ages extracted from page JSON data
 let jobAgeCache = {};
 let lastJobAgeCacheUpdate = 0;
+let mosaicDataRequested = false;
 
-// Extract job ages from Indeed's embedded JSON data (window.mosaic.providerData)
+// Listen for mosaic data from injected page script
+window.addEventListener('jobfiltr-mosaic-data', (event) => {
+  try {
+    const jobs = event.detail;
+    if (jobs && Array.isArray(jobs)) {
+      const now = Date.now();
+      jobs.forEach(job => {
+        if (!job.jobkey) return;
+
+        let ageDays = null;
+
+        // PRIORITY 1: Calculate EXACT age from pubDate Unix timestamp (most accurate)
+        if (job.pubDate && job.pubDate > 0) {
+          const pubDateMs = typeof job.pubDate === 'number' ? job.pubDate : parseInt(job.pubDate);
+          if (!isNaN(pubDateMs) && pubDateMs > 0) {
+            ageDays = Math.floor((now - pubDateMs) / (1000 * 60 * 60 * 24));
+            if (ageDays < 0) ageDays = 0;
+          }
+        }
+
+        // PRIORITY 2: Calculate from createDate Unix timestamp
+        if (ageDays === null && job.createDate && job.createDate > 0) {
+          const createDateMs = typeof job.createDate === 'number' ? job.createDate : parseInt(job.createDate);
+          if (!isNaN(createDateMs) && createDateMs > 0) {
+            ageDays = Math.floor((now - createDateMs) / (1000 * 60 * 60 * 24));
+            if (ageDays < 0) ageDays = 0;
+          }
+        }
+
+        // PRIORITY 3: Fallback to formattedRelativeTime
+        if (ageDays === null && job.formattedRelativeTime) {
+          const relTime = job.formattedRelativeTime.toString().trim().toLowerCase();
+
+          if (relTime.includes('just posted') || relTime.includes('today') || relTime === 'just now') {
+            ageDays = 0;
+          } else if (relTime.includes('30+') || relTime.includes('30 +')) {
+            ageDays = 30;
+          } else if (relTime.includes('hour') || relTime.includes('minute')) {
+            ageDays = 0;
+          } else if (relTime.includes('day')) {
+            const numMatch = relTime.match(/(\d+)/);
+            if (numMatch) ageDays = parseInt(numMatch[1]);
+          } else if (relTime.includes('week')) {
+            const numMatch = relTime.match(/(\d+)/);
+            ageDays = numMatch ? parseInt(numMatch[1]) * 7 : 7;
+          } else if (relTime.includes('month')) {
+            const numMatch = relTime.match(/(\d+)/);
+            ageDays = numMatch ? parseInt(numMatch[1]) * 30 : 30;
+          } else {
+            const numMatch = relTime.match(/^(\d+)/);
+            if (numMatch) ageDays = parseInt(numMatch[1]);
+          }
+        }
+
+        if (ageDays !== null && ageDays >= 0) {
+          jobAgeCache[job.jobkey] = ageDays;
+        }
+      });
+
+      log(`Received job ages for ${Object.keys(jobAgeCache).length} jobs from page context`);
+      lastJobAgeCacheUpdate = Date.now();
+    }
+  } catch (error) {
+    log('Error processing mosaic data:', error);
+  }
+});
+
+// Inject script into page context to access window.mosaic
+function injectMosaicDataExtractor() {
+  // Only inject once
+  if (document.getElementById('jobfiltr-mosaic-extractor')) return;
+
+  const script = document.createElement('script');
+  script.id = 'jobfiltr-mosaic-extractor';
+  script.textContent = `
+    (function() {
+      function extractAndSendMosaicData() {
+        try {
+          if (window.mosaic && window.mosaic.providerData) {
+            const jobcardsProvider = window.mosaic.providerData['mosaic-provider-jobcards'];
+            if (jobcardsProvider && jobcardsProvider.metaData &&
+                jobcardsProvider.metaData.mosaicProviderJobCardsModel &&
+                jobcardsProvider.metaData.mosaicProviderJobCardsModel.results) {
+              const jobs = jobcardsProvider.metaData.mosaicProviderJobCardsModel.results;
+              // Send only the data we need (jobkey, pubDate, createDate, formattedRelativeTime)
+              const jobData = jobs.map(job => ({
+                jobkey: job.jobkey,
+                pubDate: job.pubDate,
+                createDate: job.createDate,
+                formattedRelativeTime: job.formattedRelativeTime
+              }));
+              window.dispatchEvent(new CustomEvent('jobfiltr-mosaic-data', { detail: jobData }));
+            }
+          }
+        } catch (e) {
+          console.error('JobFiltr: Error extracting mosaic data:', e);
+        }
+      }
+
+      // Extract immediately
+      extractAndSendMosaicData();
+
+      // Also listen for requests to re-extract (for dynamic page updates)
+      window.addEventListener('jobfiltr-request-mosaic', extractAndSendMosaicData);
+    })();
+  `;
+  document.documentElement.appendChild(script);
+}
+
+// Request fresh mosaic data from page context
+function requestMosaicData() {
+  window.dispatchEvent(new CustomEvent('jobfiltr-request-mosaic'));
+}
+
+// Extract job ages from Indeed's embedded JSON data
+// Uses page source parsing (works reliably in content script context)
+// Also tries injecting a script for window.mosaic access as a backup
 function extractJobAgesFromPageData() {
   try {
-    // Only update cache every 5 seconds to avoid excessive processing
     const now = Date.now();
+
+    // Only update cache every 5 seconds to avoid excessive processing
     if (now - lastJobAgeCacheUpdate < 5000 && Object.keys(jobAgeCache).length > 0) {
       return;
     }
     lastJobAgeCacheUpdate = now;
 
-    // Access Indeed's mosaic provider data
-    if (window.mosaic && window.mosaic.providerData) {
-      const jobcardsProvider = window.mosaic.providerData['mosaic-provider-jobcards'];
+    // PRIMARY METHOD: Parse from page source (always works in content script)
+    extractJobAgesFromPageSource();
 
-      if (jobcardsProvider?.metaData?.mosaicProviderJobCardsModel?.results) {
-        const jobs = jobcardsProvider.metaData.mosaicProviderJobCardsModel.results;
-
-        jobs.forEach(job => {
-          if (!job.jobkey) return;
-
-          let ageDays = null;
-          const now = Date.now();
-
-          // PRIORITY 1: Calculate EXACT age from pubDate Unix timestamp (most accurate)
-          // This gives us the precise number of days, unlike "30+ days ago" which caps at 30
-          if (job.pubDate && job.pubDate > 0) {
-            const pubDateMs = typeof job.pubDate === 'number' ? job.pubDate : parseInt(job.pubDate);
-            if (!isNaN(pubDateMs) && pubDateMs > 0) {
-              ageDays = Math.floor((now - pubDateMs) / (1000 * 60 * 60 * 24));
-              // Validate: age should be reasonable (0 to 365 days, warn if older)
-              if (ageDays < 0) {
-                ageDays = 0; // Future date, treat as today
-              } else if (ageDays > 365) {
-                log(`Warning: Job ${job.jobkey} shows age of ${ageDays} days (very old)`);
-              }
-            }
-          }
-
-          // PRIORITY 2: Calculate from createDate Unix timestamp
-          if (ageDays === null && job.createDate && job.createDate > 0) {
-            const createDateMs = typeof job.createDate === 'number' ? job.createDate : parseInt(job.createDate);
-            if (!isNaN(createDateMs) && createDateMs > 0) {
-              ageDays = Math.floor((now - createDateMs) / (1000 * 60 * 60 * 24));
-              if (ageDays < 0) ageDays = 0;
-            }
-          }
-
-          // PRIORITY 3: Fallback to formattedRelativeTime (less accurate but better than nothing)
-          // Note: This is a string like "1 day ago", "30+ days ago", "Just posted"
-          // Use only if timestamps are not available
-          if (ageDays === null && job.formattedRelativeTime) {
-            const relTime = job.formattedRelativeTime.toString().trim().toLowerCase();
-
-            if (relTime.includes('just posted') || relTime.includes('today') || relTime === 'just now') {
-              ageDays = 0;
-            } else if (relTime.includes('30+') || relTime.includes('30 +')) {
-              // For "30+ days ago", we don't have exact age - use 30 as minimum
-              // Note: pubDate would give us the exact age if it was available
-              ageDays = 30;
-            } else if (relTime.includes('hour') || relTime.includes('minute')) {
-              ageDays = 0; // Posted today
-            } else if (relTime.includes('day')) {
-              const numMatch = relTime.match(/(\d+)/);
-              if (numMatch) ageDays = parseInt(numMatch[1]);
-            } else if (relTime.includes('week')) {
-              const numMatch = relTime.match(/(\d+)/);
-              ageDays = numMatch ? parseInt(numMatch[1]) * 7 : 7;
-            } else if (relTime.includes('month')) {
-              const numMatch = relTime.match(/(\d+)/);
-              ageDays = numMatch ? parseInt(numMatch[1]) * 30 : 30;
-            } else {
-              const numMatch = relTime.match(/^(\d+)/);
-              if (numMatch) ageDays = parseInt(numMatch[1]);
-            }
-          }
-
-          // Store in cache if we found a valid age
-          if (ageDays !== null && ageDays >= 0) {
-            jobAgeCache[job.jobkey] = ageDays;
-          }
-        });
-
-        log(`Extracted job ages for ${Object.keys(jobAgeCache).length} jobs from page data`);
-      }
-    }
-
-    // Fallback: Parse from page source if mosaic data not available
+    // BACKUP METHOD: Try injecting script for window.mosaic access
+    // This is less reliable but might catch edge cases
     if (Object.keys(jobAgeCache).length === 0) {
-      extractJobAgesFromPageSource();
+      injectMosaicDataExtractor();
+      requestMosaicData();
     }
   } catch (error) {
     log('Error extracting job ages from page data:', error);
@@ -754,45 +992,96 @@ function extractJobAgesFromPageData() {
 }
 
 // Fallback: Extract job ages from page source HTML
+// This parses the embedded JSON in script tags to find job posting dates
 function extractJobAgesFromPageSource() {
   try {
     const scripts = document.querySelectorAll('script');
+    const now = Date.now();
 
     for (const script of scripts) {
       const text = script.textContent || '';
 
-      // Look for job data with pubDate or formattedRelativeTime
-      if (text.includes('jobkey') && (text.includes('pubDate') || text.includes('formattedRelativeTime'))) {
-        // Extract jobkey and pubDate pairs
-        const jobPattern = /"jobkey"\s*:\s*"([^"]+)"[^}]*?"pubDate"\s*:\s*(\d+)/g;
+      // Look for the mosaic provider data script with job data
+      if (text.includes('mosaic-provider-jobcards') && text.includes('jobkey') && text.includes('pubDate')) {
+        log('Found mosaic-provider-jobcards script, parsing...');
+
+        // Find all job entries with jobkey and extract their data
+        // Pattern: look for jobkey, then find pubDate or formattedRelativeTime nearby
+        const jobkeyPattern = /"jobkey"\s*:\s*"([a-f0-9]+)"/gi;
         let match;
-        while ((match = jobPattern.exec(text)) !== null) {
+
+        while ((match = jobkeyPattern.exec(text)) !== null) {
           const jobKey = match[1];
-          const pubDate = parseInt(match[2]);
-          const now = Date.now();
-          const ageDays = Math.floor((now - pubDate) / (1000 * 60 * 60 * 24));
-          if (ageDays >= 0) {
+          const matchPos = match.index;
+
+          // Don't re-extract if already in cache
+          if (jobAgeCache[jobKey]) continue;
+
+          // Look for pubDate and formattedRelativeTime within 1000 chars after jobkey
+          // (job objects can be large with many fields)
+          const searchWindow = text.substring(matchPos, matchPos + 1500);
+
+          let ageDays = null;
+
+          // Try pubDate first (most accurate)
+          const pubDateMatch = searchWindow.match(/"pubDate"\s*:\s*(\d+)/);
+          if (pubDateMatch) {
+            const pubDate = parseInt(pubDateMatch[1]);
+            if (pubDate > 1000000000000) { // Looks like milliseconds timestamp
+              ageDays = Math.floor((now - pubDate) / (1000 * 60 * 60 * 24));
+              if (ageDays < 0) ageDays = 0;
+            }
+          }
+
+          // Try createDate if pubDate not found
+          if (ageDays === null) {
+            const createDateMatch = searchWindow.match(/"createDate"\s*:\s*(\d+)/);
+            if (createDateMatch) {
+              const createDate = parseInt(createDateMatch[1]);
+              if (createDate > 1000000000000) {
+                ageDays = Math.floor((now - createDate) / (1000 * 60 * 60 * 24));
+                if (ageDays < 0) ageDays = 0;
+              }
+            }
+          }
+
+          // Fallback to formattedRelativeTime
+          if (ageDays === null) {
+            const relTimeMatch = searchWindow.match(/"formattedRelativeTime"\s*:\s*"([^"]+)"/);
+            if (relTimeMatch) {
+              const relTime = relTimeMatch[1].toLowerCase();
+              if (relTime.includes('just') || relTime.includes('today') || relTime.includes('hour') || relTime.includes('minute')) {
+                ageDays = 0;
+              } else if (relTime.includes('30+')) {
+                ageDays = 30;
+              } else {
+                const numMatch = relTime.match(/(\d+)/);
+                if (numMatch) {
+                  const num = parseInt(numMatch[1]);
+                  if (relTime.includes('day')) ageDays = num;
+                  else if (relTime.includes('week')) ageDays = num * 7;
+                  else if (relTime.includes('month')) ageDays = num * 30;
+                  else ageDays = num; // Just the number
+                }
+              }
+            }
+          }
+
+          if (ageDays !== null && ageDays >= 0) {
             jobAgeCache[jobKey] = ageDays;
           }
         }
 
-        // Also try formattedRelativeTime
-        const relTimePattern = /"jobkey"\s*:\s*"([^"]+)"[^}]*?"formattedRelativeTime"\s*:\s*"([^"]+)"/g;
-        while ((match = relTimePattern.exec(text)) !== null) {
-          const jobKey = match[1];
-          const relTime = match[2];
-          if (!jobAgeCache[jobKey]) {
-            const numMatch = relTime.match(/^(\d+)/);
-            if (numMatch) {
-              jobAgeCache[jobKey] = parseInt(numMatch[1]);
-            }
-          }
+        if (Object.keys(jobAgeCache).length > 0) {
+          log(`Extracted job ages for ${Object.keys(jobAgeCache).length} jobs from page source`);
+          return; // Found data, no need to check other scripts
         }
       }
     }
 
-    if (Object.keys(jobAgeCache).length > 0) {
-      log(`Extracted job ages for ${Object.keys(jobAgeCache).length} jobs from page source`);
+    // Log if nothing found
+    if (Object.keys(jobAgeCache).length === 0) {
+      log('No job age data found in page source');
     }
   } catch (error) {
     log('Error extracting job ages from page source:', error);
@@ -1077,8 +1366,8 @@ function applyFilters(settings) {
       }
     }
 
-    // Filter 7: Hide jobs without salary info
-    if (settings.hideNoSalary) {
+    // Filter 7: Hide jobs without salary info (only if salary filter is active)
+    if (settings.filterSalary && settings.hideNoSalary) {
       if (!hasSalaryInfo(jobCard)) {
         shouldHide = true;
         reasons.push('No salary info');
@@ -1124,7 +1413,7 @@ function applyFilters(settings) {
       hiddenCount: hiddenJobsCount
     });
   } catch (error) {
-    log('Failed to send stats update:', error);
+    // Silently ignore extension context invalidated errors
   }
 
   log(`Filtered ${hiddenJobsCount} jobs out of ${jobCards.length}`);
@@ -1165,12 +1454,16 @@ function resetFilters() {
     badges.forEach(badge => badge.remove());
   });
 
+  // Also remove detail panel job age badge
+  const detailAgeBadge = document.querySelector('.jobfiltr-detail-age-badge');
+  if (detailAgeBadge) detailAgeBadge.remove();
+
   hiddenJobsCount = 0;
 
   try {
     chrome.runtime.sendMessage({ type: 'FILTER_STATS_UPDATE', hiddenCount: 0 });
   } catch (error) {
-    log('Failed to send reset update:', error);
+    // Silently ignore extension context invalidated errors
   }
 
   log('Filters reset on Indeed');
@@ -1365,6 +1658,11 @@ function performFullScan() {
     updateBenefitsFromDetailPanel();
   }
 
+  // Update job age badge in detail panel for selected job
+  if (filterSettings.showJobAge) {
+    addJobAgeToDetailPanel();
+  }
+
   const jobCardSelectors = [
     '.jobsearch-ResultsList > li',
     '.job_seen_beacon',
@@ -1438,8 +1736,8 @@ function performFullScan() {
       }
     }
 
-    // Filter 7: Hide jobs without salary info
-    if (filterSettings.hideNoSalary) {
+    // Filter 7: Hide jobs without salary info (only if salary filter is active)
+    if (filterSettings.filterSalary && filterSettings.hideNoSalary) {
       if (!hasSalaryInfo(jobCard)) {
         shouldHide = true;
         reasons.push('No salary info');
@@ -1522,6 +1820,11 @@ function stopPeriodicScan() {
 
 // ===== AUTO-LOAD SAVED FILTERS ON PAGE LOAD =====
 async function loadAndApplyFilters() {
+  // Check if extension context is still valid
+  if (!isExtensionContextValid()) {
+    return;
+  }
+
   try {
     // Check if user is authenticated before auto-applying filters
     const authResult = await chrome.storage.local.get(['authToken', 'authExpiry']);
@@ -1540,9 +1843,15 @@ async function loadAndApplyFilters() {
       }, 1000);
     }
   } catch (error) {
-    log('Error loading saved filters:', error);
+    // Silently handle extension context invalidated errors
+    if (!error.message?.includes('Extension context invalidated')) {
+      log('Error loading saved filters:', error);
+    }
   }
 }
+
+// Inject mosaic extractor early so job age data is available when filters are applied
+injectMosaicDataExtractor();
 
 // Load saved filters when script initializes
 loadAndApplyFilters();
@@ -1552,14 +1861,21 @@ if (Object.keys(filterSettings).length > 0) {
   startPeriodicScan();
 }
 
-// ===== JOB CARD CLICK LISTENER FOR BENEFITS =====
-// When a user clicks on a job card, update benefits badge from the detail panel
+// ===== JOB CARD CLICK LISTENER FOR BENEFITS AND JOB AGE =====
+// When a user clicks on a job card, update badges from the detail panel
 document.addEventListener('click', (e) => {
   const jobCard = e.target.closest('.jobsearch-ResultsList li, .job_seen_beacon, [data-testid="job-result"], li[data-jk]');
-  if (jobCard && filterSettings.showBenefitsIndicator) {
+  if (jobCard) {
     // Wait for the job description panel to load
     setTimeout(() => {
-      updateBenefitsFromDetailPanel();
+      // Update benefits badge from detail panel
+      if (filterSettings.showBenefitsIndicator) {
+        updateBenefitsFromDetailPanel();
+      }
+      // Update job age badge in detail panel
+      if (filterSettings.showJobAge) {
+        addJobAgeToDetailPanel();
+      }
     }, 500);
   }
 }, true);
@@ -1570,6 +1886,11 @@ log('Indeed content script ready');
 // Shows a small notification when JobFiltr first activates on Indeed
 
 function showJobFiltrActiveNotification() {
+  // Check if extension context is still valid
+  if (!isExtensionContextValid()) {
+    return;
+  }
+
   // Check if we've already shown the notification this session
   const notificationKey = 'jobfiltr_notification_shown';
   if (sessionStorage.getItem(notificationKey)) {
@@ -1577,11 +1898,18 @@ function showJobFiltrActiveNotification() {
   }
 
   // Check if popup is currently open/pinned by querying the background
-  chrome.runtime.sendMessage({ type: 'CHECK_POPUP_STATE' }, (response) => {
-    // If popup is open/pinned, don't show notification
-    if (response && response.popupOpen) {
-      return;
-    }
+  try {
+    chrome.runtime.sendMessage({ type: 'CHECK_POPUP_STATE' }, (response) => {
+      // Handle potential error from chrome.runtime.lastError
+      if (chrome.runtime.lastError) {
+        // Extension context invalidated or other error - silently ignore
+        return;
+      }
+
+      // If popup is open/pinned, don't show notification
+      if (response && response.popupOpen) {
+        return;
+      }
 
     // Mark as shown for this session
     sessionStorage.setItem(notificationKey, 'true');
@@ -1726,7 +2054,11 @@ function showJobFiltrActiveNotification() {
         dismissNotification(notification);
       }
     }, 4000);
-  });
+    });
+  } catch (e) {
+    // Extension context invalidated or other error - silently ignore
+    return;
+  }
 }
 
 function dismissNotification(notification) {
@@ -1927,6 +2259,12 @@ function showFirstSignInNotification() {
 
 // Check if user is signed in before showing notification
 async function isUserSignedIn() {
+  // First check if extension context is still valid
+  if (!isExtensionContextValid()) {
+    // Extension was reloaded - silently return false without logging error
+    return false;
+  }
+
   try {
     const result = await chrome.storage.local.get(['authToken', 'authExpiry']);
     if (result.authToken && result.authExpiry && Date.now() < result.authExpiry) {
@@ -1934,7 +2272,10 @@ async function isUserSignedIn() {
     }
     return false;
   } catch (error) {
-    console.error('JobFiltr: Error checking auth state:', error);
+    // Only log if it's not an "Extension context invalidated" error
+    if (!error.message?.includes('Extension context invalidated')) {
+      console.error('JobFiltr: Error checking auth state:', error);
+    }
     return false;
   }
 }
@@ -1968,6 +2309,29 @@ document.addEventListener('visibilitychange', async () => {
     }, 500);
   }
 });
+
+// Clear notification flag if user navigated from a different origin (not just tab switching)
+// This ensures notification shows when navigating to Indeed from another site
+try {
+  const referrer = document.referrer;
+  const currentOrigin = window.location.origin;
+  // If there's a referrer and it's from a different origin, clear the flag
+  if (referrer) {
+    const referrerOrigin = new URL(referrer).origin;
+    if (referrerOrigin !== currentOrigin) {
+      sessionStorage.removeItem('jobfiltr_notification_shown');
+      log('Cleared notification flag - navigated from different origin');
+    }
+  } else {
+    // No referrer typically means direct navigation, typed URL, or bookmark
+    // Clear the flag to show notification for fresh navigation
+    sessionStorage.removeItem('jobfiltr_notification_shown');
+    log('Cleared notification flag - direct navigation or no referrer');
+  }
+} catch (e) {
+  // If URL parsing fails, play it safe and clear the flag
+  sessionStorage.removeItem('jobfiltr_notification_shown');
+}
 
 // Show notification after a short delay to ensure page is loaded (only if signed in)
 setTimeout(async () => {

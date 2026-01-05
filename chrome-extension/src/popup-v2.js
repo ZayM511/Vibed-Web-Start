@@ -1186,7 +1186,7 @@ function updateFilterStats() {
     'filterIncludeKeywords',
     'filterExcludeKeywords',
     'filterSalary',
-    'hideNoSalary',
+    // hideNoSalary is NOT counted separately - it's part of filterSalary
     'showActiveRecruiting',
     'showJobAge',
     'hideApplied',
@@ -1350,7 +1350,8 @@ function countActiveFilters(settings) {
   const mainFilters = [
     'hideStaffing', 'hideSponsored', 'filterApplicants', 'filterPostingAge', 'entryLevelAccuracy',
     'trueRemoteAccuracy', 'filterIncludeKeywords', 'filterExcludeKeywords',
-    'filterSalary', 'hideNoSalary', 'showActiveRecruiting', 'showJobAge', 'hideApplied',
+    'filterSalary', // hideNoSalary is NOT counted separately - it's part of filterSalary
+    'showActiveRecruiting', 'showJobAge', 'hideApplied',
     'visaOnly', 'easyApplyOnly', 'showBenefitsIndicator', 'showApplicantCount'
   ];
   return mainFilters.filter(key => settings[key] === true).length;
@@ -2263,6 +2264,49 @@ function performLocalGhostAnalysis(jobData) {
   ].reduce((a, b) => a + b, 0);
 
   const finalConfidence = Math.round((avgConfidence * 0.7 + dataCompleteness * 0.3) * 100);
+
+  // Apply ceiling scores (maximum legitimacy) for obvious ghost indicators
+  // Remember: this is a legitimacy score where 100 = legitimate, 0 = ghost
+  const daysPosted = parsePostingAge(jobData.postedDate);
+
+  if (daysPosted !== null) {
+    if (daysPosted >= 90) {
+      // 3+ months old = maximum 35 legitimacy (high ghost risk)
+      score = Math.min(score, 35);
+      if (!redFlags.some(f => f.includes('posted'))) {
+        redFlags.push(`Job posted ${daysPosted} days ago - very stale posting`);
+      }
+    } else if (daysPosted >= 60) {
+      // 2+ months old = maximum 50 legitimacy
+      score = Math.min(score, 50);
+      if (!redFlags.some(f => f.includes('posted'))) {
+        redFlags.push(`Job posted ${daysPosted} days ago - stale posting`);
+      }
+    } else if (daysPosted >= 45) {
+      // 6+ weeks old = maximum 65 legitimacy
+      score = Math.min(score, 65);
+    }
+  }
+
+  // High applicant count with old posting
+  if (jobData.applicantCount && jobData.applicantCount >= 500) {
+    score = Math.min(score, 55);
+    if (!redFlags.some(f => f.includes('applicant'))) {
+      redFlags.push(`High applicant volume (${jobData.applicantCount}+)`);
+    }
+    if (daysPosted && daysPosted >= 30) {
+      score = Math.min(score, 45);
+    }
+  }
+
+  // Reposted indicator
+  const isReposted = /reposted/i.test(jobData.description || '') || /reposted/i.test(jobData.title || '');
+  if (isReposted) {
+    score = Math.min(score, 50);
+    if (!redFlags.some(f => f.includes('reposted'))) {
+      redFlags.push('Job has been reposted (possibly unfilled for long time)');
+    }
+  }
 
   // Clamp score
   score = Math.max(0, Math.min(100, score));
