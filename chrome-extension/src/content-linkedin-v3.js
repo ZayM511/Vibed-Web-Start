@@ -1909,18 +1909,16 @@ function addJobAgeBadge(jobCard, days) {
     }
   }
 
-  // Check if badge already exists with correct value (check both containers)
-  let existingBadge = badgeContainer.querySelector('.jobfiltr-age-badge');
-  if (!existingBadge && badgeContainer !== jobCard) {
-    existingBadge = jobCard.querySelector('.jobfiltr-age-badge');
-  }
+  // Remove ALL existing job age badges from the entire job card to prevent duplicates
+  // This is critical because the card might have badges from previous container selections
+  const allExistingBadges = jobCard.querySelectorAll('.jobfiltr-age-badge');
+  allExistingBadges.forEach(badge => badge.remove());
 
-  if (existingBadge && existingBadge.dataset.age === days.toString()) {
-    return; // Badge already exists with correct value, no need to recreate
+  // Also check in the badge container if it's different
+  if (badgeContainer !== jobCard) {
+    const containerBadges = badgeContainer.querySelectorAll('.jobfiltr-age-badge');
+    containerBadges.forEach(badge => badge.remove());
   }
-
-  // Remove existing job age badge if any
-  if (existingBadge) existingBadge.remove();
 
   const ageText = formatJobAge(days);
 
