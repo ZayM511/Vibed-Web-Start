@@ -730,6 +730,55 @@ function matchesExcludeKeywords(jobCard, keywords) {
   return keywords.some(keyword => text.includes(keyword.toLowerCase()));
 }
 
+// ===== SALARY DETECTION =====
+function hasSalaryInfo(jobCard) {
+  try {
+    // Get all text from the job card
+    const cardText = getJobCardText(jobCard);
+
+    // Salary-specific selectors on LinkedIn job cards
+    const salarySelectors = [
+      '.job-card-container__metadata-item--salary',
+      '.job-card-list__salary',
+      '.jobs-unified-top-card__job-insight--salary',
+      '.job-card-container__footer-item',
+      '.compensation__salary',
+      '[data-test-id="salary"]'
+    ];
+
+    // Check for salary elements
+    for (const selector of salarySelectors) {
+      const elem = jobCard.querySelector(selector);
+      if (elem) {
+        const text = elem.textContent.toLowerCase();
+        // Check if it contains salary-related content
+        if (/\$[\d,]+|\d+k|\bsalary\b|\bpay\b|\bcompensation\b|\/yr|\/hr|per hour|per year|annually/i.test(text)) {
+          return true;
+        }
+      }
+    }
+
+    // Check the full card text for salary patterns
+    // Matches: $50,000, $100K, $50-60/hr, $80,000-$100,000/yr, etc.
+    const salaryPatterns = [
+      /\$[\d,]+(?:\s*[-–]\s*\$?[\d,]+)?(?:\s*\/?\s*(?:yr|year|hr|hour|annually|hourly|month|mo))?/i,
+      /\$\d+k\s*[-–]?\s*\$?\d*k?/i,
+      /(?:salary|pay|compensation)\s*[:.]?\s*\$[\d,]+/i
+    ];
+
+    for (const pattern of salaryPatterns) {
+      if (pattern.test(cardText)) {
+        return true;
+      }
+    }
+
+    return false;
+  } catch (error) {
+    log('Error checking salary info:', error);
+    return false; // Don't hide if we can't check
+  }
+}
+
 // ===== ENTRY LEVEL ACCURACY CHECK =====
 function checkEntryLevelAccuracy(jobCard) {
   try {
@@ -1562,6 +1611,14 @@ function applyFilters(settings) {
       }
     }
 
+    // Filter 8: Hide jobs without salary info
+    if (settings.hideNoSalary) {
+      if (!hasSalaryInfo(jobCard)) {
+        shouldHide = true;
+        reasons.push('No salary info');
+      }
+    }
+
     // Benefits Indicator (display only, doesn't hide)
     if (settings.showBenefitsIndicator && !shouldHide) {
       const text = getJobCardText(jobCard);
@@ -1956,6 +2013,14 @@ function performIncrementalScan() {
       if (matchesExcludeKeywords(jobCard, filterSettings.excludeKeywords)) {
         shouldHide = true;
         reasons.push('Contains excluded keywords');
+      }
+    }
+
+    // Hide jobs without salary info
+    if (filterSettings.hideNoSalary) {
+      if (!hasSalaryInfo(jobCard)) {
+        shouldHide = true;
+        reasons.push('No salary info');
       }
     }
 
@@ -2436,6 +2501,14 @@ function performFullScan() {
       if (matchesExcludeKeywords(jobCard, filterSettings.excludeKeywords)) {
         shouldHide = true;
         reasons.push('Excluded keywords');
+      }
+    }
+
+    // Filter 8: Hide jobs without salary info
+    if (filterSettings.hideNoSalary) {
+      if (!hasSalaryInfo(jobCard)) {
+        shouldHide = true;
+        reasons.push('No salary info');
       }
     }
 

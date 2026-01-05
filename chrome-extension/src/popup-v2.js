@@ -1045,6 +1045,7 @@ async function loadFilterSettings() {
     document.getElementById('filterSalary').checked = filterSettings.filterSalary || false;
     document.getElementById('minSalary').value = filterSettings.minSalary || '';
     document.getElementById('maxSalary').value = filterSettings.maxSalary || '';
+    document.getElementById('hideNoSalary').checked = filterSettings.hideNoSalary || false;
     document.getElementById('filterActiveRecruiting').checked = filterSettings.showActiveRecruiting || false;
     document.getElementById('filterJobAge').checked = filterSettings.showJobAge || false;
     document.getElementById('filterApplied').checked = filterSettings.hideApplied || false;
@@ -1097,6 +1098,7 @@ async function resetFiltersToDefault() {
   document.getElementById('filterSalary').checked = false;
   document.getElementById('minSalary').value = '';
   document.getElementById('maxSalary').value = '';
+  document.getElementById('hideNoSalary').checked = false;
   document.getElementById('filterActiveRecruiting').checked = false;
   document.getElementById('filterJobAge').checked = false;
   document.getElementById('filterApplied').checked = false;
@@ -1155,6 +1157,7 @@ async function saveFilterSettings() {
     filterSalary: document.getElementById('filterSalary').checked,
     minSalary: document.getElementById('minSalary').value,
     maxSalary: document.getElementById('maxSalary').value,
+    hideNoSalary: document.getElementById('hideNoSalary').checked,
     showActiveRecruiting: document.getElementById('filterActiveRecruiting').checked,
     showJobAge: document.getElementById('filterJobAge').checked,
     hideApplied: document.getElementById('filterApplied').checked,
@@ -1183,6 +1186,7 @@ function updateFilterStats() {
     'filterIncludeKeywords',
     'filterExcludeKeywords',
     'filterSalary',
+    'hideNoSalary',
     'showActiveRecruiting',
     'showJobAge',
     'hideApplied',
@@ -1346,7 +1350,7 @@ function countActiveFilters(settings) {
   const mainFilters = [
     'hideStaffing', 'hideSponsored', 'filterApplicants', 'filterPostingAge', 'entryLevelAccuracy',
     'trueRemoteAccuracy', 'filterIncludeKeywords', 'filterExcludeKeywords',
-    'filterSalary', 'showActiveRecruiting', 'showJobAge', 'hideApplied',
+    'filterSalary', 'hideNoSalary', 'showActiveRecruiting', 'showJobAge', 'hideApplied',
     'visaOnly', 'easyApplyOnly', 'showBenefitsIndicator', 'showApplicantCount'
   ];
   return mainFilters.filter(key => settings[key] === true).length;
@@ -1373,6 +1377,7 @@ function getCurrentFilterSettings() {
     filterSalary: document.getElementById('filterSalary').checked,
     minSalary: document.getElementById('minSalary').value,
     maxSalary: document.getElementById('maxSalary').value,
+    hideNoSalary: document.getElementById('hideNoSalary').checked,
     showActiveRecruiting: document.getElementById('filterActiveRecruiting').checked,
     showJobAge: document.getElementById('filterJobAge').checked,
     hideApplied: document.getElementById('filterApplied').checked,
@@ -1402,6 +1407,7 @@ function applyTemplateSettings(settings) {
   document.getElementById('filterSalary').checked = settings.filterSalary || false;
   document.getElementById('minSalary').value = settings.minSalary || '';
   document.getElementById('maxSalary').value = settings.maxSalary || '';
+  document.getElementById('hideNoSalary').checked = settings.hideNoSalary || false;
   document.getElementById('filterActiveRecruiting').checked = settings.showActiveRecruiting || false;
   document.getElementById('filterJobAge').checked = settings.showJobAge || false;
   document.getElementById('filterApplied').checked = settings.hideApplied || false;
