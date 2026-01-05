@@ -1886,28 +1886,27 @@ function addJobAgeBadge(jobCard, days) {
     if (isNaN(days) || days < 0) return;
   }
 
-  // Find the best container for the badge - prefer inner card containers
-  // This ensures proper positioning within the actual card element
-  const containerSelectors = [
-    '.job-card-container',
-    '.job-card-list__entity-lockup',
-    '.artdeco-entity-lockup',
-    '.job-card-container__link'
-  ];
-
+  // Find the best container for the badge - ALWAYS use the top-level job card
+  // This ensures consistent positioning across all job card types
+  // The outer <li> element is the most reliable container for absolute positioning
   let badgeContainer = jobCard;
-  for (const sel of containerSelectors) {
-    const inner = jobCard.querySelector(sel);
-    if (inner) {
-      badgeContainer = inner;
-      break;
-    }
-  }
 
-  // Also check if jobCard itself is already one of these types
-  if (jobCard.classList.contains('job-card-container') ||
-      jobCard.classList.contains('job-card-list__entity-lockup')) {
-    badgeContainer = jobCard;
+  // If jobCard is not an LI element, try to find a suitable container within it
+  if (jobCard.tagName !== 'LI') {
+    const containerSelectors = [
+      '.job-card-container',
+      '.job-card-list__entity-lockup',
+      '.artdeco-entity-lockup',
+      '.job-card-container__link'
+    ];
+
+    for (const sel of containerSelectors) {
+      const inner = jobCard.querySelector(sel);
+      if (inner) {
+        badgeContainer = inner;
+        break;
+      }
+    }
   }
 
   // Check if badge already exists with correct value (check both containers)
