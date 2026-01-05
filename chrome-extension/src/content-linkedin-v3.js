@@ -1401,28 +1401,35 @@ function addJobAgeToDetailPanel() {
   }
 
   // FALLBACK: If detail panel extraction failed, try to get from active card badge
+  // CRITICAL FIX: Find the active CARD first, then get the badge from it (not the other way around!)
   if (jobAge === null) {
     log('[Detail Badge] Detail panel extraction failed, trying active card fallback');
-    const allAgeBadges = document.querySelectorAll('.jobfiltr-age-badge[data-age]');
-    log('[Detail Badge] Found', allAgeBadges.length, 'total age badges on page');
 
-    for (const badge of allAgeBadges) {
-      // Simple check: look for badges in visible, active-looking cards
-      const card = badge.closest('li, div.job-card-container, .scaffold-layout__list-item');
-      if (card) {
-        const isActive = card.classList.contains('jobs-search-results-list__list-item--active') ||
-                        card.classList.contains('scaffold-layout__list-item--active') ||
-                        /active|selected/i.test(card.className);
-        if (isActive) {
+    // Use the SAME selectors used elsewhere in the code to find selected cards
+    const selectedCardSelectors = [
+      '.jobs-search-results-list__list-item--active',
+      'li.jobs-search-results-list__list-item[class*="active"]',
+      '.scaffold-layout__list-item--active',
+      'div.job-card-container--active'
+    ];
+
+    for (const selector of selectedCardSelectors) {
+      const activeCard = document.querySelector(selector);
+      if (activeCard) {
+        log('[Detail Badge] Found active card with selector:', selector);
+        const badge = activeCard.querySelector('.jobfiltr-age-badge[data-age]');
+        if (badge) {
           jobAge = parseInt(badge.dataset.age, 10);
-          log('[Detail Badge] Found from active card badge:', jobAge);
+          log('[Detail Badge] Found age from active card badge:', jobAge);
           break;
+        } else {
+          log('[Detail Badge] Active card found but has no age badge');
         }
       }
     }
 
     if (jobAge === null) {
-      log('[Detail Badge] No active card badge found either');
+      log('[Detail Badge] No active card with age badge found');
     }
   }
 
