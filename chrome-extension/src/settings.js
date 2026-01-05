@@ -65,21 +65,20 @@ loadSettings();
 const mrrYearEl = document.getElementById('mrrChartYear');
 if (mrrYearEl) mrrYearEl.textContent = new Date().getFullYear();
 
-// ===== PERSONALIZED GREETING SYSTEM (4-hour rotation with 2-week non-repetition) =====
+// ===== PERSONALIZED GREETING SYSTEM (1-hour rotation with 2-week non-repetition) =====
 
 // Track recently used greetings to prevent repetition within 2 weeks
 let recentGreetings = {};
-let currentGreetingCache = null; // Cache for current 4-hour window greeting
+let currentGreetingCache = null; // Cache for current 1-hour window greeting
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
-const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+const ONE_HOUR_MS = 1 * 60 * 60 * 1000;
 
-// Calculate the start timestamp of the current 4-hour window
-function getFourHourWindowStart() {
+// Calculate the start timestamp of the current 1-hour window
+function getOneHourWindowStart() {
   const now = new Date();
   const hour = now.getHours();
-  const fourHourWindow = Math.floor(hour / 4);
   const windowStart = new Date(now);
-  windowStart.setHours(fourHourWindow * 4, 0, 0, 0);
+  windowStart.setHours(hour, 0, 0, 0);
   return windowStart.getTime();
 }
 
@@ -99,8 +98,8 @@ async function loadRecentGreetings() {
     // Load cached greeting for current window
     if (result.currentFounderGreeting) {
       const cached = result.currentFounderGreeting;
-      const currentWindowStart = getFourHourWindowStart();
-      // Only use cache if it's from the current 4-hour window
+      const currentWindowStart = getOneHourWindowStart();
+      // Only use cache if it's from the current 1-hour window
       if (cached.windowStart === currentWindowStart) {
         currentGreetingCache = cached;
       }
@@ -112,7 +111,7 @@ async function loadRecentGreetings() {
 
 async function saveGreetingToHistory(greetingKey, greetingData) {
   recentGreetings[greetingKey] = Date.now();
-  const windowStart = getFourHourWindowStart();
+  const windowStart = getOneHourWindowStart();
   currentGreetingCache = {
     windowStart,
     greeting: greetingData.greeting,
@@ -156,7 +155,7 @@ function generateFounderGreeting() {
     return { greeting: holidays.greeting, icon: holidays.icon, subtext: holidays.subtext };
   }
 
-  // Check if we have a cached greeting for the current 4-hour window
+  // Check if we have a cached greeting for the current 1-hour window
   if (currentGreetingCache) {
     return {
       greeting: currentGreetingCache.greeting,
@@ -165,15 +164,15 @@ function generateFounderGreeting() {
     };
   }
 
-  // Calculate 4-hour window (0-3, 4-7, 8-11, 12-15, 16-19, 20-23)
-  const fourHourWindow = Math.floor(hour / 4);
+  // Calculate greeting category (0-5) based on time of day
+  const greetingCategory = Math.floor(hour / 4);
 
-  // Time-based greeting with 4-hour windows for variety
+  // Time-based greeting categories for variety (changes every hour within category)
   let timeGreeting = '';
   let icon = '👋';
   let subtext = 'Your dashboard is ready with live analytics.';
 
-  // Greetings rotate based on 4-hour windows
+  // Greetings rotate based on time-of-day categories
   const greetingVariants = {
     // 12am - 4am (Window 0)
     0: [
@@ -213,12 +212,12 @@ function generateFounderGreeting() {
     ]
   };
 
-  const variants = greetingVariants[fourHourWindow];
+  const variants = greetingVariants[greetingCategory];
   const nowTimestamp = Date.now();
 
   // Filter out recently used greetings (within 2 weeks)
   const availableVariants = variants.filter((v, index) => {
-    const key = `${fourHourWindow}-${index}`;
+    const key = `${greetingCategory}-${index}`;
     const lastUsed = recentGreetings[key];
     return !lastUsed || (nowTimestamp - lastUsed > TWO_WEEKS_MS);
   });
@@ -231,7 +230,7 @@ function generateFounderGreeting() {
     let oldestKey = null;
     let oldestTime = Infinity;
     variants.forEach((v, index) => {
-      const key = `${fourHourWindow}-${index}`;
+      const key = `${greetingCategory}-${index}`;
       const lastUsed = recentGreetings[key] || 0;
       if (lastUsed < oldestTime) {
         oldestTime = lastUsed;
@@ -244,7 +243,7 @@ function generateFounderGreeting() {
     // Pick randomly from available variants for more variety
     const randomIndex = Math.floor(Math.random() * availableVariants.length);
     selected = availableVariants[randomIndex];
-    selectedKey = `${fourHourWindow}-${variants.indexOf(selected)}`;
+    selectedKey = `${greetingCategory}-${variants.indexOf(selected)}`;
   }
 
   // Save this greeting to history and cache for current window
