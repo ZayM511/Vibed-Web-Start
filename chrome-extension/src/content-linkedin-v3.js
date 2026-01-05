@@ -2166,18 +2166,22 @@ function applyFilters(settings) {
     // Job Age Display (display only, doesn't hide)
     // IMPORTANT: Show job age on ALL cards, even hidden ones
     if (settings.showJobAge) {
-      // IMPORTANT: Check cached value FIRST to prevent age from changing on re-process
-      // Only call getJobAge() if there's no cached value yet
-      let jobAge = null;
-      if (jobCard.dataset.jobfiltrAge) {
-        // Use the cached age - this is the authoritative value
-        jobAge = parseInt(jobCard.dataset.jobfiltrAge, 10);
-      } else {
-        // No cached age yet - extract from the job card
-        jobAge = getJobAge(jobCard);
-      }
-      if (jobAge !== null && !isNaN(jobAge) && jobAge >= 0) {
-        addJobAgeBadge(jobCard, jobAge);
+      // Check if badge already exists - if so, skip (avoid duplicates)
+      const existingBadge = jobCard.querySelector('.jobfiltr-age-badge');
+      if (!existingBadge) {
+        // IMPORTANT: Check cached value FIRST to prevent age from changing on re-process
+        // Only call getJobAge() if there's no cached value yet
+        let jobAge = null;
+        if (jobCard.dataset.jobfiltrAge) {
+          // Use the cached age - this is the authoritative value
+          jobAge = parseInt(jobCard.dataset.jobfiltrAge, 10);
+        } else {
+          // No cached age yet - extract from the job card
+          jobAge = getJobAge(jobCard);
+        }
+        if (jobAge !== null && !isNaN(jobAge) && jobAge >= 0) {
+          addJobAgeBadge(jobCard, jobAge);
+        }
       }
     }
 
@@ -2664,17 +2668,21 @@ function performIncrementalScan() {
     // Job Age Display (display only)
     // IMPORTANT: Show job age on ALL cards, even hidden ones
     if (filterSettings.showJobAge) {
-      // IMPORTANT: Check cached value FIRST to prevent age from changing on re-process
-      let jobAge = null;
-      if (jobCard.dataset.jobfiltrAge) {
-        // Use the cached age - this is the authoritative value
-        jobAge = parseInt(jobCard.dataset.jobfiltrAge, 10);
-      } else {
-        // No cached age yet - extract from the job card
-        jobAge = getJobAge(jobCard);
-      }
-      if (jobAge !== null && !isNaN(jobAge) && jobAge >= 0) {
-        addJobAgeBadge(jobCard, jobAge);
+      // Check if badge already exists - if so, skip (avoid duplicates)
+      const existingBadge = jobCard.querySelector('.jobfiltr-age-badge');
+      if (!existingBadge) {
+        // IMPORTANT: Check cached value FIRST to prevent age from changing on re-process
+        let jobAge = null;
+        if (jobCard.dataset.jobfiltrAge) {
+          // Use the cached age - this is the authoritative value
+          jobAge = parseInt(jobCard.dataset.jobfiltrAge, 10);
+        } else {
+          // No cached age yet - extract from the job card
+          jobAge = getJobAge(jobCard);
+        }
+        if (jobAge !== null && !isNaN(jobAge) && jobAge >= 0) {
+          addJobAgeBadge(jobCard, jobAge);
+        }
       }
     }
 
