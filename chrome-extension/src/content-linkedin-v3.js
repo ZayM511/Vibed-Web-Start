@@ -1534,43 +1534,48 @@ function addJobAgeToDetailPanel() {
   }
 
   // Standard styling when ghost badge is not present
+  // CRITICAL: Make it VERY visible with prominent styling
   badge.style.cssText = `
     background: ${bgColor};
     color: ${textColor};
-    padding: 12px 16px;
+    padding: 16px 20px;
     border-radius: 12px;
-    font-size: 12px;
-    font-weight: 600;
-    margin: 12px 0;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    border: 1px solid ${textColor}30;
+    font-size: 14px;
+    font-weight: 700;
+    margin: 16px 0;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    border: 2px solid ${textColor};
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     max-width: fit-content;
+    display: block;
+    position: relative;
+    z-index: 1000;
   `;
 
-  // Find the best place to insert in the detail panel (similar to applicant count badge)
-  const insertTargets = [
-    '.job-details-jobs-unified-top-card__primary-description-container',
-    '.jobs-unified-top-card__primary-description',
-    '.jobs-details-top-card__content-container',
-    '.jobs-unified-top-card__content--two-pane',
-    '.jobs-details__main-content header',
-    '.job-view-layout header',
-    '.jobs-unified-top-card__job-insight',
-    '.jobs-unified-top-card'
-  ];
+  // BULLETPROOF INSERTION: Use the panel we already found during extraction
+  // Find ANY detail panel container - we know at least one exists
+  const detailPanelForInsertion = document.querySelector(
+    '.jobs-unified-top-card, .job-details-jobs-unified-top-card, .jobs-details-top-card, ' +
+    '.jobs-details__main-content, .job-view-layout, .jobs-details, .jobs-search__job-details, ' +
+    '[class*="job-details"], [class*="jobs-unified"]'
+  );
 
-  for (const selector of insertTargets) {
-    const target = document.querySelector(selector);
-    if (target) {
-      // Insert after the target element
-      target.insertAdjacentElement('afterend', badge);
-      log('Added job age badge to LinkedIn detail panel');
-      return;
-    }
+  if (detailPanelForInsertion) {
+    // Insert at the BEGINNING of the panel (prepend) so it's highly visible
+    detailPanelForInsertion.insertAdjacentElement('afterbegin', badge);
+    log('[Detail Badge] ✅ Successfully added job age badge to detail panel');
+    return;
   }
 
-  log('Could not find suitable location for job age badge in LinkedIn detail panel');
+  // If still no panel found, try the ultimate fallback - insert into main content area
+  const mainContent = document.querySelector('main[role="main"], main, #main-content, .application-outlet');
+  if (mainContent) {
+    mainContent.insertAdjacentElement('afterbegin', badge);
+    log('[Detail Badge] ⚠️ Added job age badge to main content area (fallback)');
+    return;
+  }
+
+  log('[Detail Badge] ❌ CRITICAL: Could not find ANY suitable location for job age badge');
 }
 
 // ===== JOB AGE DETECTION =====
