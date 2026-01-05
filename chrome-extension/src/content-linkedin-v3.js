@@ -1470,29 +1470,24 @@ function addJobAgeToDetailPanel() {
               break;
             }
           }
-          // Try text parsing
-          const text = timeEl.textContent.toLowerCase();
-          if (text.includes('just now') || text.includes('today') || text.includes('hour') || text.includes('minute')) {
-            jobAge = 0;
-            log('Extracted job age from detail panel (today):', jobAge);
+          // Try text parsing using the comprehensive parseAgeFromText function
+          const text = timeEl.textContent;
+          const parsedAge = parseAgeFromText(text);
+          if (parsedAge !== null && parsedAge >= 0) {
+            jobAge = parsedAge;
+            log('Extracted job age from detail panel time text via parseAgeFromText:', jobAge);
             break;
           }
-          const dayMatch = text.match(/(\d+)\s*(?:days?|d)\b/i);
-          if (dayMatch) {
-            jobAge = parseInt(dayMatch[1]);
-            log('Extracted job age from detail panel text:', jobAge);
-            break;
-          }
-          const weekMatch = text.match(/(\d+)\s*(?:weeks?|w)\b/i);
-          if (weekMatch) {
-            jobAge = parseInt(weekMatch[1]) * 7;
-            log('Extracted job age from detail panel text:', jobAge);
-            break;
-          }
-          const monthMatch = text.match(/(\d+)\s*(?:months?|mo)\b/i);
-          if (monthMatch) {
-            jobAge = parseInt(monthMatch[1]) * 30;
-            log('Extracted job age from detail panel text:', jobAge);
+        }
+
+        // If time element didn't work, try parsing the full panel text
+        // This catches cases where the time info is not in a <time> element
+        if (jobAge === null) {
+          const panelText = panel.textContent;
+          const parsedAge = parseAgeFromText(panelText);
+          if (parsedAge !== null && parsedAge >= 0 && parsedAge <= 365) {
+            jobAge = parsedAge;
+            log('Extracted job age from detail panel full text via parseAgeFromText:', jobAge);
             break;
           }
         }
@@ -1861,6 +1856,50 @@ function getJobAge(jobCard) {
       const innerAge = parseAgeFromText(innerCard.textContent);
       if (innerAge !== null) {
         return innerAge;
+      }
+    }
+
+    // STEP 6: If this is the active/selected card, try to get age from detail panel
+    // This is a last resort for cards that don't display age info on the card itself
+    const isActive = jobCard.classList.contains('jobs-search-results-list__list-item--active') ||
+                     jobCard.classList.contains('scaffold-layout__list-item--active') ||
+                     jobCard.classList.contains('job-card-container--active') ||
+                     /active|selected|is-active/i.test(jobCard.className);
+
+    if (isActive) {
+      const detailPanelSelectors = [
+        '.jobs-unified-top-card',
+        '.job-details-jobs-unified-top-card',
+        '.jobs-details-top-card'
+      ];
+
+      for (const selector of detailPanelSelectors) {
+        const panel = document.querySelector(selector);
+        if (panel) {
+          const timeEl = panel.querySelector('time');
+          if (timeEl) {
+            // Try datetime attribute
+            const datetime = timeEl.getAttribute('datetime');
+            if (datetime) {
+              const postDate = new Date(datetime);
+              const now = new Date();
+              const daysAgo = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
+              if (!isNaN(daysAgo) && daysAgo >= 0 && daysAgo <= 365) {
+                return daysAgo;
+              }
+            }
+            // Try text parsing
+            const age = parseAgeFromText(timeEl.textContent);
+            if (age !== null && age >= 0) {
+              return age;
+            }
+          }
+          // Try parsing full panel text
+          const panelAge = parseAgeFromText(panel.textContent);
+          if (panelAge !== null && panelAge >= 0 && panelAge <= 365) {
+            return panelAge;
+          }
+        }
       }
     }
 
