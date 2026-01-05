@@ -1909,9 +1909,18 @@ function addJobAgeBadge(jobCard, days) {
     }
   }
 
-  // Remove ALL existing job age badges from the entire job card to prevent duplicates
-  // This is critical because the card might have badges from previous container selections
+  // Check if badge already exists with correct value - if so, don't recreate
   const allExistingBadges = jobCard.querySelectorAll('.jobfiltr-age-badge');
+
+  // If we already have a badge with the correct age, don't add another one
+  for (const existingBadge of allExistingBadges) {
+    if (existingBadge.dataset.age === days.toString()) {
+      // Badge already exists with correct value, no need to recreate
+      return;
+    }
+  }
+
+  // Remove all existing badges since they have wrong values
   allExistingBadges.forEach(badge => badge.remove());
 
   // Also check in the badge container if it's different
