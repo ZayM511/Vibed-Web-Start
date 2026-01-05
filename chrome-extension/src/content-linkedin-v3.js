@@ -1317,189 +1317,71 @@ function addJobAgeToDetailPanel() {
 
   let jobAge = null;
 
-  // Helper function to check if a card is the active/selected card
-  const isCardActive = (card) => {
-    if (!card) return false;
-    // Check card's own classes
-    if (card.classList.contains('jobs-search-results-list__list-item--active') ||
-        card.classList.contains('scaffold-layout__list-item--active') ||
-        card.classList.contains('job-card-container--active') ||
-        card.classList.contains('jobs-job-card-list__item--active') ||
-        card.classList.contains('job-card-list__item--active')) {
-      return true;
-    }
-    // Check for active/selected class in className string (handles dynamic classes)
-    if (/active|selected|is-active/i.test(card.className)) {
-      return true;
-    }
-    // Check for active child container
-    if (card.querySelector('.job-card-container--active, .jobs-search-two-pane__job-card-container--is-active, [class*="--active"]')) {
-      return true;
-    }
-    // Check if this card has focus or contains the focused element
-    if (card.contains(document.activeElement)) {
-      return true;
-    }
-    // Check for aria-selected attribute
-    if (card.getAttribute('aria-selected') === 'true') {
-      return true;
-    }
-    // Check for background color change (LinkedIn often uses this for selection)
-    const computedStyle = window.getComputedStyle(card);
-    if (computedStyle.backgroundColor && computedStyle.backgroundColor !== 'rgba(0, 0, 0, 0)' &&
-        computedStyle.backgroundColor !== 'transparent' &&
-        computedStyle.backgroundColor !== 'rgb(255, 255, 255)') {
-      // This card has a non-white background, might be selected
-      // But this is a weak signal, so only use if no other method works
-    }
-    return false;
-  };
+  // SIMPLIFIED APPROACH: Extract directly from detail panel first!
+  // The detail panel is always available when this function is called
+  const detailPanelSelectors = [
+    '.jobs-unified-top-card',
+    '.job-details-jobs-unified-top-card',
+    '.jobs-details-top-card',
+    '.jobs-details__main-content',
+    '.job-view-layout'
+  ];
 
-  // STRATEGY 1: Find the job card with a visible age badge that is selected/active
-  // This ensures we show the EXACT SAME age as what's displayed on the job card
-  // We ONLY READ from job cards, never write back to avoid corrupting cached values
-
-  // First, look for any job card with an age badge that appears to be selected
-  const allAgeBadges = document.querySelectorAll('.jobfiltr-age-badge[data-age]');
-  for (const badge of allAgeBadges) {
-    const card = badge.closest('li, div.job-card-container, .scaffold-layout__list-item, .jobs-search-results__list-item, .jobs-unified-list li, .jobs-job-card-list li, .job-card-list li');
-    if (card && isCardActive(card)) {
-      jobAge = parseInt(badge.dataset.age, 10);
-      log('Found job age from active card badge:', jobAge);
-      break;
-    }
-  }
-
-  // STRATEGY 2: If no active card with badge, find card with cached age that's active
-  if (jobAge === null) {
-    const jobCardSelectors = [
-      '.scaffold-layout__list-item',
-      'li.jobs-search-results__list-item',
-      'li[data-occludable-job-id]',
-      '.jobs-search-results-list__list-item',
-      '.job-card-container',
-      // Dismissible card selectors
-      '.jobs-unified-list li',
-      '.jobs-job-card-list li',
-      '.jobs-job-card-list__item',
-      '.job-card-list li',
-      '.job-card-list__entity-lockup',
-      '.jobs-home-recommendations li',
-      '.jobs-save-list li'
-    ];
-
-    for (const selector of jobCardSelectors) {
-      try {
-        const cards = document.querySelectorAll(selector);
-        for (const card of cards) {
-          if (isCardActive(card) && card.dataset.jobfiltrAge) {
-            jobAge = parseInt(card.dataset.jobfiltrAge, 10);
-            log('Found job age from active card cache:', jobAge);
+  for (const selector of detailPanelSelectors) {
+    const panel = document.querySelector(selector);
+    if (panel) {
+      // Try datetime attribute first (most reliable)
+      const timeEl = panel.querySelector('time');
+      if (timeEl) {
+        const datetime = timeEl.getAttribute('datetime');
+        if (datetime) {
+          const postDate = new Date(datetime);
+          const now = new Date();
+          const daysAgo = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
+          if (!isNaN(daysAgo) && daysAgo >= 0 && daysAgo <= 365) {
+            jobAge = daysAgo;
+            log('[Detail Badge] Extracted from datetime:', jobAge);
             break;
           }
         }
-      } catch (e) {
-        // Skip invalid selectors
+        // Try parsing time element text
+        const parsedAge = parseAgeFromText(timeEl.textContent);
+        if (parsedAge !== null && parsedAge >= 0 && parsedAge <= 365) {
+          jobAge = parsedAge;
+          log('[Detail Badge] Extracted from time text:', jobAge);
+          break;
+        }
       }
-      if (jobAge !== null) break;
-    }
-  }
 
-  // STRATEGY 3: Try to extract age from the active card if not cached
-  if (jobAge === null) {
-    const jobCardSelectors = [
-      '.scaffold-layout__list-item',
-      'li.jobs-search-results__list-item',
-      '.job-card-container',
-      // Dismissible card selectors
-      '.jobs-unified-list li',
-      '.jobs-job-card-list li',
-      '.jobs-job-card-list__item',
-      '.job-card-list li'
-    ];
-
-    for (const selector of jobCardSelectors) {
-      try {
-        const cards = document.querySelectorAll(selector);
-        for (const card of cards) {
-          if (isCardActive(card)) {
-            // Try to get the age from this card
-            const extractedAge = getJobAge(card);
-            if (extractedAge !== null && extractedAge >= 0) {
-              jobAge = extractedAge;
-              // Cache it for future use
-              card.dataset.jobfiltrAge = extractedAge.toString();
-              // Also add the badge to the card
-              addJobAgeBadge(card, extractedAge);
-              log('Extracted and cached job age from active card:', jobAge);
-              break;
-            }
-          }
-        }
-      } catch (e) {
-        // Skip invalid selectors
-      }
-      if (jobAge !== null) break;
-    }
-  }
-
-  // STRATEGY 4: Extract age directly from the detail panel
-  if (jobAge === null) {
-    const detailPanelSelectors = [
-      '.jobs-unified-top-card',
-      '.job-details-jobs-unified-top-card',
-      '.jobs-details-top-card',
-      '.jobs-details__main-content',
-      '.job-view-layout'
-    ];
-
-    for (const selector of detailPanelSelectors) {
-      const panel = document.querySelector(selector);
-      if (panel) {
-        // Look for time elements in the detail panel
-        const timeEl = panel.querySelector('time');
-        if (timeEl) {
-          const datetime = timeEl.getAttribute('datetime');
-          if (datetime) {
-            const postDate = new Date(datetime);
-            const now = new Date();
-            const daysAgo = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
-            if (!isNaN(daysAgo) && daysAgo >= 0 && daysAgo <= 365) {
-              jobAge = daysAgo;
-              log('Extracted job age from detail panel time element:', jobAge);
-              break;
-            }
-          }
-          // Try text parsing using the comprehensive parseAgeFromText function
-          const text = timeEl.textContent;
-          const parsedAge = parseAgeFromText(text);
-          if (parsedAge !== null && parsedAge >= 0) {
-            jobAge = parsedAge;
-            log('Extracted job age from detail panel time text via parseAgeFromText:', jobAge);
-            break;
-          }
-        }
-
-        // If time element didn't work, try parsing the full panel text
-        // This catches cases where the time info is not in a <time> element
-        if (jobAge === null) {
-          const panelText = panel.textContent;
-          const parsedAge = parseAgeFromText(panelText);
-          if (parsedAge !== null && parsedAge >= 0 && parsedAge <= 365) {
-            jobAge = parsedAge;
-            log('Extracted job age from detail panel full text via parseAgeFromText:', jobAge);
-            break;
-          }
+      // If no time element, parse the full panel text
+      if (jobAge === null) {
+        const parsedAge = parseAgeFromText(panel.textContent);
+        if (parsedAge !== null && parsedAge >= 0 && parsedAge <= 365) {
+          jobAge = parsedAge;
+          log('[Detail Badge] Extracted from panel text:', jobAge);
+          break;
         }
       }
     }
   }
 
-  // STRATEGY 5: Don't use fallback badges from other jobs
-  if (jobAge === null && allAgeBadges.length > 0) {
-    // Don't use this - it could be a different job's badge
-    log('No matching job age found for detail panel');
-    return;
+  // FALLBACK: If detail panel extraction failed, try to get from active card badge
+  if (jobAge === null) {
+    const allAgeBadges = document.querySelectorAll('.jobfiltr-age-badge[data-age]');
+    for (const badge of allAgeBadges) {
+      // Simple check: look for badges in visible, active-looking cards
+      const card = badge.closest('li, div.job-card-container, .scaffold-layout__list-item');
+      if (card) {
+        const isActive = card.classList.contains('jobs-search-results-list__list-item--active') ||
+                        card.classList.contains('scaffold-layout__list-item--active') ||
+                        /active|selected/i.test(card.className);
+        if (isActive) {
+          jobAge = parseInt(badge.dataset.age, 10);
+          log('[Detail Badge] Found from active card badge:', jobAge);
+          break;
+        }
+      }
+    }
   }
 
   if (jobAge === null) {
@@ -1903,9 +1785,15 @@ function getJobAge(jobCard) {
       }
     }
 
+    // If we get here, extraction failed completely
+    // Log the card's text content (truncated) to help debug
+    if (filterSettings.debug || typeof DEBUG !== 'undefined') {
+      const cardText = jobCard.textContent.substring(0, 200).replace(/\s+/g, ' ');
+      log('[Job Age Extraction Failed] Card text:', cardText);
+    }
     return null;
   } catch (error) {
-    log('Error getting job age:', error);
+    log('[Job Age Extraction Error]:', error);
     return null;
   }
 }
