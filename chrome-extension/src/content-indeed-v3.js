@@ -653,8 +653,158 @@ function updateBenefitsFromDetailPanel() {
 }
 
 // ===== JOB AGE DETECTION =====
+
+// Cache for job ages extracted from page JSON data
+let jobAgeCache = {};
+let lastJobAgeCacheUpdate = 0;
+
+// Extract job ages from Indeed's embedded JSON data (window.mosaic.providerData)
+function extractJobAgesFromPageData() {
+  try {
+    // Only update cache every 5 seconds to avoid excessive processing
+    const now = Date.now();
+    if (now - lastJobAgeCacheUpdate < 5000 && Object.keys(jobAgeCache).length > 0) {
+      return;
+    }
+    lastJobAgeCacheUpdate = now;
+
+    // Access Indeed's mosaic provider data
+    if (window.mosaic && window.mosaic.providerData) {
+      const jobcardsProvider = window.mosaic.providerData['mosaic-provider-jobcards'];
+
+      if (jobcardsProvider?.metaData?.mosaicProviderJobCardsModel?.results) {
+        const jobs = jobcardsProvider.metaData.mosaicProviderJobCardsModel.results;
+
+        jobs.forEach(job => {
+          if (!job.jobkey) return;
+
+          let ageDays = null;
+
+          // Method 1: Use formattedRelativeTime (e.g., "1 day ago", "30+ days ago", "Just posted")
+          if (job.formattedRelativeTime) {
+            const relTime = job.formattedRelativeTime.toString().trim().toLowerCase();
+
+            // Handle special cases
+            if (relTime.includes('just posted') || relTime.includes('today') || relTime === 'just now') {
+              ageDays = 0;
+            } else if (relTime.includes('30+') || relTime.includes('30 +')) {
+              ageDays = 30; // Cap at 30 for "30+ days ago"
+            } else if (relTime.includes('hour') || relTime.includes('minute')) {
+              ageDays = 0; // Posted today
+            } else if (relTime.includes('day')) {
+              const numMatch = relTime.match(/(\d+)/);
+              if (numMatch) {
+                ageDays = parseInt(numMatch[1]);
+              }
+            } else if (relTime.includes('week')) {
+              const numMatch = relTime.match(/(\d+)/);
+              ageDays = numMatch ? parseInt(numMatch[1]) * 7 : 7;
+            } else if (relTime.includes('month')) {
+              const numMatch = relTime.match(/(\d+)/);
+              ageDays = numMatch ? parseInt(numMatch[1]) * 30 : 30;
+            } else {
+              // Try to extract just a number (e.g., "1", "5")
+              const numMatch = relTime.match(/^(\d+)/);
+              if (numMatch) {
+                ageDays = parseInt(numMatch[1]);
+              }
+            }
+          }
+
+          // Method 2: Calculate from pubDate Unix timestamp
+          if (ageDays === null && job.pubDate) {
+            const pubDate = new Date(job.pubDate);
+            const now = new Date();
+            ageDays = Math.floor((now - pubDate) / (1000 * 60 * 60 * 24));
+          }
+
+          // Method 3: Calculate from createDate Unix timestamp
+          if (ageDays === null && job.createDate) {
+            const createDate = new Date(job.createDate);
+            const now = new Date();
+            ageDays = Math.floor((now - createDate) / (1000 * 60 * 60 * 24));
+          }
+
+          if (ageDays !== null && ageDays >= 0) {
+            jobAgeCache[job.jobkey] = ageDays;
+          }
+        });
+
+        log(`Extracted job ages for ${Object.keys(jobAgeCache).length} jobs from page data`);
+      }
+    }
+
+    // Fallback: Parse from page source if mosaic data not available
+    if (Object.keys(jobAgeCache).length === 0) {
+      extractJobAgesFromPageSource();
+    }
+  } catch (error) {
+    log('Error extracting job ages from page data:', error);
+  }
+}
+
+// Fallback: Extract job ages from page source HTML
+function extractJobAgesFromPageSource() {
+  try {
+    const scripts = document.querySelectorAll('script');
+
+    for (const script of scripts) {
+      const text = script.textContent || '';
+
+      // Look for job data with pubDate or formattedRelativeTime
+      if (text.includes('jobkey') && (text.includes('pubDate') || text.includes('formattedRelativeTime'))) {
+        // Extract jobkey and pubDate pairs
+        const jobPattern = /"jobkey"\s*:\s*"([^"]+)"[^}]*?"pubDate"\s*:\s*(\d+)/g;
+        let match;
+        while ((match = jobPattern.exec(text)) !== null) {
+          const jobKey = match[1];
+          const pubDate = parseInt(match[2]);
+          const now = Date.now();
+          const ageDays = Math.floor((now - pubDate) / (1000 * 60 * 60 * 24));
+          if (ageDays >= 0) {
+            jobAgeCache[jobKey] = ageDays;
+          }
+        }
+
+        // Also try formattedRelativeTime
+        const relTimePattern = /"jobkey"\s*:\s*"([^"]+)"[^}]*?"formattedRelativeTime"\s*:\s*"([^"]+)"/g;
+        while ((match = relTimePattern.exec(text)) !== null) {
+          const jobKey = match[1];
+          const relTime = match[2];
+          if (!jobAgeCache[jobKey]) {
+            const numMatch = relTime.match(/^(\d+)/);
+            if (numMatch) {
+              jobAgeCache[jobKey] = parseInt(numMatch[1]);
+            }
+          }
+        }
+      }
+    }
+
+    if (Object.keys(jobAgeCache).length > 0) {
+      log(`Extracted job ages for ${Object.keys(jobAgeCache).length} jobs from page source`);
+    }
+  } catch (error) {
+    log('Error extracting job ages from page source:', error);
+  }
+}
+
+// Get job age for a specific job card
 function getJobAge(jobCard) {
   try {
+    // First, try to extract ages from page data if not done recently
+    extractJobAgesFromPageData();
+
+    // Get job key from the job card
+    const jobKey = jobCard.getAttribute('data-jk') ||
+                   jobCard.querySelector('[data-jk]')?.getAttribute('data-jk');
+
+    // Check our cache first
+    if (jobKey && jobAgeCache[jobKey] !== undefined) {
+      return jobAgeCache[jobKey];
+    }
+
+    // Fallback: Try to find age in DOM elements
     // Try multiple selectors for time/date elements - comprehensive list for Indeed's current DOM
     const timeSelectors = [
       '.date',
