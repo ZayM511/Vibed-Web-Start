@@ -905,6 +905,11 @@ body {
   font-weight: 500;
   cursor: pointer;
   transition: all var(--transition-normal) var(--ease-out);
+  outline: none;
+}
+
+.btn:focus {
+  outline: none;
 }
 
 .btn-primary {

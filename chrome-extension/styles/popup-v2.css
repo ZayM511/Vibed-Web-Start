@@ -859,6 +859,24 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   color: var(--text-tertiary);
 }
 
+.filter-sub-option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-sm);
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.filter-sub-option:hover {
+  color: var(--text-primary);
+}
+
+.filter-sub-option input[type="checkbox"] {
+  margin: 0;
+}
+
 /* Keywords */
 .keywords-section {
   margin-top: var(--spacing-xs);
@@ -1488,6 +1506,11 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   font-weight: 500;
   cursor: pointer;
   transition: all var(--transition-normal) var(--ease-out);
+  outline: none;
+}
+
+.btn:focus {
+  outline: none;
 }
 
 .btn svg {
