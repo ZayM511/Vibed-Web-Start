@@ -655,52 +655,81 @@ function updateBenefitsFromDetailPanel() {
 // ===== JOB AGE DETECTION =====
 function getJobAge(jobCard) {
   try {
-    // Try multiple selectors for time/date elements
+    // Try multiple selectors for time/date elements - comprehensive list for Indeed's current DOM
     const timeSelectors = [
       '.date',
+      'span.date',
       '[data-testid="job-age"]',
+      '[data-testid="myJobsStateDate"]',
       '.jobsearch-HiringInsights-entry--age',
       '.jobCardShelfContainer .date',
-      'span.date'
+      '.job-snippet .date',
+      '.metadata .date',
+      '.underShelfFooter .date',
+      // Indeed's "EmployerActive" indicator
+      '[class*="EmployerActive"]',
+      '[class*="employer-active"]',
+      '.jobMetaDataGroup span',
+      // Job card footer elements
+      '.jobsearch-JobMetadataFooter span',
+      '.result-footer span',
+      // Newer Indeed selectors
+      '[class*="posted"]',
+      '[class*="date"]',
+      '[class*="age"]'
     ];
 
     for (const selector of timeSelectors) {
-      const timeElem = jobCard.querySelector(selector);
-      if (!timeElem) continue;
+      const timeElems = jobCard.querySelectorAll(selector);
+      for (const timeElem of timeElems) {
+        const text = timeElem.textContent.trim().toLowerCase();
 
-      const text = timeElem.textContent.trim().toLowerCase();
+        // Skip if text doesn't look like a date
+        if (!text || text.length > 100) continue;
 
-      // Match patterns
-      if (text.includes('just posted') || text.includes('today')) return 0;
-      if (text.includes('hour') || text.includes('minute')) return 0;
+        // Match patterns - "EmployerActive X days ago" is common on Indeed
+        if (text.includes('just posted') || text.includes('today') || text.includes('just now')) return 0;
+        if (text.includes('hour') || text.includes('minute')) return 0;
 
-      if (text.includes('day')) {
-        const match = text.match(/(\d+)/);
-        return match ? parseInt(match[1]) : 1;
+        // Check for "Active X days ago" or "EmployerActive X days ago"
+        const activeMatch = text.match(/(?:employer\s*)?active\s*(\d+)\s*days?\s*ago/i);
+        if (activeMatch) return parseInt(activeMatch[1]);
+
+        if (text.includes('day')) {
+          const match = text.match(/(\d+)/);
+          if (match) return parseInt(match[1]);
+        }
+        if (text.includes('week')) {
+          const match = text.match(/(\d+)/);
+          return match ? parseInt(match[1]) * 7 : 7;
+        }
+        if (text.includes('month')) {
+          const match = text.match(/(\d+)/);
+          return match ? parseInt(match[1]) * 30 : 30;
+        }
+
+        // Check for "30+ days ago" pattern
+        if (text.includes('30+')) return 30;
       }
-      if (text.includes('week')) {
-        const match = text.match(/(\d+)/);
-        return match ? parseInt(match[1]) * 7 : 7;
-      }
-      if (text.includes('month')) {
-        const match = text.match(/(\d+)/);
-        return match ? parseInt(match[1]) * 30 : 30;
-      }
-
-      // Check for "30+ days ago" pattern
-      if (text.includes('30+')) return 30;
     }
 
     // Also check the full job card text for time references
     const fullText = jobCard.textContent.toLowerCase();
     const timePatterns = [
       { pattern: /just\s+posted/i, days: 0 },
+      { pattern: /just\s+now/i, days: 0 },
       { pattern: /today/i, days: 0 },
-      { pattern: /(\d+)\s*(?:hours?|hr)\s*ago/i, multiplier: 0 },
+      { pattern: /(\d+)\s*(?:hours?|hr|h)\s*ago/i, multiplier: 0 },
+      // "EmployerActive X days ago" - Indeed's current format
+      { pattern: /(?:employer\s*)?active\s*(\d+)\s*days?\s*ago/i, multiplier: 1 },
       { pattern: /(\d+)\s*(?:days?|d)\s*ago/i, multiplier: 1 },
-      { pattern: /(\d+)\s*(?:weeks?|wk)\s*ago/i, multiplier: 7 },
+      { pattern: /(\d+)\s*(?:weeks?|wk|w)\s*ago/i, multiplier: 7 },
       { pattern: /(\d+)\s*(?:months?|mo)\s*ago/i, multiplier: 30 },
-      { pattern: /30\+\s*days?\s*ago/i, days: 30 }
+      { pattern: /30\+\s*days?\s*ago/i, days: 30 },
+      // Posted X days format
+      { pattern: /posted\s*(\d+)\s*days?\s*ago/i, multiplier: 1 },
+      { pattern: /posted\s*(\d+)\s*weeks?\s*ago/i, multiplier: 7 },
+      { pattern: /posted\s*(\d+)\s*months?\s*ago/i, multiplier: 30 }
     ];
 
     for (const { pattern, multiplier, days } of timePatterns) {
@@ -887,8 +916,14 @@ function applyFilters(settings) {
 
     // Job Age Display (display only, doesn't hide)
     if (settings.showJobAge && !shouldHide) {
-      const jobAge = getJobAge(jobCard);
+      let jobAge = getJobAge(jobCard);
+      // Use cached age if getJobAge returns null but we have a cached value
+      if (jobAge === null && jobCard.dataset.jobfiltrAge) {
+        jobAge = parseInt(jobCard.dataset.jobfiltrAge, 10);
+      }
       if (jobAge !== null) {
+        // Cache the job age for future reference
+        jobCard.dataset.jobfiltrAge = jobAge.toString();
         addJobAgeBadge(jobCard, jobAge);
       }
     }
@@ -1260,8 +1295,14 @@ function performFullScan() {
       // Job Age Display (display only, on visible jobs)
       if (filterSettings.showJobAge) {
         if (!jobCard.querySelector('.jobfiltr-age-badge')) {
-          const jobAge = getJobAge(jobCard);
+          let jobAge = getJobAge(jobCard);
+          // Use cached age if getJobAge returns null but we have a cached value
+          if (jobAge === null && jobCard.dataset.jobfiltrAge) {
+            jobAge = parseInt(jobCard.dataset.jobfiltrAge, 10);
+          }
           if (jobAge !== null) {
+            // Cache the job age for future reference
+            jobCard.dataset.jobfiltrAge = jobAge.toString();
             addJobAgeBadge(jobCard, jobAge);
           }
         }
