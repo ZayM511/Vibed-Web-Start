@@ -1320,41 +1320,76 @@ function addJobAgeToDetailPanel() {
   // SIMPLIFIED APPROACH: Extract directly from detail panel first!
   // The detail panel is always available when this function is called
   const detailPanelSelectors = [
+    // Primary modern selectors
     '.jobs-unified-top-card',
     '.job-details-jobs-unified-top-card',
     '.jobs-details-top-card',
     '.jobs-details__main-content',
-    '.job-view-layout'
+    '.job-view-layout',
+    // Additional detail page containers
+    '.jobs-details',
+    '.jobs-search__job-details',
+    '.job-details',
+    '.jobs-details-pane',
+    // Base card containers (from research)
+    '.base-card',
+    '.base-main-card',
+    // Broader fallbacks
+    '[class*="job-details"]',
+    '[class*="jobs-unified"]',
+    'main[role="main"]'
   ];
 
   for (const selector of detailPanelSelectors) {
     const panel = document.querySelector(selector);
     if (panel) {
+      log('[Detail Badge] Found panel with selector:', selector);
+
+      // Comprehensive time element selectors specifically for detail panels
+      const detailTimeSelectors = [
+        'time',
+        'time[datetime]',
+        '.jobs-unified-top-card__posted-date',
+        '.job-details-jobs-unified-top-card__posted-date',
+        '.jobs-unified-top-card__subtitle-secondary-grouping time',
+        '.jobs-unified-top-card__bullet',
+        '[class*="posted-date"]',
+        '[class*="posted-time"]',
+        'span[class*="time"]',
+        'div[class*="time"]'
+      ];
+
       // Try datetime attribute first (most reliable)
-      const timeEl = panel.querySelector('time');
-      if (timeEl) {
-        const datetime = timeEl.getAttribute('datetime');
-        if (datetime) {
-          const postDate = new Date(datetime);
-          const now = new Date();
-          const daysAgo = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
-          if (!isNaN(daysAgo) && daysAgo >= 0 && daysAgo <= 365) {
-            jobAge = daysAgo;
-            log('[Detail Badge] Extracted from datetime:', jobAge);
+      for (const timeSelector of detailTimeSelectors) {
+        const timeEl = panel.querySelector(timeSelector);
+        if (timeEl) {
+          log('[Detail Badge] Found time element with selector:', timeSelector);
+          const datetime = timeEl.getAttribute('datetime');
+          if (datetime) {
+            const postDate = new Date(datetime);
+            const now = new Date();
+            const daysAgo = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
+            if (!isNaN(daysAgo) && daysAgo >= 0 && daysAgo <= 365) {
+              jobAge = daysAgo;
+              log('[Detail Badge] Extracted from datetime:', jobAge);
+              break;
+            }
+          }
+          // Try parsing time element text
+          const parsedAge = parseAgeFromText(timeEl.textContent);
+          if (parsedAge !== null && parsedAge >= 0 && parsedAge <= 365) {
+            jobAge = parsedAge;
+            log('[Detail Badge] Extracted from time text:', timeEl.textContent);
             break;
           }
         }
-        // Try parsing time element text
-        const parsedAge = parseAgeFromText(timeEl.textContent);
-        if (parsedAge !== null && parsedAge >= 0 && parsedAge <= 365) {
-          jobAge = parsedAge;
-          log('[Detail Badge] Extracted from time text:', jobAge);
-          break;
-        }
       }
+
+      if (jobAge !== null) break;
 
       // If no time element, parse the full panel text
       if (jobAge === null) {
+        log('[Detail Badge] No time element found, parsing full panel text');
         const parsedAge = parseAgeFromText(panel.textContent);
         if (parsedAge !== null && parsedAge >= 0 && parsedAge <= 365) {
           jobAge = parsedAge;
@@ -1367,7 +1402,10 @@ function addJobAgeToDetailPanel() {
 
   // FALLBACK: If detail panel extraction failed, try to get from active card badge
   if (jobAge === null) {
+    log('[Detail Badge] Detail panel extraction failed, trying active card fallback');
     const allAgeBadges = document.querySelectorAll('.jobfiltr-age-badge[data-age]');
+    log('[Detail Badge] Found', allAgeBadges.length, 'total age badges on page');
+
     for (const badge of allAgeBadges) {
       // Simple check: look for badges in visible, active-looking cards
       const card = badge.closest('li, div.job-card-container, .scaffold-layout__list-item');
@@ -1382,10 +1420,15 @@ function addJobAgeToDetailPanel() {
         }
       }
     }
+
+    if (jobAge === null) {
+      log('[Detail Badge] No active card badge found either');
+    }
   }
 
   if (jobAge === null) {
-    log('Could not determine job age for detail panel');
+    log('[Detail Badge] FAILED: Could not determine job age for detail panel');
+    log('[Detail Badge] Available detail panels:', detailPanelSelectors.filter(sel => document.querySelector(sel)).join(', '));
     return;
   }
 
@@ -1554,8 +1597,18 @@ function getJobAge(jobCard) {
       if (text.includes('just now') || text.includes('moment') || text.includes('today') || text.includes('just posted')) {
         return 0;
       }
-      if (text.includes('hour') || text.includes('minute') || text.includes('second')) {
+      if (text.includes('yesterday')) {
+        return 1;
+      }
+      // Check for "hour", "minute", "second" (but NOT "hourly" or other words)
+      if (/\b(hours?|minutes?|seconds?|hr|min|sec)\b/i.test(text)) {
         return 0;
+      }
+      // Handle "over X" patterns (e.g., "over 1 month ago")
+      if (text.includes('over') && text.includes('month')) {
+        const match = text.match(/over\s+(\d+)\s+months?/i);
+        if (match) return parseInt(match[1]) * 30;
+        return 30;
       }
 
       // Check for "Xd" or "Xw" or "Xmo" shorthand first (most common on LinkedIn)
@@ -1605,7 +1658,7 @@ function getJobAge(jobCard) {
 
     // COMPREHENSIVE time/date element selectors for all card types
     const timeSelectors = [
-      // Primary time elements
+      // Primary time elements (most reliable)
       'time',
       'time[datetime]',
       // Standard job card selectors
@@ -1617,6 +1670,12 @@ function getJobAge(jobCard) {
       '.job-card-list__insight',
       '.job-card-container__primary-description',
       '.job-card-container__metadata-wrapper',
+      // Base card selectors (from research)
+      '.base-card time',
+      '.base-search-card time',
+      '.base-search-card__metadata time',
+      '.base-card__metadata time',
+      '.base-card__full-link time',
       // Dismissible job cards with X button (collections, saved, alerts)
       '.job-card-list__entity-lockup time',
       '.job-card-list__entity-lockup .artdeco-entity-lockup__caption',
@@ -1637,6 +1696,8 @@ function getJobAge(jobCard) {
       '[class*="job-card"] [class*="time"]',
       '[class*="job-card"] [class*="footer"]',
       '[class*="job-card"] [class*="caption"]',
+      '[class*="base-card"] time',
+      '[class*="base-search"] time',
       // General fallback selectors
       '[class*="listed"]',
       '[class*="posted"]',
