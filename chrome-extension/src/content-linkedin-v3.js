@@ -742,28 +742,56 @@ function hasSalaryInfo(jobCard) {
       '.job-card-list__salary',
       '.jobs-unified-top-card__job-insight--salary',
       '.job-card-container__footer-item',
+      '.job-card-container__metadata-item',
       '.compensation__salary',
-      '[data-test-id="salary"]'
+      '[data-test-id="salary"]',
+      '.artdeco-entity-lockup__caption',
+      '.job-card-list__footer-wrapper'
     ];
 
     // Check for salary elements
     for (const selector of salarySelectors) {
       const elem = jobCard.querySelector(selector);
       if (elem) {
-        const text = elem.textContent.toLowerCase();
-        // Check if it contains salary-related content
-        if (/\$[\d,]+|\d+k|\bsalary\b|\bpay\b|\bcompensation\b|\/yr|\/hr|per hour|per year|annually/i.test(text)) {
+        const text = elem.textContent.trim();
+
+        // Direct check for salary patterns in the element
+        // Matches: $27.56/hr, $68K/yr, $60K/yr - $75K/yr, $50,000, etc.
+        if (/\$\d+(?:\.\d+)?(?:K|k)?(?:\s*[-–]\s*\$?\d+(?:\.\d+)?(?:K|k)?)?(?:\s*\/\s*(?:yr|hr|year|hour|mo|month))?/i.test(text)) {
           return true;
+        }
+
+        // Check for salary-related keywords
+        const lowerText = text.toLowerCase();
+        if (lowerText.includes('salary') || lowerText.includes('compensation') || lowerText.includes('pay')) {
+          // If it mentions salary/compensation/pay AND has a dollar amount
+          if (/\$/.test(text)) {
+            return true;
+          }
         }
       }
     }
 
-    // Check the full card text for salary patterns
-    // Matches: $50,000, $100K, $50-60/hr, $80,000-$100,000/yr, etc.
+    // Check the full card text for comprehensive salary patterns
+    // Enhanced patterns to match various formats:
+    // $27.56/hr - $32.38/hr
+    // $68K/yr
+    // $60K/yr - $75K/yr
+    // $50,000 - $75,000
+    // $100K
     const salaryPatterns = [
-      /\$[\d,]+(?:\s*[-–]\s*\$?[\d,]+)?(?:\s*\/?\s*(?:yr|year|hr|hour|annually|hourly|month|mo))?/i,
-      /\$\d+k\s*[-–]?\s*\$?\d*k?/i,
-      /(?:salary|pay|compensation)\s*[:.]?\s*\$[\d,]+/i
+      // Matches hourly rates with decimals: $27.56/hr, $27.56/hr - $32.38/hr
+      /\$\d+\.\d+\s*\/\s*hr/i,
+      // Matches salary with K notation: $68K/yr, $60K/yr - $75K/yr, $100K
+      /\$\d+(?:\.\d+)?K(?:\s*\/\s*(?:yr|year))?/i,
+      // Matches full numbers with commas: $50,000, $80,000 - $100,000
+      /\$\d{1,3}(?:,\d{3})+(?:\s*[-–]\s*\$?\d{1,3}(?:,\d{3})+)?/i,
+      // Matches any dollar amount with /yr or /hr: $50/hr, $100000/yr
+      /\$\d+(?:,\d{3})*\s*\/\s*(?:yr|hr|year|hour)/i,
+      // Matches salary ranges: $X - $Y or $X-$Y
+      /\$\d+(?:,\d{3})*(?:\.\d+)?(?:K|k)?\s*[-–]\s*\$?\d+(?:,\d{3})*(?:\.\d+)?(?:K|k)?/i,
+      // Matches "per hour", "per year", "annually", "hourly"
+      /\$\d+(?:,\d{3})*(?:\.\d+)?(?:K|k)?\s*(?:per\s+(?:hour|year)|annually|hourly)/i
     ];
 
     for (const pattern of salaryPatterns) {
@@ -775,7 +803,7 @@ function hasSalaryInfo(jobCard) {
     return false;
   } catch (error) {
     log('Error checking salary info:', error);
-    return false; // Don't hide if we can't check
+    return true; // IMPORTANT: Return true on error to avoid hiding jobs incorrectly
   }
 }
 
