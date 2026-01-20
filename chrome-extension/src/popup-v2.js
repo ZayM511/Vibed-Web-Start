@@ -31,6 +31,73 @@ initTheme();
 // Theme toggle button
 document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
 
+// ===== TOAST NOTIFICATIONS =====
+function showToast({ type = 'info', title, message, duration = 5000 }) {
+  // Create toast container if it doesn't exist
+  let toastContainer = document.getElementById('toastContainer');
+  if (!toastContainer) {
+    toastContainer = document.createElement('div');
+    toastContainer.id = 'toastContainer';
+    toastContainer.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px;';
+    document.body.appendChild(toastContainer);
+  }
+
+  // Create toast element
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    background: ${type === 'warning' ? '#ff9800' : type === 'error' ? '#f44336' : '#2196f3'};
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    min-width: 250px;
+    max-width: 350px;
+    animation: slideIn 0.3s ease-out;
+  `;
+
+  toast.innerHTML = `
+    <div style="font-weight: bold; margin-bottom: 4px;">${title}</div>
+    <div style="font-size: 13px; opacity: 0.95;">${message}</div>
+  `;
+
+  toastContainer.appendChild(toast);
+
+  // Auto-remove after duration
+  setTimeout(() => {
+    toast.style.animation = 'slideOut 0.3s ease-in';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+// Add animation styles
+if (!document.getElementById('toastStyles')) {
+  const style = document.createElement('style');
+  style.id = 'toastStyles';
+  style.textContent = `
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+    @keyframes slideOut {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 // ===== AUTHENTICATION =====
 let currentUser = null;
 
@@ -569,6 +636,7 @@ checkAuthState();
 let isPanelMode = false;
 let currentDockSide = null;
 let panelWindowId = null;
+let ownWindowId = null; // Track our own window ID for exclusion
 
 function detectPanelMode() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -581,6 +649,12 @@ function detectPanelMode() {
     document.getElementById('unpinBtn').style.display = 'flex';
     initDragHandle();
     initPanelModeListeners(); // Set up tab/window change listeners
+
+    // Track our own window ID so we can exclude it from tab queries
+    chrome.windows.getCurrent().then(win => {
+      ownWindowId = win.id;
+      console.log('Panel window ID:', ownWindowId);
+    });
   }
 
   return isPanelMode;
@@ -623,43 +697,67 @@ function initPanelModeListeners() {
 
 // Pin to left side
 document.getElementById('pinLeftBtn').addEventListener('click', async () => {
-  if (isPanelMode) {
-    // Already in panel mode, switch to left dock
-    await chrome.runtime.sendMessage({
-      action: 'repositionPanel',
-      dock: 'left'
-    });
-    document.body.classList.remove('docked-right');
-    document.body.classList.add('docked-left');
-    currentDockSide = 'left';
-  } else {
-    // Open as panel window docked to left
-    await chrome.runtime.sendMessage({
-      action: 'openPanel',
-      dock: 'left'
-    });
-    window.close(); // Close popup
+  try {
+    if (isPanelMode) {
+      // Already in panel mode, switch to left dock
+      const response = await chrome.runtime.sendMessage({
+        action: 'repositionPanel',
+        dock: 'left'
+      });
+      if (response?.success) {
+        document.body.classList.remove('docked-right');
+        document.body.classList.add('docked-left');
+        currentDockSide = 'left';
+      } else {
+        console.error('Failed to reposition panel:', response?.error);
+      }
+    } else {
+      // Open as panel window docked to left
+      const response = await chrome.runtime.sendMessage({
+        action: 'openPanel',
+        dock: 'left'
+      });
+      if (response?.success) {
+        window.close(); // Close popup only if panel opened successfully
+      } else {
+        console.error('Failed to open panel:', response?.error);
+      }
+    }
+  } catch (error) {
+    console.error('Error pinning to left:', error);
   }
 });
 
 // Pin to right side
 document.getElementById('pinRightBtn').addEventListener('click', async () => {
-  if (isPanelMode) {
-    // Already in panel mode, switch to right dock
-    await chrome.runtime.sendMessage({
-      action: 'repositionPanel',
-      dock: 'right'
-    });
-    document.body.classList.remove('docked-left');
-    document.body.classList.add('docked-right');
-    currentDockSide = 'right';
-  } else {
-    // Open as panel window docked to right
-    await chrome.runtime.sendMessage({
-      action: 'openPanel',
-      dock: 'right'
-    });
-    window.close(); // Close popup
+  try {
+    if (isPanelMode) {
+      // Already in panel mode, switch to right dock
+      const response = await chrome.runtime.sendMessage({
+        action: 'repositionPanel',
+        dock: 'right'
+      });
+      if (response?.success) {
+        document.body.classList.remove('docked-left');
+        document.body.classList.add('docked-right');
+        currentDockSide = 'right';
+      } else {
+        console.error('Failed to reposition panel:', response?.error);
+      }
+    } else {
+      // Open as panel window docked to right
+      const response = await chrome.runtime.sendMessage({
+        action: 'openPanel',
+        dock: 'right'
+      });
+      if (response?.success) {
+        window.close(); // Close popup only if panel opened successfully
+      } else {
+        console.error('Failed to open panel:', response?.error);
+      }
+    }
+  } catch (error) {
+    console.error('Error pinning to right:', error);
   }
 });
 
@@ -824,7 +922,7 @@ let currentTabId = null; // Track the active job site tab ID
 
 // Helper function to safely get active job tab (handles service worker being inactive)
 async function safeGetActiveJobTab() {
-  // First try background script
+  // First try background script (most reliable)
   try {
     const response = await chrome.runtime.sendMessage({ action: 'getActiveJobTab' });
     if (response && response.tab) {
@@ -835,16 +933,39 @@ async function safeGetActiveJobTab() {
     console.log('Background script not available, using fallback');
   }
 
-  // Fallback: query tabs directly
-  const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-  let tab = tabs.find(t => t.url && !t.url.startsWith('chrome-extension://'));
+  // Fallback: query tabs directly, excluding our own panel window
+  // Get all normal (non-popup) windows
+  const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
 
-  if (!tab && tabs.length > 0) {
-    const allTabs = await chrome.tabs.query({ active: true });
-    tab = allTabs.find(t => t.url && !t.url.startsWith('chrome-extension://'));
+  // Sort by focused status to prioritize the currently focused browser window
+  windows.sort((a, b) => (b.focused ? 1 : 0) - (a.focused ? 1 : 0));
+
+  // Check each window for a job site tab
+  for (const win of windows) {
+    // Skip our own window if we know it
+    if (ownWindowId && win.id === ownWindowId) continue;
+
+    const tabs = await chrome.tabs.query({ active: true, windowId: win.id });
+    const jobTab = tabs.find(t =>
+      t.url &&
+      !t.url.startsWith('chrome-extension://') &&
+      (t.url.includes('linkedin.com') || t.url.includes('indeed.com') || t.url.includes('google.com/search'))
+    );
+
+    if (jobTab) {
+      return jobTab;
+    }
   }
 
-  return tab || null;
+  // Final fallback: any active tab in any window that's not extension URL
+  const allActiveTabs = await chrome.tabs.query({ active: true });
+  const validTab = allActiveTabs.find(t =>
+    t.url &&
+    !t.url.startsWith('chrome-extension://') &&
+    t.windowId !== ownWindowId
+  );
+
+  return validTab || null;
 }
 
 async function detectCurrentSite() {
@@ -907,6 +1028,12 @@ function updateSiteStatus(site) {
   const currentSiteText = document.getElementById('currentSite');
   const pageIndicator = document.getElementById('pageIndicator');
 
+  // Remove any existing beta badge
+  const existingBetaBadge = siteStatus.querySelector('.site-beta-badge');
+  if (existingBetaBadge) {
+    existingBetaBadge.remove();
+  }
+
   if (site) {
     siteStatus.classList.add('active');
     const siteNames = {
@@ -915,6 +1042,15 @@ function updateSiteStatus(site) {
       'google-jobs': 'Google Jobs'
     };
     currentSiteText.textContent = `Active on ${siteNames[site]}`;
+
+    // Add beta badge for LinkedIn
+    if (site === 'linkedin') {
+      const betaBadge = document.createElement('span');
+      betaBadge.className = 'site-beta-badge';
+      betaBadge.textContent = 'Beta';
+      betaBadge.title = 'LinkedIn support is in beta - some features may be limited';
+      siteStatus.appendChild(betaBadge);
+    }
 
     // Show page indicator for LinkedIn, request current page info
     if (site === 'linkedin') {
@@ -1014,11 +1150,15 @@ async function requestPageInfo() {
 let filterSettings = {};
 let includeKeywords = [];
 let excludeKeywords = [];
+let filtersInitialized = false; // Track if filters have been loaded
 
 async function initializeFilters() {
   await detectCurrentSite();
+  // Always reload from storage to get latest saved settings
+  // (auto-save ensures our changes are persisted before tab switch)
   await loadFilterSettings();
   updateFilterStats();
+  filtersInitialized = true;
 }
 
 async function loadFilterSettings() {
@@ -1026,12 +1166,36 @@ async function loadFilterSettings() {
     const result = await chrome.storage.local.get('filterSettings');
     filterSettings = result.filterSettings || {};
 
+    // DEBUG: Log what we're loading from storage
+    console.log('%c[JobFiltr Popup] loadFilterSettings from storage', 'background: #009688; color: white; padding: 2px 6px;');
+    console.log('  filterIncludeKeywords:', filterSettings.filterIncludeKeywords);
+    console.log('  includeKeywords:', JSON.stringify(filterSettings.includeKeywords));
+    console.log('  filterExcludeKeywords:', filterSettings.filterExcludeKeywords);
+    console.log('  excludeKeywords:', JSON.stringify(filterSettings.excludeKeywords));
+
     // Apply saved settings to UI
     document.getElementById('filterStaffing').checked = filterSettings.hideStaffing || false;
+    // Staffing display mode (default to 'hide')
+    const staffingMode = filterSettings.staffingDisplayMode || 'hide';
+    document.getElementById('staffingDisplayMode').value = staffingMode;
     document.getElementById('filterSponsored').checked = filterSettings.hideSponsored || false;
-    document.getElementById('filterApplicants').checked = filterSettings.filterApplicants || false;
-    document.getElementById('applicantRange').value = filterSettings.applicantRange || 'under10';
-    document.getElementById('filterEntryLevel').checked = filterSettings.entryLevelAccuracy || false;
+
+    // Initialize sponsored stats section
+    const sponsoredStats = document.getElementById('sponsoredStats');
+    if (sponsoredStats) {
+      // Show stats section only if filter is enabled
+      sponsoredStats.classList.toggle('hidden', !filterSettings.hideSponsored);
+      // Request sponsored count from content script for initial preview
+      if (filterSettings.hideSponsored) {
+        requestSponsoredCount();
+      }
+    }
+
+    document.getElementById('filterEarlyApplicant').checked = filterSettings.filterEarlyApplicant || false;
+    // Request early applicant count from content script for initial preview
+    if (filterSettings.filterEarlyApplicant) {
+      requestEarlyApplicantCount();
+    }
 
     // True Remote Accuracy settings
     document.getElementById('filterTrueRemote').checked = filterSettings.trueRemoteAccuracy || false;
@@ -1039,29 +1203,87 @@ async function loadFilterSettings() {
     document.getElementById('excludeOnsite').checked = filterSettings.excludeOnsite !== false; // Default true
     document.getElementById('excludeInOffice').checked = filterSettings.excludeInOffice !== false; // Default true
     document.getElementById('excludeInPerson').checked = filterSettings.excludeInPerson !== false; // Default true
+    document.getElementById('showWorkTypeUnclear').checked = filterSettings.showWorkTypeUnclear !== false; // Default true
 
     document.getElementById('filterIncludeKeywords').checked = filterSettings.filterIncludeKeywords || false;
     document.getElementById('filterExcludeKeywords').checked = filterSettings.filterExcludeKeywords || false;
     document.getElementById('filterSalary').checked = filterSettings.filterSalary || false;
     document.getElementById('minSalary').value = filterSettings.minSalary || '';
     document.getElementById('maxSalary').value = filterSettings.maxSalary || '';
+    document.getElementById('salaryPeriod').value = filterSettings.salaryPeriod || 'yearly';
     document.getElementById('hideNoSalary').checked = filterSettings.hideNoSalary || false;
+    document.getElementById('normalizePartTime').checked = filterSettings.normalizePartTime || false;
     document.getElementById('filterActiveRecruiting').checked = filterSettings.showActiveRecruiting || false;
     document.getElementById('filterJobAge').checked = filterSettings.showJobAge || false;
     document.getElementById('filterApplied').checked = filterSettings.hideApplied || false;
+    document.getElementById('filterUrgentlyHiring').checked = filterSettings.filterUrgentlyHiring || false;
     document.getElementById('filterVisa').checked = filterSettings.visaOnly || false;
-    document.getElementById('filterEasyApply').checked = filterSettings.easyApplyOnly || false;
+
+    // Show/blur Urgently Hiring filter based on site (Indeed only)
+    // On LinkedIn: show as blurred/unavailable instead of hiding
+    const urgentlyHiringFilter = document.getElementById('urgentlyHiringFilter');
+    const urgentlyHiringStats = document.getElementById('urgentlyHiringStats');
+    if (urgentlyHiringFilter) {
+      if (currentSite === 'indeed') {
+        // Indeed: Show filter normally
+        urgentlyHiringFilter.classList.remove('hidden');
+        urgentlyHiringFilter.classList.remove('platform-unavailable');
+        // Show stats section only if filter is enabled
+        if (urgentlyHiringStats) {
+          urgentlyHiringStats.classList.toggle('hidden', !filterSettings.filterUrgentlyHiring);
+        }
+        // Request urgently hiring count from content script (always for initial preview)
+        requestUrgentlyHiringCount();
+      } else if (currentSite === 'linkedin') {
+        // LinkedIn: Show filter but blurred/unavailable
+        urgentlyHiringFilter.classList.remove('hidden');
+        urgentlyHiringFilter.classList.add('platform-unavailable');
+        if (urgentlyHiringStats) urgentlyHiringStats.classList.add('hidden');
+      } else {
+        // Other sites: Hide completely
+        urgentlyHiringFilter.classList.add('hidden');
+        urgentlyHiringFilter.classList.remove('platform-unavailable');
+        if (urgentlyHiringStats) urgentlyHiringStats.classList.add('hidden');
+      }
+    }
+
+    // Show/hide Visa Sponsorship stats when filter is enabled
+    const visaSponsorshipStats = document.getElementById('visaSponsorshipStats');
+    if (visaSponsorshipStats && filterSettings.visaOnly) {
+      visaSponsorshipStats.classList.remove('hidden');
+      // Request visa sponsorship count from content script
+      requestVisaSponsorshipCount();
+    } else if (visaSponsorshipStats) {
+      visaSponsorshipStats.classList.add('hidden');
+    }
 
     // Benefits Indicator
     document.getElementById('showBenefitsIndicator').checked = filterSettings.showBenefitsIndicator || false;
     updateBenefitsLegend(filterSettings.showBenefitsIndicator || false);
 
-    // Applicant Count Display
-    document.getElementById('showApplicantCount').checked = filterSettings.showApplicantCount || false;
+    // Hide benefits indicator toggle for Indeed (LinkedIn only feature)
+    if (currentSite === 'indeed') {
+      const benefitsToggle = document.querySelector('#showBenefitsIndicator')?.closest('.filter-item');
+      if (benefitsToggle) {
+        benefitsToggle.classList.add('hidden');
+      }
+    }
+
+    // Early Applicant Display Mode
+    if (document.getElementById('earlyApplicantDisplayMode')) {
+      document.getElementById('earlyApplicantDisplayMode').value = filterSettings.earlyApplicantDisplayMode || 'hide';
+    }
 
     // Job Posting Age Filter
     document.getElementById('filterPostingAge').checked = filterSettings.filterPostingAge || false;
     document.getElementById('postingAgeRange').value = filterSettings.postingAgeRange || '1w';
+
+    // Ghost Job Analysis Settings (default enabled)
+    const enableGhostAnalysis = filterSettings.enableGhostAnalysis !== false; // Default true
+    const showCommunityReportedWarnings = filterSettings.showCommunityReportedWarnings !== false; // Default true
+    document.getElementById('enableGhostAnalysis').checked = enableGhostAnalysis;
+    document.getElementById('showCommunityReportedWarnings').checked = showCommunityReportedWarnings;
+    updateGhostSettingsState(enableGhostAnalysis);
 
     // Load keywords
     includeKeywords = filterSettings.includeKeywords || [];
@@ -1081,10 +1303,9 @@ async function resetFiltersToDefault() {
 
   // Reset all checkboxes to unchecked
   document.getElementById('filterStaffing').checked = false;
+  document.getElementById('staffingDisplayMode').value = 'hide';
   document.getElementById('filterSponsored').checked = false;
-  document.getElementById('filterApplicants').checked = false;
-  document.getElementById('applicantRange').value = 'under10';
-  document.getElementById('filterEntryLevel').checked = false;
+  document.getElementById('filterEarlyApplicant').checked = false;
 
   // True Remote Accuracy settings
   document.getElementById('filterTrueRemote').checked = false;
@@ -1092,29 +1313,51 @@ async function resetFiltersToDefault() {
   document.getElementById('excludeOnsite').checked = true;
   document.getElementById('excludeInOffice').checked = true;
   document.getElementById('excludeInPerson').checked = true;
+  document.getElementById('showWorkTypeUnclear').checked = true;
 
   document.getElementById('filterIncludeKeywords').checked = false;
   document.getElementById('filterExcludeKeywords').checked = false;
   document.getElementById('filterSalary').checked = false;
   document.getElementById('minSalary').value = '';
   document.getElementById('maxSalary').value = '';
+  document.getElementById('salaryPeriod').value = 'yearly';
   document.getElementById('hideNoSalary').checked = false;
+  document.getElementById('normalizePartTime').checked = false;
   document.getElementById('filterActiveRecruiting').checked = false;
   document.getElementById('filterJobAge').checked = false;
   document.getElementById('filterApplied').checked = false;
+  document.getElementById('filterUrgentlyHiring').checked = false;
   document.getElementById('filterVisa').checked = false;
-  document.getElementById('filterEasyApply').checked = false;
+
+  // Hide Urgently Hiring stats on reset
+  const urgentlyHiringStats = document.getElementById('urgentlyHiringStats');
+  if (urgentlyHiringStats) urgentlyHiringStats.classList.add('hidden');
+
+  // Hide Visa Sponsorship stats on reset
+  const visaSponsorshipStats = document.getElementById('visaSponsorshipStats');
+  if (visaSponsorshipStats) visaSponsorshipStats.classList.add('hidden');
+
+  // Hide Sponsored stats on reset
+  const sponsoredStats = document.getElementById('sponsoredStats');
+  if (sponsoredStats) sponsoredStats.classList.add('hidden');
 
   // Benefits Indicator
   document.getElementById('showBenefitsIndicator').checked = false;
   updateBenefitsLegend(false);
 
-  // Applicant Count Display
-  document.getElementById('showApplicantCount').checked = false;
+  // Early Applicant Display Mode
+  if (document.getElementById('earlyApplicantDisplayMode')) {
+    document.getElementById('earlyApplicantDisplayMode').value = 'hide';
+  }
 
   // Job Posting Age Filter
   document.getElementById('filterPostingAge').checked = false;
   document.getElementById('postingAgeRange').value = '1w';
+
+  // Ghost Job Analysis Settings (reset to enabled by default)
+  document.getElementById('enableGhostAnalysis').checked = true;
+  document.getElementById('showCommunityReportedWarnings').checked = true;
+  updateGhostSettingsState(true);
 
   // Clear keywords
   includeKeywords = [];
@@ -1137,52 +1380,429 @@ document.getElementById('showBenefitsIndicator')?.addEventListener('change', (e)
   updateBenefitsLegend(e.target.checked);
 });
 
+// ===== URGENTLY HIRING FILTER UX =====
+// Request count of urgently hiring jobs from content script for UX improvements
+async function requestUrgentlyHiringCount() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id || !tab.url?.includes('indeed.com')) return;
+
+    const response = await chrome.tabs.sendMessage(tab.id, { type: 'COUNT_URGENTLY_HIRING' });
+    if (response?.success && response.data) {
+      updateUrgentlyHiringStats(response.data);
+    }
+  } catch (error) {
+    console.log('Could not get urgently hiring count:', error);
+    // Hide stats section if we can't get data
+    const statsSection = document.getElementById('urgentlyHiringStats');
+    if (statsSection) statsSection.classList.add('hidden');
+  }
+}
+
+// Update the UI with urgently hiring job counts
+function updateUrgentlyHiringStats(counts) {
+  const statsSection = document.getElementById('urgentlyHiringStats');
+  const countText = document.getElementById('urgentlyHiringCountText');
+  const countDiv = document.querySelector('.urgently-hiring-count');
+  const hintText = document.getElementById('urgentlyHiringHint');
+
+  if (!statsSection || !countText || !hintText) return;
+
+  // Show the stats section
+  statsSection.classList.remove('hidden');
+
+  // Update the count text
+  if (counts.urgent === 0) {
+    countText.textContent = `0 of ${counts.total} jobs are urgently hiring`;
+    countDiv?.classList.add('no-urgent');
+    countDiv?.classList.remove('has-urgent');
+    hintText.textContent = 'No "Urgently Hiring" badges found on this page. Try searching with "urgently hiring" as a keyword, or navigate to a different page.';
+    hintText.className = 'urgently-hiring-hint warning';
+  } else {
+    countText.textContent = `${counts.urgent} of ${counts.total} jobs are urgently hiring (${counts.percentage}%)`;
+    countDiv?.classList.add('has-urgent');
+    countDiv?.classList.remove('no-urgent');
+
+    if (counts.percentage < 20) {
+      hintText.textContent = `Only ${counts.percentage}% of jobs on this page have the badge. Enabling this filter will hide ${counts.total - counts.urgent} jobs.`;
+      hintText.className = 'urgently-hiring-hint warning';
+    } else {
+      hintText.textContent = `Enabling this filter will show only the ${counts.urgent} urgently hiring jobs.`;
+      hintText.className = 'urgently-hiring-hint info';
+    }
+  }
+}
+
+// Handle urgently hiring checkbox change
+document.getElementById('filterUrgentlyHiring')?.addEventListener('change', (e) => {
+  const statsSection = document.getElementById('urgentlyHiringStats');
+
+  if (e.target.checked) {
+    // Show stats when enabled
+    if (statsSection) statsSection.classList.remove('hidden');
+    // Refresh the count
+    requestUrgentlyHiringCount();
+  } else {
+    // Hide stats when disabled
+    if (statsSection) statsSection.classList.add('hidden');
+  }
+
+  saveFilterSettings();
+});
+
+// ===== VISA SPONSORSHIP FILTER UX =====
+// Request count of visa sponsorship jobs from content script for UX improvements
+async function requestVisaSponsorshipCount() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) return;
+
+    // Works on both LinkedIn and Indeed
+    const isJobSite = tab.url?.includes('linkedin.com') || tab.url?.includes('indeed.com');
+    if (!isJobSite) return;
+
+    const response = await chrome.tabs.sendMessage(tab.id, { type: 'COUNT_VISA_SPONSORSHIP' });
+    if (response?.success && response.data) {
+      updateVisaSponsorshipStats(response.data);
+    }
+  } catch (error) {
+    console.log('Could not get visa sponsorship count:', error);
+    // Show fallback message if we can't get data
+    const statsSection = document.getElementById('visaSponsorshipStats');
+    const infoText = document.getElementById('visaSponsorshipInfoText');
+    const hintText = document.getElementById('visaSponsorshipHint');
+    const infoDiv = document.querySelector('.visa-sponsorship-info');
+
+    if (statsSection) {
+      statsSection.classList.remove('hidden');
+      if (infoDiv) infoDiv.className = 'visa-sponsorship-info';
+      if (infoText) infoText.textContent = 'Scanning page...';
+      if (hintText) {
+        hintText.textContent = 'Visa sponsorship info is typically found in full job descriptions. Jobs without explicit "visa sponsorship" mentions will be hidden.';
+        hintText.className = 'visa-sponsorship-hint warning';
+      }
+    }
+  }
+}
+
+// Update the UI with visa sponsorship job counts
+function updateVisaSponsorshipStats(counts) {
+  const statsSection = document.getElementById('visaSponsorshipStats');
+  const infoText = document.getElementById('visaSponsorshipInfoText');
+  const infoDiv = document.querySelector('.visa-sponsorship-info');
+  const hintText = document.getElementById('visaSponsorshipHint');
+
+  if (!statsSection || !infoText || !hintText) return;
+
+  // Show the stats section
+  statsSection.classList.remove('hidden');
+
+  // Update the count text and styling
+  if (counts.visa === 0) {
+    infoText.textContent = `0 of ${counts.total} jobs mention visa sponsorship`;
+    infoDiv?.classList.add('no-visa');
+    infoDiv?.classList.remove('has-visa');
+    hintText.textContent = 'No jobs on this page explicitly mention visa sponsorship. Visa info is typically found in full job descriptions. Try searching with "visa sponsorship" or "H1B" as keywords, or click on jobs to load their full descriptions.';
+    hintText.className = 'visa-sponsorship-hint warning';
+  } else {
+    infoText.textContent = `${counts.visa} of ${counts.total} jobs mention visa sponsorship (${counts.percentage}%)`;
+    infoDiv?.classList.add('has-visa');
+    infoDiv?.classList.remove('no-visa');
+
+    if (counts.percentage < 20) {
+      hintText.textContent = `Only ${counts.percentage}% of jobs on this page mention sponsorship. Enabling this filter will hide ${counts.total - counts.visa} jobs. Click on more jobs to load their full descriptions for better detection.`;
+      hintText.className = 'visa-sponsorship-hint warning';
+    } else {
+      hintText.textContent = `Enabling this filter will show only the ${counts.visa} jobs that mention visa sponsorship.`;
+      hintText.className = 'visa-sponsorship-hint info';
+    }
+  }
+}
+
+// Handle visa sponsorship checkbox change
+document.getElementById('filterVisa')?.addEventListener('change', (e) => {
+  const statsSection = document.getElementById('visaSponsorshipStats');
+
+  if (e.target.checked) {
+    // Show stats when enabled
+    if (statsSection) statsSection.classList.remove('hidden');
+    // Request the count from content script
+    requestVisaSponsorshipCount();
+  } else {
+    // Hide stats when disabled
+    if (statsSection) statsSection.classList.add('hidden');
+  }
+
+  saveFilterSettings();
+});
+
+// ===== EARLY APPLICANT FILTER UX =====
+// Request count of early applicant jobs from content script for UX improvements
+async function requestEarlyApplicantCount() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) return;
+
+    // Works on both Indeed and LinkedIn
+    const isJobSite = tab.url?.includes('indeed.com') || tab.url?.includes('linkedin.com');
+    if (!isJobSite) return;
+
+    const response = await chrome.tabs.sendMessage(tab.id, { type: 'COUNT_EARLY_APPLICANT' });
+    if (response?.success && response.data) {
+      updateEarlyApplicantStats(response.data);
+    }
+  } catch (error) {
+    console.log('Could not get early applicant count:', error);
+    // Hide stats section if we can't get data
+    const statsSection = document.getElementById('earlyApplicantStats');
+    if (statsSection) statsSection.classList.add('hidden');
+  }
+}
+
+// Update the UI with early applicant job counts
+function updateEarlyApplicantStats(counts) {
+  const statsSection = document.getElementById('earlyApplicantStats');
+  const countText = document.getElementById('earlyApplicantCountText');
+  const countDiv = document.querySelector('.early-applicant-count');
+  const hintText = document.getElementById('earlyApplicantHint');
+
+  if (!statsSection || !countText || !hintText) return;
+
+  // Show the stats section
+  statsSection.classList.remove('hidden');
+
+  // Update the count text
+  if (counts.early === 0) {
+    countText.textContent = `0 of ${counts.total} jobs have early applicant status`;
+    countDiv?.classList.add('no-early');
+    countDiv?.classList.remove('has-early');
+    hintText.textContent = 'No early applicant opportunities found on this page. Try refreshing or navigating to a different page with fresher job listings.';
+    hintText.className = 'early-applicant-hint warning';
+  } else {
+    countText.textContent = `${counts.early} of ${counts.total} jobs are early applicant opportunities (${counts.percentage}%)`;
+    countDiv?.classList.add('has-early');
+    countDiv?.classList.remove('no-early');
+
+    if (counts.percentage < 20) {
+      hintText.textContent = `Only ${counts.percentage}% of jobs on this page are early applicant opportunities. Enabling this filter will hide ${counts.total - counts.early} jobs.`;
+      hintText.className = 'early-applicant-hint warning';
+    } else {
+      hintText.textContent = `Enabling this filter will show only the ${counts.early} early applicant jobs.`;
+      hintText.className = 'early-applicant-hint info';
+    }
+  }
+}
+
+// Handle early applicant checkbox change
+document.getElementById('filterEarlyApplicant')?.addEventListener('change', (e) => {
+  const statsSection = document.getElementById('earlyApplicantStats');
+
+  if (e.target.checked) {
+    // Show stats when enabled
+    if (statsSection) statsSection.classList.remove('hidden');
+    // Refresh the count
+    requestEarlyApplicantCount();
+  } else {
+    // Hide stats when disabled
+    if (statsSection) statsSection.classList.add('hidden');
+  }
+
+  saveFilterSettings();
+});
+
+// ===== SPONSORED/PROMOTED FILTER UX =====
+// Request count of sponsored jobs from content script for UX improvements
+async function requestSponsoredCount() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) return;
+
+    // Works on both Indeed and LinkedIn
+    const isJobSite = tab.url?.includes('indeed.com') || tab.url?.includes('linkedin.com');
+    if (!isJobSite) return;
+
+    const response = await chrome.tabs.sendMessage(tab.id, { type: 'COUNT_SPONSORED_JOBS' });
+    if (response?.success && response.data) {
+      updateSponsoredStats(response.data);
+    }
+  } catch (error) {
+    console.log('Could not get sponsored count:', error);
+    // Hide stats section if we can't get data
+    const statsSection = document.getElementById('sponsoredStats');
+    if (statsSection) statsSection.classList.add('hidden');
+  }
+}
+
+// Update the UI with sponsored job counts
+function updateSponsoredStats(counts) {
+  const statsSection = document.getElementById('sponsoredStats');
+  const countText = document.getElementById('sponsoredCountText');
+  const countDiv = document.querySelector('.sponsored-count');
+  const hintText = document.getElementById('sponsoredHint');
+
+  if (!statsSection || !countText || !hintText) return;
+
+  // Show the stats section
+  statsSection.classList.remove('hidden');
+
+  // Update the count text
+  if (counts.sponsored === 0) {
+    countText.textContent = `0 of ${counts.total} jobs are sponsored`;
+    countDiv?.classList.add('no-sponsored');
+    countDiv?.classList.remove('has-sponsored');
+    hintText.textContent = 'No sponsored/promoted jobs detected on this page. This filter won\'t hide any jobs.';
+    hintText.className = 'sponsored-hint success';
+  } else {
+    countText.textContent = `${counts.sponsored} of ${counts.total} jobs are sponsored (${counts.percentage}%)`;
+    countDiv?.classList.add('has-sponsored');
+    countDiv?.classList.remove('no-sponsored');
+
+    if (counts.percentage >= 50) {
+      hintText.textContent = `Warning: ${counts.percentage}% of jobs on this page are sponsored. Enabling this filter will hide ${counts.sponsored} jobs.`;
+      hintText.className = 'sponsored-hint warning';
+    } else if (counts.percentage >= 20) {
+      hintText.textContent = `${counts.sponsored} sponsored jobs will be hidden when this filter is enabled.`;
+      hintText.className = 'sponsored-hint info';
+    } else {
+      hintText.textContent = `Only ${counts.sponsored} sponsored job(s) found. This filter will have minimal impact.`;
+      hintText.className = 'sponsored-hint info';
+    }
+  }
+}
+
+// Handle sponsored filter checkbox change
+document.getElementById('filterSponsored')?.addEventListener('change', (e) => {
+  const statsSection = document.getElementById('sponsoredStats');
+
+  if (e.target.checked) {
+    // Show stats when enabled
+    if (statsSection) statsSection.classList.remove('hidden');
+    // Refresh the count
+    requestSponsoredCount();
+  } else {
+    // Hide stats when disabled
+    if (statsSection) statsSection.classList.add('hidden');
+  }
+
+  saveFilterSettings();
+});
+
+// Ghost Job Analysis settings toggle
+function updateGhostSettingsState(enabled) {
+  const optionsSection = document.getElementById('ghostSettingsOptions');
+  if (optionsSection) {
+    optionsSection.classList.toggle('disabled', !enabled);
+  }
+}
+
+document.getElementById('enableGhostAnalysis')?.addEventListener('change', (e) => {
+  updateGhostSettingsState(e.target.checked);
+  saveFilterSettings();
+});
+
+document.getElementById('showCommunityReportedWarnings')?.addEventListener('change', () => {
+  saveFilterSettings();
+});
+
 async function saveFilterSettings() {
-  filterSettings = {
-    hideStaffing: document.getElementById('filterStaffing').checked,
-    hideSponsored: document.getElementById('filterSponsored').checked,
-    filterApplicants: document.getElementById('filterApplicants').checked,
-    applicantRange: document.getElementById('applicantRange').value,
-    entryLevelAccuracy: document.getElementById('filterEntryLevel').checked,
-    // True Remote Accuracy settings
-    trueRemoteAccuracy: document.getElementById('filterTrueRemote').checked,
-    excludeHybrid: document.getElementById('excludeHybrid').checked,
-    excludeOnsite: document.getElementById('excludeOnsite').checked,
-    excludeInOffice: document.getElementById('excludeInOffice').checked,
-    excludeInPerson: document.getElementById('excludeInPerson').checked,
-    filterIncludeKeywords: document.getElementById('filterIncludeKeywords').checked,
-    filterExcludeKeywords: document.getElementById('filterExcludeKeywords').checked,
-    includeKeywords: includeKeywords,
-    excludeKeywords: excludeKeywords,
-    filterSalary: document.getElementById('filterSalary').checked,
-    minSalary: document.getElementById('minSalary').value,
-    maxSalary: document.getElementById('maxSalary').value,
-    hideNoSalary: document.getElementById('hideNoSalary').checked,
-    showActiveRecruiting: document.getElementById('filterActiveRecruiting').checked,
-    showJobAge: document.getElementById('filterJobAge').checked,
-    hideApplied: document.getElementById('filterApplied').checked,
-    visaOnly: document.getElementById('filterVisa').checked,
-    easyApplyOnly: document.getElementById('filterEasyApply').checked,
-    // Benefits Indicator
-    showBenefitsIndicator: document.getElementById('showBenefitsIndicator').checked,
-    // Applicant Count Display
-    showApplicantCount: document.getElementById('showApplicantCount').checked,
-    // Job Posting Age Filter
-    filterPostingAge: document.getElementById('filterPostingAge').checked,
-    postingAgeRange: document.getElementById('postingAgeRange').value
+  // KEYWORD DEBUG: Log global arrays at the START of saveFilterSettings
+  console.log('%c[JobFiltr Popup] saveFilterSettings called', 'background: #3F51B5; color: white; padding: 2px 6px;');
+  console.log('  Global includeKeywords array at start:', JSON.stringify(includeKeywords));
+  console.log('  Global excludeKeywords array at start:', JSON.stringify(excludeKeywords));
+  console.log('  Include checkbox element:', document.getElementById('filterIncludeKeywords'));
+  console.log('  Include checkbox checked:', document.getElementById('filterIncludeKeywords')?.checked);
+
+  // DEBUG: Log each checkbox element and its state
+  const debugCheckboxes = {
+    filterStaffing: document.getElementById('filterStaffing'),
+    filterSponsored: document.getElementById('filterSponsored'),
+    filterEarlyApplicant: document.getElementById('filterEarlyApplicant'),
+    filterTrueRemote: document.getElementById('filterTrueRemote'),
+    filterJobAge: document.getElementById('filterJobAge'),
+    filterPostingAge: document.getElementById('filterPostingAge'),
+    showBenefitsIndicator: document.getElementById('showBenefitsIndicator')
   };
 
+  console.log('%c[JobFiltr Popup] DEBUG: Checkbox elements and states:', 'background: #FF5722; color: white; padding: 2px 6px;');
+  for (const [name, el] of Object.entries(debugCheckboxes)) {
+    console.log(`  ${name}: element=${el ? 'FOUND' : 'NULL'}, checked=${el?.checked}`);
+  }
+
+  filterSettings = {
+    hideStaffing: document.getElementById('filterStaffing')?.checked || false,
+    staffingDisplayMode: document.getElementById('staffingDisplayMode')?.value || 'hide',
+    hideSponsored: document.getElementById('filterSponsored')?.checked || false,
+    filterEarlyApplicant: document.getElementById('filterEarlyApplicant')?.checked || false,
+    // True Remote Accuracy settings
+    trueRemoteAccuracy: document.getElementById('filterTrueRemote')?.checked || false,
+    excludeHybrid: document.getElementById('excludeHybrid')?.checked ?? true,
+    excludeOnsite: document.getElementById('excludeOnsite')?.checked ?? true,
+    excludeInOffice: document.getElementById('excludeInOffice')?.checked ?? true,
+    excludeInPerson: document.getElementById('excludeInPerson')?.checked ?? true,
+    showWorkTypeUnclear: document.getElementById('showWorkTypeUnclear')?.checked ?? true,
+    filterIncludeKeywords: document.getElementById('filterIncludeKeywords')?.checked || false,
+    filterExcludeKeywords: document.getElementById('filterExcludeKeywords')?.checked || false,
+    // CRITICAL: Use spread to create COPIES of arrays, not references
+    // This prevents issues if global arrays are reassigned later
+    includeKeywords: [...includeKeywords],
+    excludeKeywords: [...excludeKeywords],
+    filterSalary: document.getElementById('filterSalary')?.checked || false,
+    minSalary: document.getElementById('minSalary')?.value || '',
+    maxSalary: document.getElementById('maxSalary')?.value || '',
+    salaryPeriod: document.getElementById('salaryPeriod')?.value || 'yearly',
+    hideNoSalary: document.getElementById('hideNoSalary')?.checked || false,
+    normalizePartTime: document.getElementById('normalizePartTime')?.checked || false,
+    showActiveRecruiting: document.getElementById('filterActiveRecruiting')?.checked || false,
+    hideStalePostings: document.getElementById('hideStalePostings')?.checked || false, // Option to hide 30+ day old postings
+    showJobAge: document.getElementById('filterJobAge')?.checked || false,
+    hideApplied: document.getElementById('filterApplied')?.checked || false,
+    filterUrgentlyHiring: document.getElementById('filterUrgentlyHiring')?.checked || false,
+    visaOnly: document.getElementById('filterVisa')?.checked || false,
+    // Benefits Indicator
+    showBenefitsIndicator: document.getElementById('showBenefitsIndicator')?.checked || false,
+    // Early Applicant Display Mode
+    earlyApplicantDisplayMode: document.getElementById('earlyApplicantDisplayMode')?.value || 'hide',
+    // Job Posting Age Filter
+    filterPostingAge: document.getElementById('filterPostingAge')?.checked || false,
+    postingAgeRange: document.getElementById('postingAgeRange')?.value || '1w',
+    // Ghost Job Analysis Settings
+    enableGhostAnalysis: document.getElementById('enableGhostAnalysis')?.checked ?? true,
+    showCommunityReportedWarnings: document.getElementById('showCommunityReportedWarnings')?.checked ?? true
+  };
+
+  // DEBUG: Log the settings object being saved
+  console.log('%c[JobFiltr Popup] Saving filter settings:', 'background: #4CAF50; color: white; padding: 2px 6px;');
+  console.log('  Settings object:', JSON.stringify(filterSettings, null, 2));
+
+  // Count active filters for debugging
+  const activeFilters = Object.entries(filterSettings)
+    .filter(([key, val]) => val === true && !key.startsWith('exclude'))
+    .map(([key]) => key);
+  console.log('%c[JobFiltr Popup] Active filters to apply:', 'background: #2196F3; color: white; padding: 2px 6px;', activeFilters.join(', ') || 'NONE');
+
+  // CRITICAL DEBUG: Log exact keyword state BEFORE saving
+  console.log('%c[JobFiltr Popup] ========== PRE-SAVE KEYWORD CHECK ==========', 'background: #FF0000; color: white; padding: 4px 8px; font-weight: bold;');
+  console.log('%c  filterIncludeKeywords:', 'color: yellow;', filterSettings.filterIncludeKeywords);
+  console.log('%c  includeKeywords array:', 'color: yellow;', JSON.stringify(filterSettings.includeKeywords));
+  console.log('%c  includeKeywords length:', 'color: yellow;', filterSettings.includeKeywords?.length);
+  console.log('%c  filterExcludeKeywords:', 'color: yellow;', filterSettings.filterExcludeKeywords);
+  console.log('%c  excludeKeywords array:', 'color: yellow;', JSON.stringify(filterSettings.excludeKeywords));
+  console.log('%c  excludeKeywords length:', 'color: yellow;', filterSettings.excludeKeywords?.length);
+  console.log('%c=====================================================', 'background: #FF0000; color: white; padding: 4px 8px; font-weight: bold;');
+
   await chrome.storage.local.set({ filterSettings });
+  console.log('%c[JobFiltr Popup] Settings saved to chrome.storage.local', 'background: #9C27B0; color: white; padding: 2px 6px;');
 }
 
 function updateFilterStats() {
-  // Count main filters (excluding trueRemoteAccuracy and showBenefitsIndicator)
+  // ULTRATHINK: Count ALL main filters consistently
+  // This must match countActiveFilters() for template saving consistency
   const mainFilters = [
     'hideStaffing',
     'hideSponsored',
-    'filterApplicants',
+    'filterEarlyApplicant',
     'filterPostingAge',
-    'entryLevelAccuracy',
+    'trueRemoteAccuracy',      // Count True Remote as 1 filter when enabled
     'filterIncludeKeywords',
     'filterExcludeKeywords',
     'filterSalary',
@@ -1190,17 +1810,13 @@ function updateFilterStats() {
     'showActiveRecruiting',
     'showJobAge',
     'hideApplied',
+    'filterUrgentlyHiring',
     'visaOnly',
-    'easyApplyOnly'
+    'showBenefitsIndicator'    // Display setting - counts as active filter
+    // Note: earlyApplicantDisplayMode is controlled by filterEarlyApplicant checkbox
   ];
 
   let activeCount = mainFilters.filter(key => filterSettings[key] === true).length;
-
-  // Only count True Remote sub-checkboxes when trueRemoteAccuracy is enabled
-  if (filterSettings.trueRemoteAccuracy) {
-    const remoteSubFilters = ['excludeHybrid', 'excludeOnsite', 'excludeInOffice', 'excludeInPerson'];
-    activeCount += remoteSubFilters.filter(key => filterSettings[key] === true).length;
-  }
 
   document.getElementById('activeFiltersCount').textContent = activeCount;
 }
@@ -1252,24 +1868,56 @@ function createKeywordChip(keyword, type, index) {
   return chip;
 }
 
-function addKeyword(type, keyword) {
+async function addKeyword(type, keyword) {
   keyword = keyword.trim().toLowerCase();
 
   if (!keyword) return false;
 
+  console.log('%c[JobFiltr Popup] addKeyword called', 'background: #00BCD4; color: white; padding: 2px 6px;');
+  console.log('  type:', type);
+  console.log('  keyword:', keyword);
+
   if (type === 'include') {
     if (includeKeywords.includes(keyword)) {
+      console.log('  Keyword already exists in includeKeywords');
       return false; // Already exists
     }
     includeKeywords.push(keyword);
+    console.log('%c[JobFiltr Popup] KEYWORD ADDED TO INCLUDE:', 'background: #4CAF50; color: white; padding: 4px 8px; font-weight: bold;');
+    console.log('  Keyword:', keyword);
+    console.log('  Array now:', JSON.stringify(includeKeywords));
+    console.log('  Array length:', includeKeywords.length);
+
+    // AUTO-ENABLE: When user adds an include keyword, they want to use the filter
+    const checkbox = document.getElementById('filterIncludeKeywords');
+    if (checkbox && !checkbox.checked) {
+      checkbox.checked = true;
+      console.log('%c[JobFiltr Popup] Auto-enabled Include Keywords filter', 'background: #4CAF50; color: white; padding: 2px 6px;');
+    }
   } else {
     if (excludeKeywords.includes(keyword)) {
+      console.log('  Keyword already exists in excludeKeywords');
       return false; // Already exists
     }
     excludeKeywords.push(keyword);
+    console.log('%c[JobFiltr Popup] KEYWORD ADDED TO EXCLUDE:', 'background: #E91E63; color: white; padding: 4px 8px; font-weight: bold;');
+    console.log('  Keyword:', keyword);
+    console.log('  Array now:', JSON.stringify(excludeKeywords));
+    console.log('  Array length:', excludeKeywords.length);
+
+    // AUTO-ENABLE: When user adds an exclude keyword, they want to use the filter
+    const checkbox = document.getElementById('filterExcludeKeywords');
+    if (checkbox && !checkbox.checked) {
+      checkbox.checked = true;
+      console.log('%c[JobFiltr Popup] Auto-enabled Exclude Keywords filter', 'background: #4CAF50; color: white; padding: 2px 6px;');
+    }
   }
 
   renderKeywordChips();
+  // AUTO-SAVE: Persist keywords immediately to prevent loss on tab switch
+  // CRITICAL: Await to ensure save completes before any potential tab switch
+  await saveFilterSettings();
+  console.log('%c[JobFiltr Popup] Keyword saved to storage', 'background: #9C27B0; color: white; padding: 2px 6px;');
   return true;
 }
 
@@ -1281,41 +1929,63 @@ function removeKeyword(type, index) {
   }
 
   renderKeywordChips();
+  // AUTO-SAVE: Persist keywords immediately to prevent loss on tab switch
+  saveFilterSettings();
 }
 
+// CRITICAL FIX: Auto-save keyword checkbox changes to prevent tab-switch reset
+// Other filters auto-save on change, keyword filters must do the same
+document.getElementById('filterIncludeKeywords')?.addEventListener('change', (e) => {
+  console.log('%c[JobFiltr Popup] Include Keywords checkbox changed!', 'background: #FF5722; color: white; padding: 2px 6px;');
+  console.log('  New checked state:', e.target.checked);
+  // AUTO-SAVE: Prevent tab switching from resetting this checkbox
+  saveFilterSettings();
+});
+
+document.getElementById('filterExcludeKeywords')?.addEventListener('change', (e) => {
+  console.log('%c[JobFiltr Popup] Exclude Keywords checkbox changed!', 'background: #FF5722; color: white; padding: 2px 6px;');
+  console.log('  New checked state:', e.target.checked);
+  // AUTO-SAVE: Prevent tab switching from resetting this checkbox
+  saveFilterSettings();
+});
+
 // Include keyword input handlers
-document.getElementById('includeKeywordInput').addEventListener('keypress', (e) => {
+document.getElementById('includeKeywordInput').addEventListener('keypress', async (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
     const input = e.target;
-    if (addKeyword('include', input.value)) {
+    const added = await addKeyword('include', input.value);
+    if (added) {
       input.value = '';
     }
   }
 });
 
-document.getElementById('addIncludeKeyword').addEventListener('click', () => {
+document.getElementById('addIncludeKeyword').addEventListener('click', async () => {
   const input = document.getElementById('includeKeywordInput');
-  if (addKeyword('include', input.value)) {
+  const added = await addKeyword('include', input.value);
+  if (added) {
     input.value = '';
   }
   input.focus();
 });
 
 // Exclude keyword input handlers
-document.getElementById('excludeKeywordInput').addEventListener('keypress', (e) => {
+document.getElementById('excludeKeywordInput').addEventListener('keypress', async (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
     const input = e.target;
-    if (addKeyword('exclude', input.value)) {
+    const added = await addKeyword('exclude', input.value);
+    if (added) {
       input.value = '';
     }
   }
 });
 
-document.getElementById('addExcludeKeyword').addEventListener('click', () => {
+document.getElementById('addExcludeKeyword').addEventListener('click', async () => {
   const input = document.getElementById('excludeKeywordInput');
-  if (addKeyword('exclude', input.value)) {
+  const added = await addKeyword('exclude', input.value);
+  if (added) {
     input.value = '';
   }
   input.focus();
@@ -1348,11 +2018,11 @@ async function saveTemplates() {
 
 function countActiveFilters(settings) {
   const mainFilters = [
-    'hideStaffing', 'hideSponsored', 'filterApplicants', 'filterPostingAge', 'entryLevelAccuracy',
+    'hideStaffing', 'hideSponsored', 'filterEarlyApplicant', 'filterPostingAge',
     'trueRemoteAccuracy', 'filterIncludeKeywords', 'filterExcludeKeywords',
     'filterSalary', // hideNoSalary is NOT counted separately - it's part of filterSalary
-    'showActiveRecruiting', 'showJobAge', 'hideApplied',
-    'visaOnly', 'easyApplyOnly', 'showBenefitsIndicator', 'showApplicantCount'
+    'showActiveRecruiting', 'showJobAge', 'hideApplied', 'filterUrgentlyHiring',
+    'visaOnly', 'showBenefitsIndicator'
   ];
   return mainFilters.filter(key => settings[key] === true).length;
 }
@@ -1360,17 +2030,17 @@ function countActiveFilters(settings) {
 function getCurrentFilterSettings() {
   return {
     hideStaffing: document.getElementById('filterStaffing').checked,
+    staffingDisplayMode: document.getElementById('staffingDisplayMode').value,
     hideSponsored: document.getElementById('filterSponsored').checked,
-    filterApplicants: document.getElementById('filterApplicants').checked,
-    applicantRange: document.getElementById('applicantRange').value,
+    filterEarlyApplicant: document.getElementById('filterEarlyApplicant').checked,
     filterPostingAge: document.getElementById('filterPostingAge').checked,
     postingAgeRange: document.getElementById('postingAgeRange').value,
-    entryLevelAccuracy: document.getElementById('filterEntryLevel').checked,
     trueRemoteAccuracy: document.getElementById('filterTrueRemote').checked,
     excludeHybrid: document.getElementById('excludeHybrid').checked,
     excludeOnsite: document.getElementById('excludeOnsite').checked,
     excludeInOffice: document.getElementById('excludeInOffice').checked,
     excludeInPerson: document.getElementById('excludeInPerson').checked,
+    showWorkTypeUnclear: document.getElementById('showWorkTypeUnclear').checked,
     filterIncludeKeywords: document.getElementById('filterIncludeKeywords').checked,
     filterExcludeKeywords: document.getElementById('filterExcludeKeywords').checked,
     includeKeywords: [...includeKeywords],
@@ -1382,27 +2052,28 @@ function getCurrentFilterSettings() {
     showActiveRecruiting: document.getElementById('filterActiveRecruiting').checked,
     showJobAge: document.getElementById('filterJobAge').checked,
     hideApplied: document.getElementById('filterApplied').checked,
+    filterUrgentlyHiring: document.getElementById('filterUrgentlyHiring').checked,
     visaOnly: document.getElementById('filterVisa').checked,
-    easyApplyOnly: document.getElementById('filterEasyApply').checked,
     showBenefitsIndicator: document.getElementById('showBenefitsIndicator').checked,
-    showApplicantCount: document.getElementById('showApplicantCount').checked
+    earlyApplicantDisplayMode: document.getElementById('earlyApplicantDisplayMode')?.value || 'hide'
   };
 }
 
 function applyTemplateSettings(settings) {
   // Apply all settings to UI
   document.getElementById('filterStaffing').checked = settings.hideStaffing || false;
+  const staffingMode = settings.staffingDisplayMode || 'hide';
+  document.getElementById('staffingDisplayMode').value = staffingMode;
   document.getElementById('filterSponsored').checked = settings.hideSponsored || false;
-  document.getElementById('filterApplicants').checked = settings.filterApplicants || false;
-  document.getElementById('applicantRange').value = settings.applicantRange || 'under10';
+  document.getElementById('filterEarlyApplicant').checked = settings.filterEarlyApplicant || false;
   document.getElementById('filterPostingAge').checked = settings.filterPostingAge || false;
   document.getElementById('postingAgeRange').value = settings.postingAgeRange || '1w';
-  document.getElementById('filterEntryLevel').checked = settings.entryLevelAccuracy || false;
   document.getElementById('filterTrueRemote').checked = settings.trueRemoteAccuracy || false;
   document.getElementById('excludeHybrid').checked = settings.excludeHybrid !== false;
   document.getElementById('excludeOnsite').checked = settings.excludeOnsite !== false;
   document.getElementById('excludeInOffice').checked = settings.excludeInOffice !== false;
   document.getElementById('excludeInPerson').checked = settings.excludeInPerson !== false;
+  document.getElementById('showWorkTypeUnclear').checked = settings.showWorkTypeUnclear !== false;
   document.getElementById('filterIncludeKeywords').checked = settings.filterIncludeKeywords || false;
   document.getElementById('filterExcludeKeywords').checked = settings.filterExcludeKeywords || false;
   document.getElementById('filterSalary').checked = settings.filterSalary || false;
@@ -1412,10 +2083,12 @@ function applyTemplateSettings(settings) {
   document.getElementById('filterActiveRecruiting').checked = settings.showActiveRecruiting || false;
   document.getElementById('filterJobAge').checked = settings.showJobAge || false;
   document.getElementById('filterApplied').checked = settings.hideApplied || false;
+  document.getElementById('filterUrgentlyHiring').checked = settings.filterUrgentlyHiring || false;
   document.getElementById('filterVisa').checked = settings.visaOnly || false;
-  document.getElementById('filterEasyApply').checked = settings.easyApplyOnly || false;
   document.getElementById('showBenefitsIndicator').checked = settings.showBenefitsIndicator || false;
-  document.getElementById('showApplicantCount').checked = settings.showApplicantCount || false;
+  if (document.getElementById('earlyApplicantDisplayMode')) {
+    document.getElementById('earlyApplicantDisplayMode').value = settings.earlyApplicantDisplayMode || 'hide';
+  }
 
   // Apply keywords
   includeKeywords = settings.includeKeywords || [];
@@ -1701,7 +2374,21 @@ document.getElementById('applyFilters').addEventListener('click', async () => {
     return;
   }
 
+  // CRITICAL: Rebuild filterSettings from current UI state to ensure freshness
+  // This is the DEFINITIVE source of truth when applying filters
   await saveFilterSettings();
+
+  // KEYWORD INTEGRITY CHECK: Log the exact state AFTER rebuilding
+  console.log('%c[JobFiltr Popup] ======= APPLY FILTERS - KEYWORD INTEGRITY CHECK =======', 'background: #FF0000; color: white; padding: 4px 8px; font-weight: bold;');
+  console.log('%c  Global includeKeywords:', 'color: #0FF;', JSON.stringify(includeKeywords), '| Length:', includeKeywords.length);
+  console.log('%c  Global excludeKeywords:', 'color: #0FF;', JSON.stringify(excludeKeywords), '| Length:', excludeKeywords.length);
+  console.log('%c  filterSettings.includeKeywords:', 'color: #FF0;', JSON.stringify(filterSettings.includeKeywords), '| Length:', filterSettings.includeKeywords?.length || 0);
+  console.log('%c  filterSettings.excludeKeywords:', 'color: #FF0;', JSON.stringify(filterSettings.excludeKeywords), '| Length:', filterSettings.excludeKeywords?.length || 0);
+  console.log('%c  filterSettings.filterIncludeKeywords:', 'color: #0F0;', filterSettings.filterIncludeKeywords);
+  console.log('%c  filterSettings.filterExcludeKeywords:', 'color: #0F0;', filterSettings.filterExcludeKeywords);
+  console.log('%c  Include checkbox checked:', 'color: #AAA;', document.getElementById('filterIncludeKeywords')?.checked);
+  console.log('%c  Exclude checkbox checked:', 'color: #AAA;', document.getElementById('filterExcludeKeywords')?.checked);
+  console.log('%c========================================================', 'background: #FF0000; color: white; padding: 4px 8px;');
 
   // Send message to content script to apply filters
   try {
@@ -1729,11 +2416,44 @@ document.getElementById('applyFilters').addEventListener('click', async () => {
 
     // Helper function to send the apply filters message
     async function sendApplyFilters() {
-      await chrome.tabs.sendMessage(tabId, {
+      // DEBUG: Log exactly what we're sending
+      console.log('%c[JobFiltr Popup] Sending APPLY_FILTERS message to tab ' + tabId, 'background: #E91E63; color: white; padding: 2px 6px;');
+      console.log('  filterSettings object being sent:', filterSettings);
+      console.log('  Active filters in message:', Object.entries(filterSettings)
+        .filter(([key, val]) => val === true && !key.startsWith('exclude'))
+        .map(([key]) => key).join(', ') || 'NONE');
+
+      // EXPLICIT KEYWORD DEBUG
+      console.log('%c[JobFiltr Popup] KEYWORD DEBUG:', 'background: #FF9800; color: white; padding: 2px 6px;');
+      console.log('  Global includeKeywords array:', JSON.stringify(includeKeywords));
+      console.log('  Global excludeKeywords array:', JSON.stringify(excludeKeywords));
+      console.log('  filterSettings.filterIncludeKeywords:', filterSettings.filterIncludeKeywords);
+      console.log('  filterSettings.includeKeywords:', JSON.stringify(filterSettings.includeKeywords));
+      console.log('  filterSettings.filterExcludeKeywords:', filterSettings.filterExcludeKeywords);
+      console.log('  filterSettings.excludeKeywords:', JSON.stringify(filterSettings.excludeKeywords));
+      console.log('  Checkbox #filterIncludeKeywords checked:', document.getElementById('filterIncludeKeywords')?.checked);
+      console.log('  Checkbox #filterExcludeKeywords checked:', document.getElementById('filterExcludeKeywords')?.checked);
+
+      const messagePayload = {
         type: 'APPLY_FILTERS',
         settings: filterSettings,
         site: currentSite
-      });
+      };
+
+      console.log('%c[JobFiltr Popup] About to send message:', 'background: #673AB7; color: white; padding: 2px 6px;');
+      console.log('  Target tabId:', tabId);
+      console.log('  Message type:', messagePayload.type);
+      console.log('  Settings keys:', Object.keys(messagePayload.settings));
+      console.log('  Settings.filterIncludeKeywords:', messagePayload.settings.filterIncludeKeywords);
+      console.log('  Settings.includeKeywords:', JSON.stringify(messagePayload.settings.includeKeywords));
+
+      try {
+        const response = await chrome.tabs.sendMessage(tabId, messagePayload);
+        console.log('%c[JobFiltr Popup] Message sent, response:', 'background: #4CAF50; color: white; padding: 2px 6px;', response);
+      } catch (sendError) {
+        console.error('%c[JobFiltr Popup] Message send failed:', 'background: #F44336; color: white; padding: 2px 6px;', sendError.message);
+        throw sendError;
+      }
     }
 
     try {
@@ -1811,7 +2531,6 @@ document.getElementById('resetFilters').addEventListener('click', async () => {
   });
 
   // Reset other inputs
-  document.getElementById('applicantRange').value = 'under10';
   document.getElementById('minSalary').value = '';
   document.getElementById('maxSalary').value = '';
 
@@ -1910,32 +2629,72 @@ async function detectCurrentJob() {
     }
 
     if (!tabId) {
-      updateDetectedJobInfo(null);
+      updateDetectedJobInfo(null, 'no_tab');
       return;
+    }
+
+    // FIX 8: Verify content script is loaded with PING before extracting
+    let contentScriptResponding = false;
+    try {
+      const pingResponse = await chrome.tabs.sendMessage(tabId, { type: 'PING' });
+      if (pingResponse && pingResponse.success) {
+        contentScriptResponding = true;
+        console.log('[Scanner] Content script active:', pingResponse.platform, 'at', new Date(pingResponse.timestamp).toISOString());
+      }
+    } catch (pingError) {
+      console.warn('[Scanner] Content script not responding - may need page refresh');
+      // Don't return here, still try to extract in case it's a timing issue
     }
 
     // Send message to content script to extract job info
     try {
+      console.log('[Scanner DEBUG] Sending EXTRACT_JOB_INFO to tab:', tabId);
       const response = await chrome.tabs.sendMessage(tabId, {
         type: 'EXTRACT_JOB_INFO'
       });
+      console.log('[Scanner DEBUG] EXTRACT_JOB_INFO response:', response);
+      console.log('[Scanner DEBUG] Response has description:', !!response?.data?.description);
+      console.log('[Scanner DEBUG] Response description length:', response?.data?.description?.length || 0);
 
       if (response && response.success) {
         currentJobData = response.data;
+        console.log('[Scanner DEBUG] Set currentJobData, description length:', currentJobData?.description?.length || 0);
+        console.log('[Scanner DEBUG] Initial postedDate:', currentJobData?.postedDate);
+
+        // ULTRATHINK FIX: If postedDate is missing, try dedicated JSON-LD extraction
+        if (!currentJobData?.postedDate && currentJobData?.platform === 'indeed') {
+          console.log('[Scanner DEBUG] postedDate missing, trying JSON-LD fallback...');
+          try {
+            const dateResponse = await chrome.tabs.sendMessage(tabId, { type: 'EXTRACT_POSTED_DATE_JSONLD' });
+            console.log('[Scanner DEBUG] JSON-LD date response:', dateResponse);
+            if (dateResponse && dateResponse.success && dateResponse.postedDate) {
+              currentJobData.postedDate = dateResponse.postedDate;
+              console.log('[Scanner DEBUG] Set postedDate from JSON-LD:', currentJobData.postedDate);
+            }
+          } catch (dateError) {
+            console.warn('[Scanner DEBUG] JSON-LD date extraction failed:', dateError);
+          }
+        }
+
         updateDetectedJobInfo(response.data);
       } else {
-        updateDetectedJobInfo(null);
+        console.log('[Scanner DEBUG] Response not successful or empty');
+        updateDetectedJobInfo(null, contentScriptResponding ? 'not_job_page' : 'no_content_script');
       }
     } catch (msgError) {
-      // Silently ignore if content script is not available
-      if (!msgError.message?.includes('Receiving end does not exist')) {
+      // Check if content script is not available
+      if (msgError.message?.includes('Receiving end does not exist') ||
+          msgError.message?.includes('Could not establish connection')) {
+        console.warn('[Scanner] Content script not available - page refresh may be needed');
+        updateDetectedJobInfo(null, 'no_content_script');
+      } else {
         console.error('Error sending job extraction message:', msgError);
+        updateDetectedJobInfo(null, 'error');
       }
-      updateDetectedJobInfo(null);
     }
   } catch (error) {
     console.error('Error detecting job:', error);
-    updateDetectedJobInfo(null);
+    updateDetectedJobInfo(null, 'error');
   }
 }
 
@@ -1986,7 +2745,7 @@ function formatLocationCityState(location) {
   return `${parts[0]}, ${parts[1]}`;
 }
 
-function updateDetectedJobInfo(data) {
+function updateDetectedJobInfo(data, failureReason = null) {
   if (data) {
     document.getElementById('detectedTitle').textContent = data.title || 'Not detected';
     document.getElementById('detectedCompany').textContent = data.company || 'Not detected';
@@ -2003,7 +2762,17 @@ function updateDetectedJobInfo(data) {
     document.getElementById('detectedTitle').textContent = 'Not detected';
     document.getElementById('detectedCompany').textContent = 'Not detected';
     document.getElementById('detectedLocation').textContent = 'Not detected';
-    document.getElementById('detectedUrl').textContent = 'Not on a job posting page';
+
+    // Show helpful message based on failure reason
+    let urlMessage = 'Not on a job posting page';
+    if (failureReason === 'no_content_script') {
+      urlMessage = 'Please refresh the page';
+    } else if (failureReason === 'no_tab') {
+      urlMessage = 'Visit LinkedIn or Indeed';
+    } else if (failureReason === 'error') {
+      urlMessage = 'Detection error - try refreshing';
+    }
+    document.getElementById('detectedUrl').textContent = urlMessage;
 
     // Disable scan and save buttons
     document.getElementById('scanButton').disabled = true;
@@ -2014,14 +2783,22 @@ function updateDetectedJobInfo(data) {
 // Minimum scan time in milliseconds (2.5 seconds for accurate analysis)
 const MIN_SCAN_TIME = 2500;
 
-// Scan Button
+// Scan Button - Uses local scam/spam analysis for accurate detection
 document.getElementById('scanButton').addEventListener('click', async () => {
+  // FIX: Always re-fetch fresh job data before scanning to ensure description is populated
+  // Previously this used stale cached data which often had empty descriptions
+  await detectCurrentJob();
+
+  // DEBUG: Log EXACTLY what currentJobData contains
+  console.log('[Scanner DEBUG] ========== SCAN BUTTON CLICKED ==========');
+  console.log('[Scanner DEBUG] currentJobData:', currentJobData);
+  console.log('[Scanner DEBUG] Has description:', !!currentJobData?.description);
+  console.log('[Scanner DEBUG] Description length:', currentJobData?.description?.length || 0);
+  console.log('[Scanner DEBUG] Description preview:', currentJobData?.description?.substring(0, 300));
+
   if (!currentJobData) {
-    await detectCurrentJob();
-    if (!currentJobData) {
-      alert('No job posting detected. Please navigate to a job posting page.');
-      return;
-    }
+    alert('No job posting detected. Please navigate to a job posting page.');
+    return;
   }
 
   // Show loading state
@@ -2031,40 +2808,14 @@ document.getElementById('scanButton').addEventListener('click', async () => {
   const scanStartTime = Date.now();
 
   try {
-    // Get the tab ID to send message to
-    let tabId = currentTabId;
-    if (!tabId) {
-      if (isPanelMode) {
-        const tab = await safeGetActiveJobTab();
-        tabId = tab?.id;
-      } else {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        tabId = tab?.id;
-      }
-    }
+    // Perform LOCAL scam/spam analysis (not content script ghost analysis)
+    // This ensures we use our comprehensive pattern matching and scoring
+    console.log('[Scanner] Analyzing job for scam/spam indicators:', currentJobData.title);
+    console.log('[Scanner DEBUG] Calling performScamSpamAnalysis with description length:', currentJobData.description?.length || 0);
+    const scanResult = performScamSpamAnalysis(currentJobData);
+    console.log('[Scanner DEBUG] Analysis result:', JSON.stringify(scanResult, null, 2));
 
-    if (!tabId) {
-      throw new Error('No tab found for scanning');
-    }
-
-    // Send message to content script to perform ghost detection analysis
-    let result;
-    try {
-      result = await chrome.tabs.sendMessage(tabId, {
-        type: 'ANALYZE_GHOST_JOB',
-        jobData: currentJobData
-      });
-    } catch (msgError) {
-      // Handle content script not available - fall back to local analysis
-      if (msgError.message?.includes('Receiving end does not exist')) {
-        console.warn('Content script not available, using local analysis');
-        result = null;
-      } else {
-        throw msgError;
-      }
-    }
-
-    // Ensure minimum scan time for accurate results
+    // Ensure minimum scan time for UX (gives impression of thorough analysis)
     const elapsedTime = Date.now() - scanStartTime;
     if (elapsedTime < MIN_SCAN_TIME) {
       await new Promise(resolve => setTimeout(resolve, MIN_SCAN_TIME - elapsedTime));
@@ -2074,266 +2825,490 @@ document.getElementById('scanButton').addEventListener('click', async () => {
     document.querySelector('.loading-section').classList.add('hidden');
     document.querySelector('.scan-results').classList.remove('hidden');
 
-    if (result && result.success) {
-      displayScanResults(result.data);
-      // Save to history
-      await saveScanToHistory(result.data);
-    } else {
-      // Fallback: perform local analysis if content script doesn't respond
-      const localResult = performLocalGhostAnalysis(currentJobData);
-      displayScanResults(localResult);
-      await saveScanToHistory(localResult);
-    }
+    // Display the scan results
+    displayScanResults(scanResult);
+
+    // Save to history
+    await saveScanToHistory(scanResult);
+
+    console.log('[Scanner] Analysis complete:', {
+      legitimacy: scanResult.legitimacyScore,
+      scamRisk: scanResult.scamScore,
+      spamRisk: scanResult.spamScore,
+      breakdown: scanResult.breakdown
+    });
 
   } catch (error) {
-    console.error('Error scanning job:', error);
+    console.error('[Scanner] Error during scan:', error);
     // Ensure minimum scan time even on error
     const elapsedTime = Date.now() - scanStartTime;
     if (elapsedTime < MIN_SCAN_TIME) {
       await new Promise(resolve => setTimeout(resolve, MIN_SCAN_TIME - elapsedTime));
     }
-    // Fallback: perform local analysis
-    try {
-      const localResult = performLocalGhostAnalysis(currentJobData);
-      document.querySelector('.loading-section').classList.add('hidden');
-      document.querySelector('.scan-results').classList.remove('hidden');
-      displayScanResults(localResult);
-      await saveScanToHistory(localResult);
-    } catch (fallbackError) {
-      document.querySelector('.loading-section').classList.add('hidden');
-      alert('Error scanning job. Please try again.');
-    }
+    document.querySelector('.loading-section').classList.add('hidden');
+    alert('Error scanning job. Please try again.');
   }
 });
 
-// Local ghost job analysis (fallback when content script unavailable)
-function performLocalGhostAnalysis(jobData) {
-  const redFlags = [];
-  let score = 100; // Start with perfect score, subtract for issues
+// ===== SCAM/SPAM DETECTION PATTERNS =====
+const SCAM_PATTERNS = {
+  // FINANCIAL CATEGORY - High risk indicators
+  financial: [
+    { pattern: /\b(provide|send|submit|enter|your)\s*(your\s*)?(social\s*security\s*number|ssn|ss#)\b/i, weight: 0.95, tier: 'high', desc: 'Requests Social Security Number' },
+    { pattern: /\b(ssn|ss#)\s*(required|needed|must)/i, weight: 0.90, tier: 'high', desc: 'SSN required before hiring' },
+    { pattern: /\b(provide|send|submit|enter|your)\s*(your\s*)?(bank\s*account|routing\s*number|account\s*number)\b/i, weight: 0.90, tier: 'high', desc: 'Requests bank account details upfront' },
+    { pattern: /\b(pay|send|transfer)\s*(us|me)?\s*\$?\s*\d+.*?(upfront|before|first|fee|deposit)/i, weight: 0.95, tier: 'high', desc: 'Requires upfront payment' },
+    { pattern: /\btraining\s*fee\b/i, weight: 0.90, tier: 'high', desc: 'Requires training fee' },
+    { pattern: /\b(buy|purchase|invest)\s*(in)?\s*(equipment|materials|starter\s*kit)/i, weight: 0.85, tier: 'high', desc: 'Requires equipment purchase' },
+    { pattern: /\b(wire\s*transfer|western\s*union|money\s*gram|moneygram)\b/i, weight: 0.85, tier: 'high', desc: 'Uses suspicious payment method' },
+    { pattern: /\b(credit\s*card|debit\s*card)\s*(number|info|details)/i, weight: 0.95, tier: 'high', desc: 'Requests credit card information' },
+    { pattern: /\b(bitcoin|crypto|btc|ethereum|gift\s*card)\b.*?(payment|pay|send|receive)/i, weight: 0.90, tier: 'high', desc: 'Requests crypto/gift card payment' },
+    { pattern: /\b(driver\'?s?\s*license|passport|photo\s*id)\s*(number|copy|scan)/i, weight: 0.80, tier: 'medium', desc: 'Requests ID documents early' },
+  ],
 
-  // Track signals for confidence and breakdown calculations
-  const signals = [];
-  const breakdown = {
-    temporal: 0,
-    content: 0,
-    company: 0,
-    behavioral: 0
-  };
+  // COMMUNICATION CATEGORY - Suspicious contact methods
+  communication: [
+    { pattern: /\bwhatsapp\b/i, weight: 0.85, tier: 'high', desc: 'Requests WhatsApp communication' },
+    { pattern: /\btelegram\b.*?(contact|message|reach|chat)/i, weight: 0.80, tier: 'high', desc: 'Requests Telegram communication' },
+    { pattern: /\b(text|sms)\s*me\s*(at|on)?\s*\+?\d/i, weight: 0.75, tier: 'medium', desc: 'Requests personal phone contact' },
+    { pattern: /\badd\s*(me\s*)?(on\s*)?(whatsapp|telegram|signal)\b/i, weight: 0.85, tier: 'high', desc: 'Requests messaging app contact' },
+    { pattern: /\bcontact\s*(us|me)\s*(via|through|at)\s*(email|phone).*?@(gmail|yahoo|hotmail|outlook)\b/i, weight: 0.55, tier: 'medium', desc: 'Uses non-company email domain' },
+    { pattern: /\b(reply|respond|email)\s*(to|at)?\s*[a-z0-9._%+-]+@(gmail|yahoo|hotmail|outlook)\.com\b/i, weight: 0.40, tier: 'low', desc: 'Contact via personal email' },
+    { pattern: /\b(confidential|undisclosed)\s*company\b/i, weight: 0.50, tier: 'medium', desc: 'Company identity hidden' },
+  ],
 
-  // ===== TEMPORAL SIGNALS =====
-  // Check posting age if available
-  let temporalRisk = 0;
-  let temporalConfidence = 0.5;
-  if (jobData.postedDate) {
-    const daysPosted = parsePostingAge(jobData.postedDate);
-    if (daysPosted !== null) {
-      temporalConfidence = 0.9;
-      if (daysPosted > 60) {
-        temporalRisk = 0.8;
-        redFlags.push(`Job posted ${daysPosted} days ago (stale posting)`);
-        score -= 20;
-      } else if (daysPosted > 30) {
-        temporalRisk = 0.5;
-        redFlags.push(`Job posted ${daysPosted} days ago`);
-        score -= 10;
-      } else if (daysPosted > 14) {
-        temporalRisk = 0.2;
-      }
+  // UNREALISTIC CATEGORY - Too good to be true promises
+  unrealistic: [
+    { pattern: /\$\s*\d{3,},?\d{0,3}\s*(\/|per)?\s*(hr|hour)\b/i, weight: 0.75, tier: 'high', desc: 'Unusually high hourly rate' },
+    { pattern: /\b(make|earn)\s*\$?\s*\d{1,3},?\d{3,}\s*(\/|per)?\s*(week|month)\s*(from\s*home|easily|guaranteed)?/i, weight: 0.65, tier: 'medium', desc: 'Unrealistic earnings promise' },
+    { pattern: /\bno\s*experience\s*(needed|required|necessary)\s*.{0,30}(high|top|great)\s*(pay|salary|income)/i, weight: 0.55, tier: 'medium', desc: 'High pay with no experience' },
+    { pattern: /\b(guaranteed|promise[d]?)\s*(income|salary|earnings|pay)/i, weight: 0.50, tier: 'medium', desc: 'Guaranteed income promise' },
+    { pattern: /\bget\s*rich\b/i, weight: 0.60, tier: 'medium', desc: 'Get rich quick language' },
+    { pattern: /\bfinancial\s*freedom\b/i, weight: 0.45, tier: 'low', desc: 'Financial freedom promise' },
+    { pattern: /\bpart[- ]?time\s*.{0,15}full[- ]?time\s*(income|pay|earnings)/i, weight: 0.50, tier: 'medium', desc: 'Part-time for full-time income' },
+  ],
+
+  // URGENCY CATEGORY - Pressure tactics
+  urgency: [
+    { pattern: /\b(apply|respond|act)\s*(now|immediately|today|asap)\s*!+/i, weight: 0.50, tier: 'medium', desc: 'Urgent action required' },
+    { pattern: /\b(limited\s*(time|spots?|positions?|opening)|only\s*\d+\s*(spots?|positions?))/i, weight: 0.45, tier: 'medium', desc: 'Limited availability pressure' },
+    { pattern: /\b(don\'?t|do\s*not)\s*(miss|wait|delay)/i, weight: 0.40, tier: 'low', desc: 'Fear of missing out language' },
+    { pattern: /\boffer\s*(expires?|ends?)\b/i, weight: 0.45, tier: 'medium', desc: 'Time-limited offer' },
+    { pattern: /\bact\s*(fast|quick|immediately)\b/i, weight: 0.55, tier: 'medium', desc: 'Act immediately pressure' },
+    { pattern: /\bno\s*(interview|resume)\s*(needed|required)/i, weight: 0.35, tier: 'low', desc: 'No interview required' },
+  ]
+};
+
+const SPAM_PATTERNS = {
+  // MLM CATEGORY - Multi-level marketing indicators
+  mlm: [
+    { pattern: /\b(downline|upline)\b/i, weight: 0.85, tier: 'high', desc: 'MLM structure language (downline/upline)' },
+    { pattern: /\bmulti[- ]?level\s*marketing\b/i, weight: 0.80, tier: 'high', desc: 'Explicit MLM mention' },
+    { pattern: /\bnetwork\s*marketing\b/i, weight: 0.75, tier: 'high', desc: 'Network marketing mention' },
+    { pattern: /\brecruit\s*(others?|people|members?|friends?|family)\b/i, weight: 0.70, tier: 'medium', desc: 'Recruitment focus' },
+    { pattern: /\b(be\s*your\s*own\s*boss|own\s*your\s*own\s*business)\b/i, weight: 0.55, tier: 'medium', desc: 'Be your own boss language' },
+    { pattern: /\bunlimited\s*(earning|income)\s*potential\b/i, weight: 0.65, tier: 'medium', desc: 'Unlimited earning potential claim' },
+    { pattern: /\b(residual|passive)\s*income\b/i, weight: 0.50, tier: 'medium', desc: 'Passive income promise' },
+    { pattern: /\b(ground\s*floor|get\s*in\s*early)\s*(opportunity)?/i, weight: 0.60, tier: 'medium', desc: 'Ground floor opportunity' },
+    { pattern: /\b(team\s*building|build\s*your?\s*team)\b/i, weight: 0.45, tier: 'low', desc: 'Team building focus' },
+    { pattern: /\b(life\s*changing|change\s*your\s*life)\s*(opportunity|income)?/i, weight: 0.50, tier: 'medium', desc: 'Life changing opportunity' },
+  ],
+
+  // COMMISSION CATEGORY - Commission-only structures
+  commission: [
+    { pattern: /\bcommission[- ]?only\b/i, weight: 0.60, tier: 'medium', desc: 'Commission-only pay structure' },
+    { pattern: /\b100%\s*commission\b/i, weight: 0.65, tier: 'medium', desc: '100% commission structure' },
+    { pattern: /\bno\s*(base|salary|hourly)\s*(pay|rate|wage)/i, weight: 0.55, tier: 'medium', desc: 'No base salary' },
+    { pattern: /\b(straight|pure)\s*commission\b/i, weight: 0.60, tier: 'medium', desc: 'Straight commission' },
+    { pattern: /\bperformance[- ]?based\s*only\b/i, weight: 0.45, tier: 'low', desc: 'Performance-based only' },
+  ]
+};
+
+// ANTI-PATTERNS - Legitimate job signals that reduce risk
+const ANTI_PATTERNS = [
+  { pattern: /apply\s*(at|through|via)\s*[a-z]+\.(com|org|io|co|net)\b/i, reduction: 0.10, desc: 'Professional application process' },
+  { pattern: /\$[\d,]+\s*[-–]\s*\$[\d,]+/i, reduction: 0.15, desc: 'Transparent salary range' },
+  { pattern: /(401k|health\s*insurance|dental|vision|pto|paid\s*time\s*off|benefits\s*package)/i, reduction: 0.15, desc: 'Standard benefits mentioned' },
+  { pattern: /(reports?\s*to|team\s*of\s*\d+|department|manager|supervisor)/i, reduction: 0.10, desc: 'Corporate structure mentioned' },
+  { pattern: /(\d+\+?\s*years?\s*(of)?\s*experience|bachelor|master|degree\s*required)/i, reduction: 0.10, desc: 'Specific qualifications required' },
+  { pattern: /(fortune\s*500|nasdaq|nyse|publicly\s*traded)/i, reduction: 0.15, desc: 'Established company indicator' },
+];
+
+// INSTANT RED FLAGS - Patterns that set minimum risk floors
+const INSTANT_RED_FLAGS = [
+  { pattern: /\b(social\s*security|ssn)\s*(number)?\b/i, minRisk: 70, desc: 'SSN request is always a red flag' },
+  { pattern: /\bpay\s*\$?\s*\d+.*?(upfront|before|first)\b/i, minRisk: 75, desc: 'Upfront payment is always suspicious' },
+  { pattern: /\bsend\s*(money|funds|payment)\s*(via|through)\s*(western\s*union|wire)/i, minRisk: 80, desc: 'Wire transfer request' },
+  { pattern: /\b(gift\s*card|crypto|bitcoin)\s*(payment|required)\b/i, minRisk: 85, desc: 'Gift card/crypto payment request' },
+];
+
+// Helper function: Calculate category score with diminishing returns
+function calculateCategoryScoreEnhanced(matchedPatterns) {
+  if (matchedPatterns.length === 0) return 0;
+
+  // Sort by weight (strongest signals first)
+  const sorted = [...matchedPatterns].sort((a, b) => b.weight - a.weight);
+
+  // Apply diminishing returns: each additional signal contributes less
+  let accumulator = 0;
+  sorted.forEach((pattern, index) => {
+    // First pattern: 100%, second: 67%, third: 50%, fourth: 40%, etc.
+    const diminishingFactor = 1 / (1 + index * 0.5);
+    accumulator += pattern.weight * diminishingFactor;
+  });
+
+  // Convert to percentage
+  return accumulator * 100;
+}
+
+// Helper function: Apply correlation bonus for multiple categories flagged
+function applyCorrelationBonus(breakdown) {
+  // Count how many categories have scores >= 30%
+  const significantCategories = [
+    breakdown.financial,
+    breakdown.communication,
+    breakdown.unrealistic,
+    breakdown.urgency,
+    breakdown.mlm,
+    breakdown.commission,
+    breakdown.postingAge
+  ].filter(score => score >= 30).length;
+
+  // Correlation multiplier (now includes 7 categories)
+  const multipliers = { 0: 1.0, 1: 1.0, 2: 1.15, 3: 1.30, 4: 1.45, 5: 1.55, 6: 1.65, 7: 1.75 };
+  return multipliers[Math.min(significantCategories, 7)] || 1.0;
+}
+
+// Helper function: Apply anti-patterns to reduce false positives
+function applyAntiPatterns(baseRisk, combined) {
+  let reduction = 0;
+
+  for (const antiPattern of ANTI_PATTERNS) {
+    if (antiPattern.pattern.test(combined)) {
+      reduction += antiPattern.reduction;
     }
   }
-  signals.push({ category: 'temporal', value: temporalRisk, confidence: temporalConfidence });
-  breakdown.temporal = temporalRisk * 100;
 
-  // ===== COMPANY SIGNALS =====
-  let companyRisk = 0;
-  let companyConfidence = 0.7;
+  // Cap reduction at 40%
+  reduction = Math.min(0.40, reduction);
+  return Math.max(0, baseRisk - (baseRisk * reduction));
+}
 
-  // Check for staffing indicators
-  const staffingPatterns = [
-    /staffing|recruiting|talent|solutions|workforce/i,
-    /robert\s*half|randstad|adecco|manpower|kelly\s*services/i,
-    /teksystems|insight\s*global|aerotek|allegis/i,
-    /cybercoders|kforce|modis|judge|apex/i
-  ];
+// Helper function: Apply risk floor for extreme patterns
+function applyRiskFloor(calculatedRisk, combined) {
+  let minRiskFloor = 0;
 
-  const companyLower = (jobData.company || '').toLowerCase();
-  for (const pattern of staffingPatterns) {
-    if (pattern.test(companyLower)) {
-      redFlags.push('Company appears to be a staffing agency');
-      companyRisk = 0.6;
-      companyConfidence = 0.95;
-      score -= 20;
-      break;
-    }
-  }
-  signals.push({ category: 'company', value: companyRisk, confidence: companyConfidence });
-  breakdown.company = companyRisk * 100;
-
-  // ===== CONTENT SIGNALS =====
-  let contentRisk = 0;
-  let contentConfidence = 0.8;
-
-  // Check for vague descriptions
-  const vagueIndicators = [
-    'fast-paced', 'self-starter', 'team player', 'dynamic',
-    'exciting opportunity', 'competitive salary', 'rock star', 'ninja',
-    'guru', 'wear many hats', 'other duties as assigned'
-  ];
-
-  const descLower = (jobData.description || '').toLowerCase();
-  let vagueCount = 0;
-  for (const indicator of vagueIndicators) {
-    if (descLower.includes(indicator)) vagueCount++;
-  }
-
-  if (vagueCount >= 3) {
-    redFlags.push('Job description contains multiple vague/buzzword phrases');
-    contentRisk += 0.4;
-    score -= 15;
-  } else if (vagueCount >= 1) {
-    redFlags.push('Job description contains some vague language');
-    contentRisk += 0.15;
-    score -= 5;
-  }
-
-  // Check for salary transparency
-  if (!/\$[\d,]+/.test(jobData.description || '') && !/salary|pay|compensation/i.test(jobData.description || '')) {
-    redFlags.push('No salary information provided');
-    contentRisk += 0.25;
-    score -= 10;
-  }
-
-  // Check description length
-  const descLength = (jobData.description || '').length;
-  if (descLength < 200) {
-    redFlags.push('Job description is unusually short');
-    contentRisk += 0.35;
-    contentConfidence = 0.9;
-    score -= 15;
-  } else if (descLength < 500) {
-    contentRisk += 0.1;
-  }
-
-  // Check for remote work clarity issues
-  if (/remote/i.test(jobData.description || '') && /hybrid|on-?site|in-?office|commute/i.test(jobData.description || '')) {
-    redFlags.push('Conflicting remote/in-office requirements');
-    contentRisk += 0.2;
-    score -= 10;
-  }
-
-  contentRisk = Math.min(1, contentRisk);
-  signals.push({ category: 'content', value: contentRisk, confidence: contentConfidence });
-  breakdown.content = contentRisk * 100;
-
-  // ===== BEHAVIORAL SIGNALS =====
-  let behavioralRisk = 0;
-  let behavioralConfidence = 0.6;
-
-  // Check applicant count if available
-  if (jobData.applicantCount !== undefined && jobData.applicantCount !== null) {
-    behavioralConfidence = 0.85;
-    if (jobData.applicantCount > 500) {
-      behavioralRisk = 0.5;
-      redFlags.push(`High applicant volume (${jobData.applicantCount}+)`);
-      score -= 10;
-    } else if (jobData.applicantCount > 200) {
-      behavioralRisk = 0.3;
+  for (const flag of INSTANT_RED_FLAGS) {
+    if (flag.pattern.test(combined)) {
+      minRiskFloor = Math.max(minRiskFloor, flag.minRisk);
     }
   }
 
-  // Check for Easy Apply
-  if (jobData.isEasyApply === false) {
-    behavioralRisk += 0.15;
-  }
+  return Math.max(calculatedRisk, minRiskFloor);
+}
 
-  behavioralRisk = Math.min(1, behavioralRisk);
-  signals.push({ category: 'behavioral', value: behavioralRisk, confidence: behavioralConfidence });
-  breakdown.behavioral = behavioralRisk * 100;
+// Helper function: Calculate enhanced confidence based on pattern tier quality
+// FIX 9: Adjusted formula to not always return 56% for legitimate jobs
+function calculateEnhancedConfidence(jobData, matchedPatterns) {
+  const tierWeights = { high: 0.25, medium: 0.15, low: 0.05 };
 
-  // Calculate overall confidence as weighted average of signal confidences
-  const totalConfidence = signals.reduce((sum, s) => sum + s.confidence, 0);
-  const avgConfidence = signals.length > 0 ? totalConfidence / signals.length : 0.5;
+  // FIX: Raised base from 0.40 to 0.60 - if we have good data but no patterns,
+  // that's actually HIGH confidence the job is legitimate
+  let signalQuality = 0.60;
 
-  // Adjust confidence based on how much data we have
-  const dataCompleteness = [
-    jobData.description ? 0.3 : 0,
-    jobData.company ? 0.2 : 0,
-    jobData.postedDate ? 0.2 : 0,
-    jobData.title ? 0.15 : 0,
-    jobData.location ? 0.15 : 0
+  // Pattern matches ADD to confidence (we're confident in our detection)
+  matchedPatterns.forEach(p => {
+    signalQuality += tierWeights[p.tier] || 0.10;
+  });
+  signalQuality = Math.min(0.95, signalQuality);
+
+  // Data completeness - weight description more heavily, reduce postedDate weight
+  const dataComplete = [
+    // Bonus for substantial description (>100 chars)
+    jobData.description && jobData.description.length > 100 ? 0.35 : (jobData.description ? 0.20 : 0),
+    jobData.company ? 0.20 : 0,
+    jobData.title ? 0.20 : 0,
+    jobData.location ? 0.15 : 0,
+    jobData.postedDate ? 0.10 : 0  // Reduced from 0.15 since often missing
   ].reduce((a, b) => a + b, 0);
 
-  const finalConfidence = Math.round((avgConfidence * 0.7 + dataCompleteness * 0.3) * 100);
+  // Bonus for substantial description (>500 chars = detailed job posting)
+  const descriptionBonus = jobData.description && jobData.description.length > 500 ? 0.10 : 0;
 
-  // Apply ceiling scores (maximum legitimacy) for obvious ghost indicators
-  // Remember: this is a legitimacy score where 100 = legitimate, 0 = ghost
-  const daysPosted = parsePostingAge(jobData.postedDate);
+  // Adjusted formula: 55/45 split instead of 65/35, plus description bonus
+  return Math.round(Math.min(95, (signalQuality * 0.55 + dataComplete * 0.45 + descriptionBonus) * 100));
+}
 
-  if (daysPosted !== null) {
-    if (daysPosted >= 90) {
-      // 3+ months old = maximum 35 legitimacy (high ghost risk)
-      score = Math.min(score, 35);
-      if (!redFlags.some(f => f.includes('posted'))) {
-        redFlags.push(`Job posted ${daysPosted} days ago - very stale posting`);
+// Helper function: Calculate posting age risk score
+function calculatePostingAgeRisk(postedDate) {
+  if (!postedDate) return { risk: 0, daysPosted: null, desc: null };
+
+  // Parse the posted date to get days
+  const daysPosted = parsePostingAge(postedDate);
+  if (daysPosted === null) return { risk: 0, daysPosted: null, desc: null };
+
+  // Risk scoring based on posting age
+  // Older postings = higher spam risk (indicates ghost job or stale posting)
+  let risk = 0;
+  let desc = null;
+
+  if (daysPosted <= 3) {
+    risk = 0;
+    desc = null; // Very fresh, no risk
+  } else if (daysPosted <= 7) {
+    risk = 5;
+    desc = null; // Fresh, negligible risk
+  } else if (daysPosted <= 14) {
+    risk = 15;
+    desc = `Posted ${daysPosted} days ago - slightly aged`;
+  } else if (daysPosted <= 21) {
+    risk = 30;
+    desc = `Posted ${daysPosted} days ago - moderately aged`;
+  } else if (daysPosted <= 30) {
+    risk = 45;
+    desc = `Posted ${daysPosted} days ago - aging posting`;
+  } else if (daysPosted <= 45) {
+    risk = 60;
+    desc = `Posted ${daysPosted} days ago - stale posting`;
+  } else if (daysPosted <= 60) {
+    risk = 75;
+    desc = `Posted ${daysPosted} days ago - very stale`;
+  } else if (daysPosted <= 90) {
+    risk = 85;
+    desc = `Posted ${daysPosted} days ago - likely ghost job`;
+  } else {
+    risk = 95;
+    desc = `Posted ${daysPosted}+ days ago - probable ghost/spam job`;
+  }
+
+  return { risk, daysPosted, desc };
+}
+
+// Main scam/spam analysis function
+function performScamSpamAnalysis(jobData) {
+  console.log('[Scanner Debug] ===== STARTING SCAM/SPAM ANALYSIS =====');
+  console.log('[Scanner Debug] Job data received:', {
+    title: jobData.title,
+    company: jobData.company,
+    descriptionLength: jobData.description?.length || 0,
+    descriptionPreview: (jobData.description || '').substring(0, 200),
+    postedDate: jobData.postedDate,
+    platform: jobData.platform
+  });
+
+  // CRITICAL FIX: Check if description is actually populated
+  if (!jobData.description || jobData.description.length < 50) {
+    console.warn('[Scanner Debug] ⚠️ WARNING: Job description is empty or too short!');
+    console.warn('[Scanner Debug] Description value:', jobData.description);
+    console.warn('[Scanner Debug] Description length:', jobData.description?.length || 0);
+    console.warn('[Scanner Debug] ⚠️ This will cause all scam/spam content risk scores to be 0%');
+    console.warn('[Scanner Debug] However, posting age detection will still work if postedDate is present');
+  } else {
+    console.log('[Scanner Debug] ✓ Description looks good, length:', jobData.description.length);
+  }
+
+  const matchedPatterns = [];
+  const breakdown = {
+    financial: 0,
+    communication: 0,
+    unrealistic: 0,
+    urgency: 0,
+    mlm: 0,
+    commission: 0,
+    postingAge: 0  // NEW: Job posting age risk
+  };
+
+  // Combine title and description for pattern matching
+  const combined = `${jobData.title || ''} ${jobData.description || ''}`.toLowerCase();
+  console.log('[Scanner Debug] Combined text length:', combined.length);
+  console.log('[Scanner Debug] Combined text preview (first 500 chars):', combined.substring(0, 500));
+
+  // ===== STEP 1: Match all scam patterns =====
+  for (const [category, patterns] of Object.entries(SCAM_PATTERNS)) {
+    const categoryMatches = [];
+    for (const patternDef of patterns) {
+      if (patternDef.pattern.test(combined)) {
+        categoryMatches.push(patternDef);
+        matchedPatterns.push({ ...patternDef, category });
       }
-    } else if (daysPosted >= 60) {
-      // 2+ months old = maximum 50 legitimacy
-      score = Math.min(score, 50);
-      if (!redFlags.some(f => f.includes('posted'))) {
-        redFlags.push(`Job posted ${daysPosted} days ago - stale posting`);
+    }
+    breakdown[category] = calculateCategoryScoreEnhanced(categoryMatches);
+  }
+
+  // ===== STEP 2: Match all spam patterns =====
+  for (const [category, patterns] of Object.entries(SPAM_PATTERNS)) {
+    const categoryMatches = [];
+    for (const patternDef of patterns) {
+      if (patternDef.pattern.test(combined)) {
+        categoryMatches.push(patternDef);
+        matchedPatterns.push({ ...patternDef, category });
       }
-    } else if (daysPosted >= 45) {
-      // 6+ weeks old = maximum 65 legitimacy
-      score = Math.min(score, 65);
     }
+    breakdown[category] = calculateCategoryScoreEnhanced(categoryMatches);
   }
 
-  // High applicant count with old posting
-  if (jobData.applicantCount && jobData.applicantCount >= 500) {
-    score = Math.min(score, 55);
-    if (!redFlags.some(f => f.includes('applicant'))) {
-      redFlags.push(`High applicant volume (${jobData.applicantCount}+)`);
-    }
-    if (daysPosted && daysPosted >= 30) {
-      score = Math.min(score, 45);
-    }
+  // ===== STEP 2.5: Calculate posting age risk (SPAM indicator) =====
+  console.log('[Scanner Debug] POSTING AGE INPUT:', jobData.postedDate);
+  const postingAgeResult = calculatePostingAgeRisk(jobData.postedDate);
+  console.log('[Scanner Debug] POSTING AGE RESULT:', postingAgeResult);
+  breakdown.postingAge = postingAgeResult.risk;
+  if (postingAgeResult.desc) {
+    matchedPatterns.push({
+      category: 'postingAge',
+      weight: postingAgeResult.risk / 100,
+      tier: postingAgeResult.risk >= 60 ? 'high' : postingAgeResult.risk >= 30 ? 'medium' : 'low',
+      desc: postingAgeResult.desc
+    });
   }
 
-  // Reposted indicator
-  const isReposted = /reposted/i.test(jobData.description || '') || /reposted/i.test(jobData.title || '');
-  if (isReposted) {
-    score = Math.min(score, 50);
-    if (!redFlags.some(f => f.includes('reposted'))) {
-      redFlags.push('Job has been reposted (possibly unfilled for long time)');
-    }
-  }
+  // ===== STEP 3: Calculate Scam and Spam scores =====
+  // These are 0-100 percentages, NOT decimals
+  const scamScore = (
+    Math.min(100, breakdown.financial) * 0.35 +
+    Math.min(100, breakdown.communication) * 0.30 +
+    Math.min(100, breakdown.unrealistic) * 0.20 +
+    Math.min(100, breakdown.urgency) * 0.15
+  );
 
-  // Clamp score
-  score = Math.max(0, Math.min(100, score));
+  // Spam score now includes posting age (weighted at 25%)
+  const spamScore = (
+    Math.min(100, breakdown.mlm) * 0.45 +
+    Math.min(100, breakdown.commission) * 0.30 +
+    Math.min(100, breakdown.postingAge) * 0.25
+  );
+
+  console.log('[Scanner Debug] Calculated scores:', {
+    scamScore,
+    spamScore,
+    breakdown,
+    matchedPatterns: matchedPatterns.map(p => p.desc)
+  });
+
+  // ===== STEP 4: Calculate overall risk with correlation bonus =====
+  const maxRisk = Math.max(scamScore, spamScore);
+  const avgRisk = (scamScore + spamScore) / 2;
+  let overallRisk = maxRisk * 0.75 + avgRisk * 0.25;
+
+  // Apply correlation multiplier
+  const correlationMultiplier = applyCorrelationBonus(breakdown);
+  overallRisk = Math.min(100, overallRisk * correlationMultiplier);
+
+  // ===== STEP 5: Apply anti-patterns (reduce false positives) =====
+  overallRisk = applyAntiPatterns(overallRisk, combined);
+
+  // ===== STEP 6: Apply risk floor for extreme patterns =====
+  overallRisk = applyRiskFloor(overallRisk, combined);
+
+  // ===== STEP 7: Calculate legitimacy and confidence =====
+  const legitimacyScore = Math.max(0, Math.min(100, Math.round(100 - overallRisk)));
+  const confidence = calculateEnhancedConfidence(jobData, matchedPatterns);
+
+  // Determine primary category
+  let primaryCategory = 'safe';
+  if (scamScore >= 60) primaryCategory = 'scam';
+  else if (spamScore >= 55) primaryCategory = 'spam';
+  else if (scamScore >= 35 && spamScore >= 30) primaryCategory = 'mixed';
+  else if (scamScore >= 35) primaryCategory = 'suspicious';
 
   return {
-    legitimacyScore: score,
-    redFlags: redFlags.length > 0 ? redFlags : ['No significant red flags detected'],
-    confidence: finalConfidence,
-    breakdown: breakdown,
+    legitimacyScore,
+    confidence,
+    scamScore: Math.round(scamScore),
+    spamScore: Math.round(spamScore),
+    primaryCategory,
+    breakdown: {
+      financial: Math.min(100, Math.round(breakdown.financial)),
+      communication: Math.min(100, Math.round(breakdown.communication)),
+      unrealistic: Math.min(100, Math.round(breakdown.unrealistic)),
+      urgency: Math.min(100, Math.round(breakdown.urgency)),
+      mlm: Math.min(100, Math.round(breakdown.mlm)),
+      commission: Math.min(100, Math.round(breakdown.commission)),
+      postingAge: Math.min(100, Math.round(breakdown.postingAge))
+    },
+    redFlags: matchedPatterns.map(p => p.desc),
     analyzedAt: Date.now()
   };
 }
 
+// Legacy function name for backward compatibility (calls new implementation)
+function performLocalGhostAnalysis(jobData) {
+  return performScamSpamAnalysis(jobData);
+}
+
 // Helper function to parse posting age from date string
 function parsePostingAge(dateString) {
-  if (!dateString) return null;
-  const normalized = dateString.toLowerCase().trim();
+  if (!dateString) {
+    console.log('[Scanner Debug] parsePostingAge: No date string provided');
+    return null;
+  }
 
-  if (/just now|moments? ago/i.test(normalized)) return 0;
+  const normalized = dateString.toLowerCase().trim();
+  console.log('[Scanner Debug] parsePostingAge: Input:', dateString, '-> Normalized:', normalized);
+
+  // Handle "just posted", "today", "just now", etc.
+  if (/just\s*(?:posted|now)|moments?\s*ago|posted\s*today|\btoday\b/i.test(normalized)) {
+    console.log('[Scanner Debug] parsePostingAge: Matched "just posted/today/just now" -> 0 days');
+    return 0;
+  }
+
+  // Handle "yesterday" or "posted yesterday"
+  if (/(?:posted\s+)?yesterday/i.test(normalized)) {
+    console.log('[Scanner Debug] parsePostingAge: Matched "yesterday" -> 1 day');
+    return 1;
+  }
 
   let match;
-  if ((match = normalized.match(/(\d+)\s*minutes?\s*ago/i))) return 0;
-  if ((match = normalized.match(/(\d+)\s*hours?\s*ago/i))) return 0;
-  if ((match = normalized.match(/(\d+)\s*days?\s*ago/i))) return parseInt(match[1]);
-  if ((match = normalized.match(/(\d+)\s*weeks?\s*ago/i))) return parseInt(match[1]) * 7;
-  if ((match = normalized.match(/(\d+)\s*months?\s*ago/i))) return parseInt(match[1]) * 30;
 
+  // CRITICAL FIX: Match Indeed's "EmployerActive X days ago" or "Active X days ago" format
+  // This is the PRIMARY format used by Indeed on job listings
+  if ((match = normalized.match(/(?:employer\s*)?active\s*(\d+)\s*days?\s*ago/i))) {
+    const days = parseInt(match[1]);
+    console.log('[Scanner Debug] parsePostingAge: Matched "Active/EmployerActive X days ago" ->', match[1], '-> Days:', days);
+    return days;
+  }
+
+  // Match "X minutes ago" or "Posted X minutes ago"
+  if ((match = normalized.match(/(?:posted\s+)?(\d+)\s*(?:minutes?|min|m)\s*ago/i))) {
+    console.log('[Scanner Debug] parsePostingAge: Matched minutes ->', match[1], '-> 0 days');
+    return 0;
+  }
+
+  // Match "X hours ago" or "Posted X hours ago"
+  if ((match = normalized.match(/(?:posted\s+)?(\d+)\s*(?:hours?|hr|h)\s*ago/i))) {
+    console.log('[Scanner Debug] parsePostingAge: Matched hours ->', match[1], '-> 0 days');
+    return 0;
+  }
+
+  // Match "X days ago" or "Posted X days ago"
+  if ((match = normalized.match(/(?:posted\s+)?(\d+)\s*(?:days?|d)\s*ago/i))) {
+    const days = parseInt(match[1]);
+    console.log('[Scanner Debug] parsePostingAge: Matched days ->', match[1], '-> Days:', days);
+    return days;
+  }
+
+  // Match "X weeks ago" or "Posted X weeks ago"
+  if ((match = normalized.match(/(?:posted\s+)?(\d+)\s*(?:weeks?|wk|w)\s*ago/i))) {
+    const days = parseInt(match[1]) * 7;
+    console.log('[Scanner Debug] parsePostingAge: Matched weeks ->', match[1], '-> Days:', days);
+    return days;
+  }
+
+  // Match "X months ago" or "Posted X months ago"
+  if ((match = normalized.match(/(?:posted\s+)?(\d+)\s*(?:months?|mo)\s*ago/i))) {
+    const days = parseInt(match[1]) * 30;
+    console.log('[Scanner Debug] parsePostingAge: Matched months ->', match[1], '-> Days:', days);
+    return days;
+  }
+
+  // Match "30+ days ago" or "Posted 30+ days ago" (jobs older than 30 days)
+  if ((match = normalized.match(/(?:posted\s+)?(\d+)\+\s*(?:days?|d)\s*ago/i))) {
+    const days = parseInt(match[1]);
+    console.log('[Scanner Debug] parsePostingAge: Matched "30+ days ago" ->', match[1], '-> Days:', days);
+    return days;
+  }
+
+  console.log('[Scanner Debug] parsePostingAge: No pattern matched, returning null');
+  console.warn('[Scanner Debug] ⚠️ Unrecognized date format:', dateString);
   return null;
 }
 
@@ -2348,23 +3323,43 @@ function displayScanResults(result) {
   scoreValue.textContent = `${score}/100`;
   scoreFill.style.width = `${score}%`;
 
-  // Determine status
+  // Determine status based on primary category and score
   let status = 'legitimate';
-  let statusText = 'Legitimate';
-  if (score < 40) {
+  let statusText = 'Appears Legitimate';
+  const primaryCategory = result.primaryCategory || 'safe';
+
+  if (score < 30) {
     status = 'danger';
-    statusText = 'Scam/Ghost Job';
+    statusText = primaryCategory === 'spam' ? 'Likely Spam' : 'Likely Scam';
+  } else if (score < 50) {
+    status = 'danger';
+    statusText = primaryCategory === 'spam' ? 'Suspicious Spam' : 'Highly Suspicious';
   } else if (score < 70) {
     status = 'warning';
     statusText = 'Suspicious';
+  } else if (score < 85) {
+    status = 'caution';
+    statusText = 'Some Concerns';
   }
 
   resultIcon.className = `result-icon ${status}`;
   resultBadge.className = `result-badge ${status}`;
   resultBadge.textContent = statusText;
 
+  // Update score bar color based on risk level
+  if (scoreFill) {
+    scoreFill.className = 'score-fill';
+    if (score < 40) {
+      scoreFill.classList.add('danger');
+    } else if (score < 70) {
+      scoreFill.classList.add('warning');
+    } else {
+      scoreFill.classList.add('safe');
+    }
+  }
+
   // Update result title
-  document.getElementById('resultTitle').textContent = currentJobData.title || 'Analysis Complete';
+  document.getElementById('resultTitle').textContent = currentJobData?.title || 'Analysis Complete';
 
   // Update confidence score
   const confidenceEl = document.getElementById('confidenceValue');
@@ -2373,27 +3368,80 @@ function displayScanResults(result) {
     confidenceEl.textContent = `${confidence}%`;
   }
 
-  // Update breakdown percentages
+  // Show analysis info (description length analyzed)
+  const analysisInfoEl = document.getElementById('analysisInfo');
+  if (analysisInfoEl) {
+    const descLength = currentJobData?.description?.length || 0;
+    if (descLength > 0) {
+      analysisInfoEl.textContent = `Analyzed ${descLength.toLocaleString()} characters`;
+      analysisInfoEl.classList.remove('hidden');
+    } else {
+      analysisInfoEl.textContent = 'No job description found to analyze';
+      analysisInfoEl.classList.remove('hidden');
+      analysisInfoEl.classList.add('warning');
+    }
+  }
+
+  // Helper function to get risk class based on value
+  const getRiskClass = (value) => {
+    if (value >= 60) return 'danger';
+    if (value >= 30) return 'warning';
+    if (value >= 10) return 'caution';
+    return 'safe';
+  };
+
+  // Update overall Scam and Spam risk scores with colors
+  const scamRiskEl = document.getElementById('scamRiskValue');
+  const spamRiskEl = document.getElementById('spamRiskValue');
+  if (scamRiskEl) {
+    const scamScore = result.scamScore || 0;
+    scamRiskEl.textContent = `${scamScore}%`;
+    scamRiskEl.className = `score-value ${getRiskClass(scamScore)}`;
+  }
+  if (spamRiskEl) {
+    const spamScore = result.spamScore || 0;
+    spamRiskEl.textContent = `${spamScore}%`;
+    spamRiskEl.className = `score-value ${getRiskClass(spamScore)}`;
+  }
+
+  // Helper function to capitalize first letter
+  const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
+
+  // Update breakdown percentages for NEW scam/spam categories
   if (result.breakdown) {
-    const breakdownCategories = ['temporal', 'content', 'company', 'behavioral'];
-    breakdownCategories.forEach(cat => {
-      const valueEl = document.getElementById(`breakdown${cat.charAt(0).toUpperCase() + cat.slice(1)}Value`);
-      const barEl = document.getElementById(`breakdown${cat.charAt(0).toUpperCase() + cat.slice(1)}Bar`);
+    const scamSpamCategories = ['financial', 'communication', 'unrealistic', 'urgency', 'mlm', 'commission', 'postingAge'];
+    scamSpamCategories.forEach(cat => {
+      const valueEl = document.getElementById(`breakdown${capitalize(cat)}Value`);
+      const barEl = document.getElementById(`breakdown${capitalize(cat)}Bar`);
       if (valueEl && barEl) {
         const value = Math.round(result.breakdown[cat] || 0);
-        valueEl.textContent = `${value}%`;
-        barEl.style.width = `${value}%`;
+        const displayValue = Math.min(100, value); // Cap display at 100%
+        const riskClass = getRiskClass(displayValue);
 
-        // Update bar color based on risk level
-        if (value > 50) {
-          barEl.className = 'breakdown-bar-fill danger';
-        } else if (value > 25) {
-          barEl.className = 'breakdown-bar-fill warning';
-        } else {
-          barEl.className = 'breakdown-bar-fill';
-        }
+        valueEl.textContent = `${displayValue}%`;
+        valueEl.className = `breakdown-value ${riskClass}`;
+
+        barEl.style.width = `${displayValue}%`;
+        barEl.className = `breakdown-bar-fill ${riskClass}`;
       }
     });
+
+    // Also update old category elements if they exist (for backwards compatibility)
+    const oldCategories = ['temporal', 'content', 'company', 'behavioral'];
+    oldCategories.forEach(cat => {
+      const valueEl = document.getElementById(`breakdown${capitalize(cat)}Value`);
+      const barEl = document.getElementById(`breakdown${capitalize(cat)}Bar`);
+      if (valueEl && barEl) {
+        // Map old categories to new ones or show 0
+        let value = 0;
+        if (cat === 'content') value = result.breakdown.unrealistic || 0;
+        else if (cat === 'company') value = result.breakdown.communication || 0;
+        valueEl.textContent = `${Math.round(value)}%`;
+        barEl.style.width = `${Math.round(value)}%`;
+        barEl.className = `breakdown-bar-fill ${getRiskClass(value)}`;
+      }
+    });
+
   }
 
   // Display flags
@@ -2413,7 +3461,7 @@ function displayScanResults(result) {
       flagsList.appendChild(flagItem);
     });
   } else {
-    flagsList.innerHTML = '<div class="flag-item"><span>No red flags detected!</span></div>';
+    flagsList.innerHTML = '<div class="flag-item success"><span>No red flags detected - job appears legitimate!</span></div>';
   }
 
   // Show notification toast if enabled
@@ -2857,6 +3905,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.site === 'linkedin') {
       updatePageIndicator(message.page, message.hiddenCount);
     }
+  }
+
+  // Handle LinkedIn feature auto-disable notifications
+  if (message.type === 'FEATURE_AUTO_DISABLED') {
+    console.warn('[Popup] LinkedIn feature auto-disabled:', message.feature, message.reason);
+    showToast({
+      type: 'warning',
+      title: 'LinkedIn Feature Disabled',
+      message: `${message.feature}: ${message.reason}`,
+      duration: 10000 // 10 seconds
+    });
   }
 });
 

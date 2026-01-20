@@ -49,7 +49,7 @@
   "content_scripts": [
     {
       "matches": ["https://*.linkedin.com/*"],
-      "js": ["src/content-linkedin-v3.js", "src/ghost-detection-bundle.js"],
+      "js": ["src/linkedin-feature-flags.js", "src/linkedin-job-cache.js", "src/linkedin-badge-manager.js", "src/content-linkedin-v3.js", "src/ghost-detection-bundle.js"],
       "css": ["styles/content.css"],
       "run_at": "document_idle"
     },
@@ -70,6 +70,10 @@
     {
       "resources": ["icons/*", "styles/*"],
       "matches": ["<all_urls>"]
+    },
+    {
+      "resources": ["src/linkedin-api-interceptor.js"],
+      "matches": ["https://*.linkedin.com/*"]
     }
   ],
   "content_security_policy": {
