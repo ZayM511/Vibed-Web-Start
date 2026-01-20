@@ -325,4 +325,55 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_userId", ["userId"]),
+
+  // Chrome Extension Error Logs
+  extensionErrors: defineTable({
+    // Error details
+    message: v.string(),
+    stack: v.optional(v.string()),
+    errorType: v.string(), // "Error", "TypeError", "ReferenceError", etc.
+
+    // Context
+    platform: v.union(v.literal("linkedin"), v.literal("indeed"), v.literal("google")),
+    url: v.string(),
+    userAgent: v.optional(v.string()),
+
+    // User context (if available)
+    userId: v.optional(v.string()),
+
+    // Job context (what the user was viewing)
+    jobContext: v.optional(v.object({
+      jobTitle: v.optional(v.string()),
+      company: v.optional(v.string()),
+      jobId: v.optional(v.string()),
+    })),
+
+    // DOM state snapshot
+    domSnapshot: v.optional(v.object({
+      activeElement: v.optional(v.string()),
+      relevantHTML: v.optional(v.string()),
+      detailPanelHTML: v.optional(v.string()),
+    })),
+
+    // Console logs leading to error
+    consoleLogs: v.optional(v.array(v.object({
+      level: v.string(), // "log", "warn", "error", "info"
+      message: v.string(),
+      timestamp: v.number(),
+    }))),
+
+    // Extension version
+    extensionVersion: v.string(),
+
+    // Metadata
+    timestamp: v.number(),
+    resolved: v.boolean(),
+    resolvedAt: v.optional(v.number()),
+    resolvedBy: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  })
+    .index("by_timestamp", ["timestamp"])
+    .index("by_platform", ["platform", "timestamp"])
+    .index("by_resolved", ["resolved", "timestamp"])
+    .index("by_user", ["userId", "timestamp"]),
 });

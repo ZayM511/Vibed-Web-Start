@@ -15,6 +15,7 @@ import type * as communityReviews from "../communityReviews.js";
 import type * as dataCollection from "../dataCollection.js";
 import type * as documents from "../documents.js";
 import type * as extensionApi from "../extensionApi.js";
+import type * as extensionErrors from "../extensionErrors.js";
 import type * as featureCache from "../featureCache.js";
 import type * as featureExtraction from "../featureExtraction.js";
 import type * as feedback from "../feedback.js";
@@ -43,14 +44,6 @@ import type {
   FunctionReference,
 } from "convex/server";
 
-/**
- * A utility for referencing Convex functions in your app's API.
- *
- * Usage:
- * ```js
- * const myFunctionReference = api.myModule.myFunction;
- * ```
- */
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   analytics: typeof analytics;
@@ -59,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   dataCollection: typeof dataCollection;
   documents: typeof documents;
   extensionApi: typeof extensionApi;
+  extensionErrors: typeof extensionErrors;
   featureCache: typeof featureCache;
   featureExtraction: typeof featureExtraction;
   feedback: typeof feedback;
@@ -81,14 +75,30 @@ declare const fullApi: ApiFromModules<{
   trainingData: typeof trainingData;
   users: typeof users;
 }>;
-declare const fullApiWithMounts: typeof fullApi;
 
+/**
+ * A utility for referencing Convex functions in your app's public API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = api.myModule.myFunction;
+ * ```
+ */
 export declare const api: FilterApi<
-  typeof fullApiWithMounts,
+  typeof fullApi,
   FunctionReference<any, "public">
 >;
+
+/**
+ * A utility for referencing Convex functions in your app's internal API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = internal.myModule.myFunction;
+ * ```
+ */
 export declare const internal: FilterApi<
-  typeof fullApiWithMounts,
+  typeof fullApi,
   FunctionReference<any, "internal">
 >;
 

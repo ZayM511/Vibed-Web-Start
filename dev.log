@@ -1,0 +1,73 @@
+
+> my-app@0.1.0 dev
+> npm-run-all --parallel dev:frontend dev:backend
+
+
+> my-app@0.1.0 dev:frontend
+> cross-env NODE_OPTIONS=--max-http-header-size=32768 next dev
+
+
+> my-app@0.1.0 dev:backend
+> convex dev
+
+ ⚠ Port 3000 is in use by process 410912, using available port 3004 instead.
+   ▲ Next.js 15.5.9
+   - Local:        http://localhost:3004
+   - Network:      http://192.168.12.173:3004
+   - Environments: .env.local
+
+ ✓ Starting...
+- Preparing Convex functions...
+
+[36mA patch update is available for Convex[39m [2m(1.31.2 → 1.31.3)[22m
+[2mChangelog:[22m [4mhttps://github.com/get-convex/convex-js/blob/main/CHANGELOG.md#changelog[24m
+ ✓ Ready in 4.7s
+✔ 21:43:31 Convex functions ready! (18.54s)
+1/11/2026, 12:35:21 AM [CONVEX Q(extensionErrors:getErrors)] ArgumentValidationError: Value does not match validator.
+Path: .platform
+Value: null
+Validator: v.union(v.literal("linkedin"), v.literal("indeed"), v.literal("google"))
+
+
+1/11/2026, 12:40:16 AM [CONVEX Q(extensionErrors:getErrors)] ArgumentValidationError: Value does not match validator.
+Path: .platform
+Value: null
+Validator: v.union(v.literal("linkedin"), v.literal("indeed"), v.literal("google"))
+
+
+1/11/2026, 12:40:22 AM [CONVEX Q(extensionErrors:getErrors)] ArgumentValidationError: Value does not match validator.
+Path: .platform
+Value: null
+Validator: v.union(v.literal("linkedin"), v.literal("indeed"), v.literal("google"))
+
+
+1/11/2026, 12:40:23 AM [CONVEX Q(extensionErrors:getGroupedErrors)] ArgumentValidationError: Value does not match validator.
+Path: .platform
+Value: null
+Validator: v.union(v.literal("linkedin"), v.literal("indeed"), v.literal("google"))
+
+
+1/11/2026, 12:41:15 AM [CONVEX Q(extensionErrors:getErrors)] ArgumentValidationError: Value does not match validator.
+Path: .platform
+Value: null
+Validator: v.union(v.literal("linkedin"), v.literal("indeed"), v.literal("google"))
+
+
+1/11/2026, 12:42:15 AM [CONVEX Q(extensionErrors:getErrors)] ArgumentValidationError: Value does not match validator.
+Path: .platform
+Value: null
+Validator: v.union(v.literal("linkedin"), v.literal("indeed"), v.literal("google"))
+
+
+1/11/2026, 12:43:15 AM [CONVEX Q(extensionErrors:getErrors)] ArgumentValidationError: Value does not match validator.
+Path: .platform
+Value: null
+Validator: v.union(v.literal("linkedin"), v.literal("indeed"), v.literal("google"))
+
+
+1/11/2026, 12:44:15 AM [CONVEX Q(extensionErrors:getErrors)] ArgumentValidationError: Value does not match validator.
+Path: .platform
+Value: null
+Validator: v.union(v.literal("linkedin"), v.literal("indeed"), v.literal("google"))
+
+

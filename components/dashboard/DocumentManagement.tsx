@@ -41,6 +41,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 
 type DocumentType = "resume" | "cover_letter" | "portfolio";
 
@@ -144,6 +145,8 @@ export function DocumentManagement() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [previewDoc, setPreviewDoc] = useState<any | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<Id<"documents"> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const documentsByType = useQuery(api.documents.getDocumentsByType, { fileType: activeDocType });
@@ -255,14 +258,38 @@ export function DocumentManagement() {
   };
 
   const handleDelete = async (documentId: Id<"documents">) => {
-    if (confirm("Are you sure you want to delete this document?")) {
+    const STORAGE_KEY = "document-delete-no-confirm";
+    const skipConfirmation = localStorage.getItem(STORAGE_KEY) === "true";
+
+    if (skipConfirmation) {
+      // User has chosen to skip confirmation, delete immediately
       try {
         await deleteDocument({ documentId });
       } catch (error) {
         console.error("Delete error:", error);
         alert("Failed to delete document. Please try again.");
       }
+    } else {
+      // Show confirmation dialog
+      setDocumentToDelete(documentId);
+      setDeleteConfirmOpen(true);
     }
+  };
+
+  const confirmDelete = async () => {
+    if (!documentToDelete) return;
+
+    try {
+      await deleteDocument({ documentId: documentToDelete });
+      setDocumentToDelete(null);
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert("Failed to delete document. Please try again.");
+    }
+  };
+
+  const cancelDelete = () => {
+    setDocumentToDelete(null);
   };
 
   const handleDownload = async (storageId: string, fileName: string) => {
@@ -609,6 +636,20 @@ export function DocumentManagement() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Delete Document"
+        description="Are you sure you want to delete this document? This action cannot be undone."
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        storageKey="document-delete-no-confirm"
+      />
     </Card>
   );
 }

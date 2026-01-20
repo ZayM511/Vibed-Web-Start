@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StaffingFirmDetector } from '../staffingFirm';
-import { createMockJob, createMockStaffingJob, KNOWN_STAFFING_FIRMS } from '@/src/test/factories';
+import { createMockJob, createMockStaffingJob } from '@/src/test/factories';
 
 // Mock hybridStorage
 vi.mock('@/storage/hybridStorage', () => ({

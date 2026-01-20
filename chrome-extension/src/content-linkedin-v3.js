@@ -187,7 +187,26 @@ function extractJobInfo() {
       }
     }
 
-    const jobInfo = { url, title, company, location, description, platform: 'linkedin' };
+    // Posted date selectors for Scanner analysis
+    const postedDateSelectors = [
+      '.jobs-unified-top-card__posted-date',
+      '.job-details-jobs-unified-top-card__posted-date',
+      '.jobs-details-top-card__posted-date',
+      '[class*="posted-date"]',
+      '.topcard__flavor--metadata'
+    ];
+
+    let postedDate = null;
+    for (const selector of postedDateSelectors) {
+      const elem = document.querySelector(selector);
+      if (elem) {
+        postedDate = elem.textContent.trim();
+        log(`Found posted date using selector: ${selector}`, postedDate);
+        break;
+      }
+    }
+
+    const jobInfo = { url, title, company, location, description, postedDate, platform: 'linkedin' };
     log('Extracted job info:', jobInfo);
     return jobInfo;
   } catch (error) {
@@ -754,6 +773,132 @@ function getJobCardText(jobCard) {
   const insight = insightElem ? insightElem.textContent.trim().toLowerCase() : '';
 
   return `${title} ${company} ${location} ${metadata} ${insight}`;
+}
+
+// ===== EARLY APPLICANT DETECTION =====
+// Pattern categories with confidence weights for early applicant detection
+const EARLY_APPLICANT_PATTERNS = {
+  // HIGH CONFIDENCE (85-100%): Explicit LinkedIn phrases
+  high: [
+    { pattern: /be among the first \d+ applicants?/i, confidence: 100, name: 'be_among_first_N' },
+    { pattern: /be one of the first \d+ applicants?/i, confidence: 100, name: 'be_one_of_first_N' },
+    { pattern: /be an early applicant/i, confidence: 95, name: 'be_early_applicant' },
+    { pattern: /early applicant/i, confidence: 90, name: 'early_applicant' },
+    { pattern: /fewer than \d+ applicants?/i, confidence: 90, name: 'fewer_than_N' },
+  ],
+  // MEDIUM CONFIDENCE (60-84%): Strong indicators
+  medium: [
+    { pattern: /only \d+ applicants?/i, confidence: 80, name: 'only_N' },
+    { pattern: /\d+ applicants? so far/i, confidence: 75, name: 'N_applicants_so_far' },
+    { pattern: /just posted/i, confidence: 70, name: 'just_posted' },
+  ]
+};
+
+/**
+ * Detect early applicant opportunity with confidence scoring
+ * @param {Element} jobCard - The job card element
+ * @returns {{ isEarly: boolean, confidence: number, matchedPatterns: string[] }}
+ */
+function detectEarlyApplicant(jobCard) {
+  const result = { isEarly: false, confidence: 0, matchedPatterns: [] };
+
+  try {
+    const text = getJobCardText(jobCard);
+    if (!text || text.length < 5) return result;
+
+    const textLower = text.toLowerCase();
+
+    // Check high confidence patterns first
+    for (const p of EARLY_APPLICANT_PATTERNS.high) {
+      if (p.pattern.test(textLower)) {
+        if (p.confidence > result.confidence) {
+          result.confidence = p.confidence;
+        }
+        result.matchedPatterns.push(p.name);
+      }
+    }
+
+    // Check medium confidence patterns
+    if (result.confidence === 0) {
+      for (const p of EARLY_APPLICANT_PATTERNS.medium) {
+        if (p.pattern.test(textLower)) {
+          if (p.confidence > result.confidence) {
+            result.confidence = p.confidence;
+          }
+          result.matchedPatterns.push(p.name);
+        }
+      }
+    }
+
+    // Conservative threshold: 70% confidence required
+    result.isEarly = result.confidence >= 70;
+
+    if (result.isEarly) {
+      log(`Early applicant detected: confidence=${result.confidence}%, patterns=[${result.matchedPatterns.join(', ')}]`);
+    }
+
+    return result;
+  } catch (error) {
+    log('Error in detectEarlyApplicant:', error);
+    return result;
+  }
+}
+
+/**
+ * Simple boolean wrapper for early applicant detection
+ */
+function isEarlyApplicant(jobCard) {
+  return detectEarlyApplicant(jobCard).isEarly;
+}
+
+/**
+ * Add early applicant badge to job card
+ */
+function addEarlyApplicantBadgeToCard(jobCard) {
+  // Don't add duplicate badges
+  if (jobCard.querySelector('.jobfiltr-early-applicant-badge')) return;
+
+  const detection = detectEarlyApplicant(jobCard);
+  if (!detection.isEarly) return;
+
+  const badge = document.createElement('div');
+  badge.className = 'jobfiltr-early-applicant-badge';
+  badge.innerHTML = `<span style="margin-right: 4px;">🚀</span>Early Applicant`;
+  badge.title = `Confidence: ${detection.confidence}% - ${detection.matchedPatterns.join(', ')}`;
+
+  // Green badge style - positioned absolute like other LinkedIn badges
+  badge.style.cssText = `
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    display: inline-flex;
+    align-items: center;
+    background: #dcfce7;
+    color: #166534;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    z-index: 10;
+  `;
+
+  // Ensure job card has relative positioning for absolute badge placement
+  if (window.getComputedStyle(jobCard).position === 'static') {
+    jobCard.style.position = 'relative';
+  }
+
+  jobCard.appendChild(badge);
+  log('Added early applicant badge to LinkedIn job card');
+}
+
+/**
+ * Remove early applicant badge from job card
+ */
+function removeEarlyApplicantBadgeFromCard(jobCard) {
+  const badge = jobCard.querySelector('.jobfiltr-early-applicant-badge');
+  if (badge) badge.remove();
 }
 
 // ===== KEYWORD MATCHING =====
@@ -2067,6 +2212,30 @@ function applyFilters(settings) {
       reasons.push('Sponsored');
     }
 
+    // Filter 2.5: Early Applicant Filter (with display mode support)
+    if (settings.filterEarlyApplicant) {
+      const displayMode = settings.earlyApplicantDisplayMode || 'hide';
+      const isEarly = isEarlyApplicant(jobCard);
+
+      if (displayMode === 'hide') {
+        // Hide mode: hide non-early applicant jobs
+        if (!isEarly) {
+          shouldHide = true;
+          reasons.push('Not an early applicant opportunity');
+        }
+      } else if (displayMode === 'flag') {
+        // Flag mode: add badge to early applicant jobs
+        if (isEarly) {
+          addEarlyApplicantBadgeToCard(jobCard);
+        } else {
+          removeEarlyApplicantBadgeFromCard(jobCard);
+        }
+      }
+    } else {
+      // Remove badge if filter is disabled
+      removeEarlyApplicantBadgeFromCard(jobCard);
+    }
+
     // Filter 3: Applicant Count
     if (settings.filterApplicants) {
       const applicantCount = getApplicantCount(jobCard);
@@ -2299,6 +2468,12 @@ function resetFilters() {
 // ===== MESSAGE LISTENER =====
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   log('Received message:', message);
+
+  // PING handler for content script verification
+  if (message.type === 'PING') {
+    sendResponse({ success: true, platform: 'linkedin', timestamp: Date.now() });
+    return true;
+  }
 
   if (message.type === 'EXTRACT_JOB_INFO') {
     const jobInfo = extractJobInfo();
@@ -3081,6 +3256,30 @@ function performFullScan() {
     if (filterSettings.hideSponsored && isSponsored(jobCard)) {
       shouldHide = true;
       reasons.push('Sponsored');
+    }
+
+    // Filter 2.5: Early Applicant Filter (with display mode support)
+    if (filterSettings.filterEarlyApplicant) {
+      const displayMode = filterSettings.earlyApplicantDisplayMode || 'hide';
+      const isEarly = isEarlyApplicant(jobCard);
+
+      if (displayMode === 'hide') {
+        // Hide mode: hide non-early applicant jobs
+        if (!isEarly) {
+          shouldHide = true;
+          reasons.push('Not an early applicant opportunity');
+        }
+      } else if (displayMode === 'flag') {
+        // Flag mode: add badge to early applicant jobs
+        if (isEarly) {
+          addEarlyApplicantBadgeToCard(jobCard);
+        } else {
+          removeEarlyApplicantBadgeFromCard(jobCard);
+        }
+      }
+    } else {
+      // Remove badge if filter is disabled
+      removeEarlyApplicantBadgeFromCard(jobCard);
     }
 
     // Filter 3: Applicant Count

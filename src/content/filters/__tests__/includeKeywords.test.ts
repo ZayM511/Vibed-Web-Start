@@ -181,13 +181,13 @@ describe('IncludeKeywordsFilter', () => {
       // Need to reinitialize with new keywords
       filter = new IncludeKeywordsFilter();
 
-      const partialJob = createMockJob({
-        title: 'Software Engineer',
-        description: 'Looking for a senior candidate',
-      });
-
       // Note: This test uses fresh filter but we'd need to call init() again
       // For now, test the exact phrase matching separately
+      // partialJob would be used in full implementation:
+      // const partialJob = createMockJob({
+      //   title: 'Software Engineer',
+      //   description: 'Looking for a senior candidate',
+      // });
     });
   });
 

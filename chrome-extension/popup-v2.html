@@ -164,7 +164,7 @@
 
       <div class="filters-container" id="filtersContainer">
         <!-- Filter: Staffing Firms -->
-        <div class="filter-item">
+        <div class="filter-item expandable">
           <div class="filter-header">
             <label class="filter-label">
               <input type="checkbox" id="filterStaffing" class="filter-checkbox">
@@ -173,10 +173,18 @@
             <span class="filter-badge">Recommended</span>
           </div>
           <p class="filter-description">Show direct company hires only</p>
+          <div class="filter-options staffing-display-row">
+            <span class="display-mode-label">Display mode</span>
+            <select id="staffingDisplayMode" class="filter-select-compact">
+              <option value="hide">Hide</option>
+              <option value="flag">Flag</option>
+              <option value="dim">Dim</option>
+            </select>
+          </div>
         </div>
 
         <!-- Filter: Sponsored Posts -->
-        <div class="filter-item">
+        <div class="filter-item expandable" id="sponsoredFilter">
           <div class="filter-header">
             <label class="filter-label">
               <input type="checkbox" id="filterSponsored" class="filter-checkbox">
@@ -184,45 +192,49 @@
             </label>
           </div>
           <p class="filter-description">Remove paid job listings</p>
-        </div>
-
-        <!-- Filter: Application Competition -->
-        <div class="filter-item expandable">
-          <div class="filter-header">
-            <label class="filter-label">
-              <input type="checkbox" id="filterApplicants" class="filter-checkbox">
-              <span class="filter-title">Application Competition</span>
-            </label>
-          </div>
-          <p class="filter-description">Filter by exact applicant count</p>
-          <div class="filter-options">
-            <select id="applicantRange" class="filter-select">
-              <option value="zero">No applicants yet (first!)</option>
-              <option value="under5">Under 5 applicants (early bird)</option>
-              <option value="under10">Under 10 applicants (best odds)</option>
-              <option value="10-50">10-50 applicants (good odds)</option>
-              <option value="50-200">50-200 applicants (moderate)</option>
-              <option value="over200">Over 200 (competitive)</option>
-              <option value="over500">Over 500 (skip it)</option>
-            </select>
+          <div class="filter-options sponsored-stats hidden" id="sponsoredStats">
+            <div class="sponsored-count">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <span id="sponsoredCountText">Checking...</span>
+            </div>
+            <p class="sponsored-hint" id="sponsoredHint"></p>
           </div>
         </div>
 
-        <!-- Display: Show Applicant Count -->
-        <div class="filter-item">
+        <!-- Filter: Early Applicant Jobs -->
+        <div class="filter-item expandable" id="earlyApplicantFilter">
           <div class="filter-header">
             <label class="filter-label">
-              <input type="checkbox" id="showApplicantCount" class="filter-checkbox">
-              <span class="filter-title">Show Applicant Count</span>
+              <input type="checkbox" id="filterEarlyApplicant" class="filter-checkbox">
+              <span class="filter-title">Early Applicant Jobs</span>
             </label>
-            <div class="filter-tooltip" title="LinkedIn only shows applicant counts in the job detail panel, not on job cards. This badge will appear when you click on a job.">
+            <div class="filter-tooltip" title="Filter or highlight jobs where you can be among the first to apply. More reliable than numeric filtering since platforms don't consistently show exact applicant counts.">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
                 <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
               </svg>
             </div>
           </div>
-          <p class="filter-description">Shows applicant count in job detail panel (selected job only)</p>
+          <p class="filter-description">Filter or highlight early applicant opportunities</p>
+          <div class="filter-options early-applicant-display-row">
+            <span class="display-mode-label">Display mode</span>
+            <select id="earlyApplicantDisplayMode" class="filter-select-compact">
+              <option value="hide">Hide others</option>
+              <option value="flag">Flag with Badge</option>
+            </select>
+          </div>
+          <div class="filter-options early-applicant-stats hidden" id="earlyApplicantStats">
+            <div class="early-applicant-count">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span id="earlyApplicantCountText">Checking...</span>
+            </div>
+            <p class="early-applicant-hint" id="earlyApplicantHint"></p>
+          </div>
         </div>
 
         <!-- Filter: Job Age Display -->
@@ -258,17 +270,6 @@
           </div>
         </div>
 
-        <!-- Filter: Entry Level Accuracy -->
-        <div class="filter-item">
-          <div class="filter-header">
-            <label class="filter-label">
-              <input type="checkbox" id="filterEntryLevel" class="filter-checkbox">
-              <span class="filter-title">Entry Level Accuracy</span>
-            </label>
-            <span class="filter-badge badge-hot">Top Complaint</span>
-          </div>
-          <p class="filter-description">True entry level (0-1 years only), flags mismatches</p>
-        </div>
 
         <!-- Filter: True Remote Accuracy -->
         <div class="filter-item expandable">
@@ -298,6 +299,15 @@
               <label class="sub-checkbox-label">
                 <input type="checkbox" id="excludeInPerson" class="sub-checkbox" checked>
                 <span>In-person</span>
+              </label>
+            </div>
+            <div class="work-type-badge-option" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+              <label class="sub-checkbox-label" style="display: flex; align-items: flex-start; gap: 8px;">
+                <input type="checkbox" id="showWorkTypeUnclear" class="sub-checkbox" checked>
+                <div>
+                  <span style="font-weight: 500;">Show "Work Type Unclear" badge</span>
+                  <p style="font-size: 11px; opacity: 0.7; margin: 4px 0 0 0;">Flag jobs that don't specify remote, hybrid, or on-site</p>
+                </div>
               </label>
             </div>
           </div>
@@ -353,22 +363,36 @@
               <span class="filter-title">Salary Range Filter</span>
             </label>
           </div>
-          <p class="filter-description">Filter by actual posted ranges, shows Glassdoor data</p>
+          <p class="filter-description">Filter jobs by salary with automatic hourly/yearly conversion</p>
           <div class="filter-options">
+            <div class="salary-period-row">
+              <label class="salary-period-label">I want to earn</label>
+              <select id="salaryPeriod" class="salary-period-select">
+                <option value="yearly">Per Year</option>
+                <option value="hourly">Per Hour</option>
+              </select>
+            </div>
             <div class="salary-inputs">
               <input type="number" id="minSalary" placeholder="Min $" class="salary-input">
               <span>to</span>
               <input type="number" id="maxSalary" placeholder="Max $" class="salary-input">
             </div>
-            <label class="filter-sub-option">
-              <input type="checkbox" id="hideNoSalary" class="filter-checkbox">
-              <span>Hide jobs without salary info</span>
-            </label>
+            <div class="salary-sub-options">
+              <label class="filter-sub-option">
+                <input type="checkbox" id="hideNoSalary" class="filter-checkbox">
+                <span>Hide jobs without salary info</span>
+              </label>
+              <label class="filter-sub-option">
+                <input type="checkbox" id="normalizePartTime" class="filter-checkbox">
+                <span>Adjust part-time rates (20 hrs/week vs 40)</span>
+              </label>
+            </div>
+            <p class="salary-conversion-hint">Hourly rates converted using 40 hrs/week × 52 weeks = 2,080 hrs/year</p>
           </div>
         </div>
 
         <!-- Filter: Actively Recruiting Badge -->
-        <div class="filter-item">
+        <div class="filter-item expandable">
           <div class="filter-header">
             <label class="filter-label">
               <input type="checkbox" id="filterActiveRecruiting" class="filter-checkbox">
@@ -376,6 +400,12 @@
             </label>
           </div>
           <p class="filter-description">Green badge for active hiring, flags old postings</p>
+          <div class="filter-options">
+            <label class="filter-sub-option">
+              <input type="checkbox" id="hideStalePostings" class="filter-checkbox">
+              <span>Hide stale postings (30+ days old)</span>
+            </label>
+          </div>
         </div>
 
         <!-- Filter: Auto-Hide Applied Jobs -->
@@ -389,8 +419,29 @@
           <p class="filter-description">Don't show jobs you already applied to</p>
         </div>
 
+        <!-- Filter: Urgently Hiring Only (Indeed) -->
+        <div class="filter-item expandable" id="urgentlyHiringFilter">
+          <div class="filter-header">
+            <label class="filter-label">
+              <input type="checkbox" id="filterUrgentlyHiring" class="filter-checkbox">
+              <span class="filter-title">Urgently Hiring Only</span>
+            </label>
+            <span class="filter-badge badge-indeed">Indeed</span>
+          </div>
+          <p class="filter-description">Show only jobs with "Urgently Hiring" badge</p>
+          <div class="filter-options urgently-hiring-stats hidden" id="urgentlyHiringStats">
+            <div class="urgently-hiring-count">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span id="urgentlyHiringCountText">Checking...</span>
+            </div>
+            <p class="urgently-hiring-hint" id="urgentlyHiringHint"></p>
+          </div>
+        </div>
+
         <!-- Filter: Visa Sponsorship -->
-        <div class="filter-item">
+        <div class="filter-item expandable" id="visaSponsorshipFilter">
           <div class="filter-header">
             <label class="filter-label">
               <input type="checkbox" id="filterVisa" class="filter-checkbox">
@@ -398,17 +449,16 @@
             </label>
           </div>
           <p class="filter-description">Critical for international candidates</p>
-        </div>
-
-        <!-- Filter: Easy Apply Only -->
-        <div class="filter-item">
-          <div class="filter-header">
-            <label class="filter-label">
-              <input type="checkbox" id="filterEasyApply" class="filter-checkbox">
-              <span class="filter-title">Easy Apply Only</span>
-            </label>
+          <div class="filter-options visa-sponsorship-stats hidden" id="visaSponsorshipStats">
+            <div class="visa-sponsorship-info">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <span id="visaSponsorshipInfoText">Visa detection active</span>
+            </div>
+            <p class="visa-sponsorship-hint" id="visaSponsorshipHint">Visa sponsorship info is typically found in full job descriptions. Jobs without explicit sponsorship mentions will be hidden when this filter is enabled.</p>
           </div>
-          <p class="filter-description">Skip external application sites</p>
         </div>
 
         <!-- Benefits Indicator -->
@@ -568,6 +618,32 @@
           <span>Save Job</span>
         </button>
 
+        <!-- Ghost Job Analysis Settings -->
+        <div class="ghost-analysis-settings" id="ghostAnalysisSettings">
+          <div class="ghost-settings-header">
+            <div class="ghost-settings-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h1v1c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-1h1c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="9" cy="10" r="1" fill="currentColor"/>
+                <circle cx="15" cy="10" r="1" fill="currentColor"/>
+              </svg>
+              <span>Ghost Job Analysis</span>
+            </div>
+            <label class="ghost-toggle">
+              <input type="checkbox" id="enableGhostAnalysis" checked>
+              <span class="ghost-toggle-slider"></span>
+            </label>
+          </div>
+          <p class="ghost-settings-description">Analyze job postings for signs of ghost jobs, scams, or spam</p>
+          <div class="ghost-settings-options" id="ghostSettingsOptions">
+            <label class="ghost-option">
+              <input type="checkbox" id="showCommunityReportedWarnings" checked>
+              <span class="ghost-option-text">Show community-reported company warnings</span>
+            </label>
+            <p class="ghost-option-hint">Displays warning badge for companies reported for spam/ghost jobs by users</p>
+          </div>
+        </div>
+
         <!-- Loading State -->
         <div class="loading-section hidden" id="loadingSection">
           <div class="loader"></div>
@@ -601,44 +677,102 @@
               <span class="confidence-label">Confidence</span>
               <span class="confidence-value" id="confidenceValue">--</span>
             </div>
+            <div class="analysis-info hidden" id="analysisInfo">
+              <!-- Shows how much text was analyzed -->
+            </div>
+          </div>
+
+          <!-- Overall Risk Scores Summary -->
+          <div class="scores-summary">
+            <div class="score-item">
+              <span class="score-label">Scam Risk</span>
+              <span class="score-value danger" id="scamRiskValue">0%</span>
+            </div>
+            <div class="score-item">
+              <span class="score-label">Spam Risk</span>
+              <span class="score-value warning" id="spamRiskValue">0%</span>
+            </div>
           </div>
 
           <div class="breakdown-section">
-            <h4>Risk Breakdown</h4>
+            <h4>Scam Risk Analysis</h4>
+
+            <!-- Financial Requests -->
             <div class="breakdown-item">
               <div class="breakdown-header">
-                <span class="breakdown-label">Temporal</span>
-                <span class="breakdown-value" id="breakdownTemporalValue">0%</span>
+                <span class="breakdown-label">Financial Requests</span>
+                <span class="breakdown-value" id="breakdownFinancialValue">0%</span>
               </div>
               <div class="breakdown-bar">
-                <div class="breakdown-bar-fill" id="breakdownTemporalBar" style="width: 0%"></div>
+                <div class="breakdown-bar-fill" id="breakdownFinancialBar" style="width: 0%"></div>
               </div>
             </div>
+
+            <!-- Communication -->
             <div class="breakdown-item">
               <div class="breakdown-header">
-                <span class="breakdown-label">Content</span>
-                <span class="breakdown-value" id="breakdownContentValue">0%</span>
+                <span class="breakdown-label">Communication</span>
+                <span class="breakdown-value" id="breakdownCommunicationValue">0%</span>
               </div>
               <div class="breakdown-bar">
-                <div class="breakdown-bar-fill" id="breakdownContentBar" style="width: 0%"></div>
+                <div class="breakdown-bar-fill" id="breakdownCommunicationBar" style="width: 0%"></div>
               </div>
             </div>
+
+            <!-- Unrealistic Promises -->
             <div class="breakdown-item">
               <div class="breakdown-header">
-                <span class="breakdown-label">Company</span>
-                <span class="breakdown-value" id="breakdownCompanyValue">0%</span>
+                <span class="breakdown-label">Unrealistic Promises</span>
+                <span class="breakdown-value" id="breakdownUnrealisticValue">0%</span>
               </div>
               <div class="breakdown-bar">
-                <div class="breakdown-bar-fill" id="breakdownCompanyBar" style="width: 0%"></div>
+                <div class="breakdown-bar-fill" id="breakdownUnrealisticBar" style="width: 0%"></div>
               </div>
             </div>
+
+            <!-- Urgency/Pressure -->
             <div class="breakdown-item">
               <div class="breakdown-header">
-                <span class="breakdown-label">Behavioral</span>
-                <span class="breakdown-value" id="breakdownBehavioralValue">0%</span>
+                <span class="breakdown-label">Urgency/Pressure</span>
+                <span class="breakdown-value" id="breakdownUrgencyValue">0%</span>
               </div>
               <div class="breakdown-bar">
-                <div class="breakdown-bar-fill" id="breakdownBehavioralBar" style="width: 0%"></div>
+                <div class="breakdown-bar-fill" id="breakdownUrgencyBar" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <h4>Spam Risk Analysis</h4>
+
+            <!-- MLM/Pyramid Indicators -->
+            <div class="breakdown-item">
+              <div class="breakdown-header">
+                <span class="breakdown-label">MLM/Pyramid Indicators</span>
+                <span class="breakdown-value" id="breakdownMlmValue">0%</span>
+              </div>
+              <div class="breakdown-bar">
+                <div class="breakdown-bar-fill" id="breakdownMlmBar" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <!-- Commission Structure -->
+            <div class="breakdown-item">
+              <div class="breakdown-header">
+                <span class="breakdown-label">Commission Structure</span>
+                <span class="breakdown-value" id="breakdownCommissionValue">0%</span>
+              </div>
+              <div class="breakdown-bar">
+                <div class="breakdown-bar-fill" id="breakdownCommissionBar" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <!-- Posting Age -->
+            <div class="breakdown-item">
+              <div class="breakdown-header">
+                <span class="breakdown-label">Posting Age</span>
+                <span class="breakdown-value" id="breakdownPostingAgeValue">0%</span>
+              </div>
+              <div class="breakdown-bar">
+                <div class="breakdown-bar-fill" id="breakdownPostingAgeBar" style="width: 0%"></div>
               </div>
             </div>
           </div>

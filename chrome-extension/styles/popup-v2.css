@@ -484,6 +484,25 @@ body.panel-mode .pin-btn#unpinBtn {
   display: flex;
 }
 
+body.panel-mode .pin-btn#keepVisibleBtn {
+  display: flex;
+}
+
+/* Keep Visible button - shows side-by-side mode status */
+.pin-btn.keep-visible-btn.active {
+  background: var(--success, #22c55e);
+  color: white;
+  border-color: var(--success, #22c55e);
+}
+
+.pin-btn.keep-visible-btn:not(.active) {
+  opacity: 0.6;
+}
+
+.pin-btn.keep-visible-btn:hover {
+  opacity: 1;
+}
+
 body.panel-mode.docked-left .pin-btn#pinLeftBtn,
 body.panel-mode.docked-right .pin-btn#pinRightBtn {
   background: var(--accent);
@@ -666,6 +685,33 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   color: var(--text-tertiary);
 }
 
+/* Site Beta Badge */
+.site-beta-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: 4px;
+  margin-left: 6px;
+  animation: betaPulse 2s ease-in-out infinite;
+}
+
+@keyframes betaPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
+}
+
 /* ============================================
    FILTERS CONTAINER
    ============================================ */
@@ -819,6 +865,42 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 .filter-select:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+/* Staffing Display Mode - Compact Row */
+.staffing-display-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-xs);
+}
+
+.display-mode-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.filter-select-compact {
+  padding: 4px 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-normal) var(--ease-out);
+  min-width: 60px;
+}
+
+.filter-select-compact:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.filter-select-compact:hover {
+  border-color: var(--accent-muted);
 }
 
 .salary-inputs {
@@ -1096,6 +1178,192 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 /* New Badge Style */
 .filter-badge.badge-new {
   background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+}
+
+/* Indeed-specific Badge Style */
+.filter-badge.badge-indeed {
+  background: linear-gradient(135deg, #2557a7 0%, #1a4480 100%);
+}
+
+/* Urgently Hiring Filter Stats */
+.urgently-hiring-stats {
+  padding: var(--spacing-sm);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.urgently-hiring-count {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.urgently-hiring-count svg {
+  color: var(--warning);
+}
+
+.urgently-hiring-count.has-urgent svg {
+  color: var(--success);
+}
+
+.urgently-hiring-count.no-urgent svg {
+  color: var(--danger);
+}
+
+.urgently-hiring-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: var(--spacing-xs);
+  line-height: 1.4;
+}
+
+.urgently-hiring-hint.warning {
+  color: var(--warning);
+}
+
+.urgently-hiring-hint.info {
+  color: var(--accent);
+}
+
+/* Visa Sponsorship Filter Stats */
+.visa-sponsorship-stats {
+  padding: var(--spacing-sm);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.visa-sponsorship-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.visa-sponsorship-info svg {
+  color: var(--warning);
+  flex-shrink: 0;
+}
+
+.visa-sponsorship-info.has-visa svg {
+  color: var(--success);
+}
+
+.visa-sponsorship-info.no-visa svg {
+  color: var(--danger);
+}
+
+.visa-sponsorship-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: var(--spacing-xs);
+  line-height: 1.4;
+}
+
+.visa-sponsorship-hint.warning {
+  color: var(--warning);
+}
+
+.visa-sponsorship-hint.info {
+  color: var(--accent);
+}
+
+/* Early Applicant Filter Stats */
+.early-applicant-stats {
+  padding: var(--spacing-sm);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.early-applicant-count {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.early-applicant-count svg {
+  color: var(--warning);
+}
+
+.early-applicant-count.has-early svg {
+  color: var(--success);
+}
+
+.early-applicant-count.no-early svg {
+  color: var(--danger);
+}
+
+.early-applicant-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: var(--spacing-xs);
+  line-height: 1.4;
+}
+
+.early-applicant-hint.warning {
+  color: var(--warning);
+}
+
+.early-applicant-hint.info {
+  color: var(--accent);
+}
+
+/* Sponsored/Promoted Filter Stats */
+.sponsored-stats {
+  padding: var(--spacing-sm);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.sponsored-count {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.sponsored-count svg {
+  color: var(--warning);
+}
+
+.sponsored-count.has-sponsored svg {
+  color: var(--danger);
+}
+
+.sponsored-count.no-sponsored svg {
+  color: var(--success);
+}
+
+.sponsored-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: var(--spacing-xs);
+  line-height: 1.4;
+}
+
+.sponsored-hint.warning {
+  color: var(--warning);
+}
+
+.sponsored-hint.info {
+  color: var(--accent);
+}
+
+.sponsored-hint.success {
+  color: var(--success);
 }
 
 /* ============================================
@@ -1900,13 +2168,13 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 
 .result-badge {
   display: inline-block;
-  padding: 3px 8px;
+  padding: 4px 10px;
   background: var(--success-bg);
   border: 1px solid var(--success-border);
   color: var(--success);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
-  border-radius: var(--radius-full);
+  border-radius: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -1958,6 +2226,208 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   background: var(--success);
   border-radius: var(--radius-full);
   transition: width 0.8s var(--ease-out);
+}
+
+/* Score Value Variants */
+.score-value.danger {
+  color: var(--danger);
+}
+
+.score-value.warning {
+  color: var(--warning);
+}
+
+.score-value.caution {
+  color: #f59e0b;
+}
+
+.score-value.safe {
+  color: var(--success);
+}
+
+/* Analysis Info - Shows how much text was analyzed */
+.analysis-info {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-align: center;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+.analysis-info.warning {
+  color: var(--warning);
+  background: var(--warning-bg);
+}
+
+/* Overall Risk Scores Summary */
+.scores-summary {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.scores-summary .score-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.scores-summary .score-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.scores-summary .score-value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* Breakdown Section */
+.breakdown-section {
+  padding: var(--spacing-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.breakdown-section h4 {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+}
+
+.breakdown-section h4:first-child {
+  margin-top: 0;
+}
+
+.breakdown-item {
+  margin-bottom: var(--spacing-sm);
+}
+
+.breakdown-item:last-child {
+  margin-bottom: 0;
+}
+
+.breakdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.breakdown-label {
+  font-size: 11px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.breakdown-value {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.breakdown-bar {
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.breakdown-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.6s var(--ease-out), background-color 0.3s ease;
+  background: var(--text-secondary);
+}
+
+/* Breakdown Bar Risk Colors */
+.breakdown-bar-fill.danger {
+  background: var(--danger);
+}
+
+.breakdown-bar-fill.warning {
+  background: var(--warning);
+}
+
+.breakdown-bar-fill.caution {
+  background: #f59e0b;
+}
+
+.breakdown-bar-fill.safe {
+  background: var(--success);
+}
+
+/* Breakdown Value Risk Colors */
+.breakdown-value.danger {
+  color: var(--danger);
+}
+
+.breakdown-value.warning {
+  color: var(--warning);
+}
+
+.breakdown-value.caution {
+  color: #f59e0b;
+}
+
+.breakdown-value.safe {
+  color: var(--success);
+}
+
+/* Clean Scan Result - shown when no red flags detected */
+.clean-scan-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg) var(--spacing-md);
+  text-align: center;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, rgba(34, 197, 94, 0.02) 100%);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  margin-bottom: var(--spacing-md);
+}
+
+.clean-scan-result .clean-icon {
+  font-size: 36px;
+  color: var(--success);
+  margin-bottom: var(--spacing-sm);
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(34, 197, 94, 0.15);
+  border-radius: 50%;
+}
+
+.clean-scan-result .clean-message {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--success);
+  margin-bottom: var(--spacing-xs);
+}
+
+.clean-scan-result .clean-detail {
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
 /* Flags Section */
@@ -3957,4 +4427,250 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 
 [data-theme="dark"] .success-logo {
   animation: success-logo-pulse-dark 1.5s ease-in-out infinite;
+}
+
+/* ============================================
+   GHOST JOB ANALYSIS SETTINGS
+   ============================================ */
+
+.ghost-analysis-settings {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  animation: fadeInUp var(--transition-slow) var(--ease-out);
+}
+
+.ghost-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-xs);
+}
+
+.ghost-settings-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ghost-settings-title svg {
+  color: var(--accent);
+}
+
+.ghost-settings-description {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-sm);
+  line-height: 1.4;
+}
+
+/* Custom Toggle Switch */
+.ghost-toggle {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.ghost-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ghost-toggle-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  transition: all var(--transition-fast) var(--ease-out);
+}
+
+.ghost-toggle-slider::before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 2px;
+  bottom: 2px;
+  background-color: var(--text-tertiary);
+  border-radius: 50%;
+  transition: all var(--transition-fast) var(--ease-out);
+}
+
+.ghost-toggle input:checked + .ghost-toggle-slider {
+  background-color: var(--accent-subtle);
+  border-color: var(--accent);
+}
+
+.ghost-toggle input:checked + .ghost-toggle-slider::before {
+  background-color: var(--accent);
+  transform: translateX(16px);
+}
+
+.ghost-toggle input:focus + .ghost-toggle-slider {
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+/* Ghost Settings Options */
+.ghost-settings-options {
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--border);
+}
+
+.ghost-settings-options.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.ghost-option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+  margin-bottom: var(--spacing-xs);
+}
+
+.ghost-option input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.ghost-option-text {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.ghost-option-hint {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-left: 24px;
+  line-height: 1.4;
+}
+
+/* ============================================
+   SALARY RANGE FILTER ENHANCEMENTS
+   ============================================ */
+
+.salary-period-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.salary-period-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.salary-period-select {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast) var(--ease-out);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717A' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 28px;
+}
+
+.salary-period-select:hover {
+  border-color: var(--accent);
+}
+
+.salary-period-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.salary-sub-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-xs);
+}
+
+.salary-conversion-hint {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  line-height: 1.4;
+}
+
+/* Dark mode adjustments for salary select */
+[data-theme="dark"] .salary-period-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A1A1AA' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* ============================================
+   PLATFORM-UNAVAILABLE FILTER STYLING
+   Used to blur/dim filters not available on current platform
+   ============================================ */
+.filter-item.platform-unavailable {
+  opacity: 0.4;
+  pointer-events: none;
+  filter: grayscale(50%);
+  position: relative;
+}
+
+.filter-item.platform-unavailable::after {
+  content: 'Not available on this platform';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  z-index: 10;
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.filter-item.platform-unavailable:hover::after {
+  opacity: 1;
+}
+
+/* Badge for Indeed-only filters shown on LinkedIn */
+.filter-badge.badge-indeed-only {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  font-size: 9px;
+  padding: 2px 6px;
+}
+
+/* Badge for LinkedIn-only filters shown on Indeed */
+.filter-badge.badge-linkedin-only {
+  background: linear-gradient(135deg, #0077b5 0%, #0a66c2 100%);
+  font-size: 9px;
+  padding: 2px 6px;
 }

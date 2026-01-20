@@ -14,10 +14,12 @@ import {
   Database,
   AlertTriangle,
   ShieldAlert,
+  Bug,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { AnimatedStatCard } from "@/components/admin/AnimatedStatCard";
 import { InteractiveGlobe } from "@/components/admin/InteractiveGlobe";
+import { ExtensionErrorsTab } from "@/components/admin/ExtensionErrorsTab";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   BarChart,
@@ -131,6 +133,13 @@ export default function AdminPage() {
               >
                 <Globe2 className="mr-2 h-4 w-4" />
                 Global Activity
+              </TabsTrigger>
+              <TabsTrigger
+                value="errors"
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-500 data-[state=active]:to-orange-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-red-500/50 transition-all duration-300"
+              >
+                <Bug className="mr-2 h-4 w-4" />
+                Extension Errors
               </TabsTrigger>
             </TabsList>
 
@@ -342,6 +351,11 @@ export default function AdminPage() {
               >
                 <InteractiveGlobe markers={userLocations} />
               </motion.div>
+            </TabsContent>
+
+            {/* Extension Errors Tab */}
+            <TabsContent value="errors">
+              <ExtensionErrorsTab />
             </TabsContent>
           </Tabs>
         </div>

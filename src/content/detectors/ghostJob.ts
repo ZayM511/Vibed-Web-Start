@@ -7,15 +7,42 @@ const GHOST_THRESHOLDS = {
   LOW_RISK: 14
 };
 
-// Vague description patterns (high confidence signals)
-const VAGUE_PATTERNS = [
-  { pattern: /competitive (salary|compensation|pay)/i, weight: 0.3, desc: 'Vague salary' },
-  { pattern: /salary (commensurate|depending|based|negotiable)/i, weight: 0.3, desc: 'Undisclosed salary' },
-  { pattern: /various (responsibilities|duties|tasks)/i, weight: 0.4, desc: 'Vague duties' },
-  { pattern: /flexible (requirements|qualifications)/i, weight: 0.35, desc: 'Flexible requirements' },
-  { pattern: /fast[- ]paced environment/i, weight: 0.2, desc: 'Generic filler phrase' },
-  { pattern: /rockstar|ninja|guru/i, weight: 0.4, desc: 'Buzzword title' }
-];
+// Tiered vague description patterns (based on 2025 ghost job research)
+// High-weight indicators are strong ghost signals
+// Low-weight indicators are common in legitimate posts too
+const VAGUE_PATTERNS = {
+  // High-weight indicators (strong ghost signals)
+  high: [
+    { pattern: /always looking for talented/i, weight: 0.5, desc: 'Generic evergreen language' },
+    { pattern: /perfect candidate/i, weight: 0.45, desc: 'Impossible standards' },
+    { pattern: /endless possibilities/i, weight: 0.4, desc: 'Vague growth promises' },
+    { pattern: /unlimited earning potential/i, weight: 0.5, desc: 'Often scam-adjacent' },
+    { pattern: /immediate need/i, weight: 0.35, desc: 'Urgency without specifics' },
+    { pattern: /work hard[,\s]+play hard/i, weight: 0.4, desc: 'Culture buzzword masking issues' },
+  ],
+  // Medium-weight indicators (moderate ghost signals)
+  medium: [
+    { pattern: /rock\s?star|ninja|guru|wizard|unicorn/i, weight: 0.35, desc: 'Tech buzzword title' },
+    { pattern: /growing team/i, weight: 0.25, desc: 'Often masks turnover' },
+    { pattern: /wear many hats/i, weight: 0.3, desc: 'Role not defined' },
+    { pattern: /other duties as assigned/i, weight: 0.25, desc: 'Catch-all responsibilities' },
+    { pattern: /competitive (salary|compensation|pay)/i, weight: 0.3, desc: 'Vague salary' },
+    { pattern: /salary (commensurate|depending|based|negotiable)/i, weight: 0.3, desc: 'Undisclosed salary' },
+    { pattern: /various (responsibilities|duties|tasks)/i, weight: 0.3, desc: 'Vague duties' },
+    { pattern: /make an impact/i, weight: 0.2, desc: 'Vague contribution' },
+    { pattern: /hit the ground running/i, weight: 0.25, desc: 'No training/support' },
+  ],
+  // Low-weight indicators (weak signals, common in legitimate posts)
+  low: [
+    { pattern: /fast[- ]paced environment/i, weight: 0.1, desc: 'Generic filler phrase' },
+    { pattern: /self[- ]starter/i, weight: 0.1, desc: 'Standard HR language' },
+    { pattern: /team player/i, weight: 0.08, desc: 'Very common' },
+    { pattern: /dynamic (environment|team|company)/i, weight: 0.1, desc: 'Overused' },
+    { pattern: /motivated individual/i, weight: 0.1, desc: 'Generic' },
+    { pattern: /passionate about/i, weight: 0.08, desc: 'Overused' },
+    { pattern: /results[- ]driven/i, weight: 0.1, desc: 'Business speak' },
+  ],
+};
 
 // Reposting patterns (indicates cycling ghost job)
 const REPOST_PATTERNS = [
@@ -31,11 +58,8 @@ const EXCESSIVE_REQUIREMENT_PATTERNS = [
   { pattern: /entry[- ]level.{0,30}(5|6|7|8|9|10)\+?\s*years?/i, weight: 0.8, desc: 'Entry-level with senior requirements' }
 ];
 
-// Low applicant count relative to posting age (indicates fake posting)
-const APPLICANT_THRESHOLDS = {
-  OLD_POST_LOW_APPLICANTS: { days: 30, maxApplicants: 10, weight: 0.7 },
-  VERY_OLD_LOW_APPLICANTS: { days: 60, maxApplicants: 25, weight: 0.8 }
-};
+// NOTE: Applicant count thresholds removed - numeric extraction was unreliable
+// Early applicant detection is now handled separately via isEarlyApplicant()
 
 function parsePostedDate(dateStr: string | null | undefined): number | null {
   if (!dateStr) return null;
@@ -83,11 +107,28 @@ export class GhostJobDetector {
       }
     }
 
-    // 2. Check for vague patterns
+    // 2. Check for vague patterns (tiered by weight)
     const desc = job.description.toLowerCase();
-    for (const { pattern, weight, desc: description } of VAGUE_PATTERNS) {
-      if (pattern.test(desc) || pattern.test(job.title)) {
-        signals.push({ type: 'vague', weight, desc: description });
+    const titleLower = job.title.toLowerCase();
+
+    // Check high-weight vague indicators first
+    for (const { pattern, weight, desc: description } of VAGUE_PATTERNS.high) {
+      if (pattern.test(desc) || pattern.test(titleLower)) {
+        signals.push({ type: 'vague_high', weight, desc: description });
+      }
+    }
+
+    // Check medium-weight vague indicators
+    for (const { pattern, weight, desc: description } of VAGUE_PATTERNS.medium) {
+      if (pattern.test(desc) || pattern.test(titleLower)) {
+        signals.push({ type: 'vague_medium', weight, desc: description });
+      }
+    }
+
+    // Check low-weight vague indicators
+    for (const { pattern, weight, desc: description } of VAGUE_PATTERNS.low) {
+      if (pattern.test(desc) || pattern.test(titleLower)) {
+        signals.push({ type: 'vague_low', weight, desc: description });
       }
     }
 
@@ -105,19 +146,8 @@ export class GhostJobDetector {
       }
     }
 
-    // 5. Check applicant count vs age (if available)
-    if (job.applicantCount !== undefined && daysPosted !== null) {
-      for (const [, threshold] of Object.entries(APPLICANT_THRESHOLDS)) {
-        if (daysPosted >= threshold.days && job.applicantCount <= threshold.maxApplicants) {
-          signals.push({
-            type: 'low_applicants',
-            weight: threshold.weight,
-            desc: `Only ${job.applicantCount} applicants after ${daysPosted}+ days`
-          });
-          break;
-        }
-      }
-    }
+    // 5. Applicant count detection removed - numeric extraction was unreliable
+    // Early applicant detection is now handled separately in the extension
 
     // 6. Check for missing key info
     if (!job.salary && !desc.includes('$') && !desc.match(/\d+k/i)) {

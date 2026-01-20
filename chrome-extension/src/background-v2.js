@@ -13,14 +13,13 @@ chrome.runtime.onInstalled.addListener((details) => {
       filterSettings: {
         hideStaffing: true,
         hideSponsored: true,
-        filterApplicants: false,
-        applicantRange: 'under10',
-        entryLevelAccuracy: true,
+        filterEarlyApplicant: false,
         filterSalary: false,
         minSalary: '',
         maxSalary: '',
         showActiveRecruiting: true,
         showJobAge: true,
+        showEarlyApplicantBadge: true,  // Renamed from showApplicantCount for clarity
         hideApplied: false,
         visaOnly: false,
         easyApplyOnly: false
@@ -298,29 +297,58 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 async function getActiveJobTab() {
-  // First try the last known job tab
+  // Helper to check if URL is a job site
+  const isJobSiteUrl = (url) =>
+    url && (url.includes('linkedin.com') || url.includes('indeed.com') || url.includes('google.com/search'));
+
+  // First try the last known job tab (if it's still on a job site)
   if (lastActiveJobTabId) {
     try {
       const tab = await chrome.tabs.get(lastActiveJobTabId);
-      if (tab.url && (tab.url.includes('linkedin.com') || tab.url.includes('indeed.com'))) {
+      if (isJobSiteUrl(tab.url) && tab.windowId !== panelWindowId) {
         return tab;
       }
-    } catch (error) {}
-  }
-
-  // Find any active job site tab
-  const tabs = await chrome.tabs.query({ active: true });
-  for (const tab of tabs) {
-    if (tab.url && (tab.url.includes('linkedin.com') || tab.url.includes('indeed.com'))) {
-      lastActiveJobTabId = tab.id;
-      return tab;
+    } catch (error) {
+      lastActiveJobTabId = null;
     }
   }
 
-  // Find any job site tab
+  // Get all normal (non-popup) windows, excluding the panel
+  const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+
+  // Sort by focused status to prioritize the currently focused browser window
+  windows.sort((a, b) => (b.focused ? 1 : 0) - (a.focused ? 1 : 0));
+
+  // Check active tabs in each window for job sites
+  for (const win of windows) {
+    // Skip the panel window if we know it
+    if (panelWindowId && win.id === panelWindowId) continue;
+
+    const tabs = await chrome.tabs.query({ active: true, windowId: win.id });
+    for (const tab of tabs) {
+      if (isJobSiteUrl(tab.url)) {
+        lastActiveJobTabId = tab.id;
+        return tab;
+      }
+    }
+  }
+
+  // Fallback: find any job site tab in any normal window
+  for (const win of windows) {
+    if (panelWindowId && win.id === panelWindowId) continue;
+
+    const tabs = await chrome.tabs.query({ windowId: win.id });
+    for (const tab of tabs) {
+      if (isJobSiteUrl(tab.url)) {
+        return tab;
+      }
+    }
+  }
+
+  // Last resort: any job site tab anywhere (excluding panel)
   const allTabs = await chrome.tabs.query({});
   for (const tab of allTabs) {
-    if (tab.url && (tab.url.includes('linkedin.com') || tab.url.includes('indeed.com'))) {
+    if (isJobSiteUrl(tab.url) && tab.windowId !== panelWindowId) {
       return tab;
     }
   }

@@ -7,6 +7,7 @@ import {
   IconListDetails,
   IconSettings,
   IconSearch,
+  IconAlertTriangle,
 } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -33,6 +34,11 @@ const data = {
       title: "Tasks",
       url: "/dashboard",
       icon: IconListDetails,
+    },
+    {
+      title: "Extension Errors",
+      url: "/extension-errors",
+      icon: IconAlertTriangle,
     },
   ],
   navSecondary: [

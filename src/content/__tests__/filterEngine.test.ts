@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { FilterEngine } from '../filterEngine';
-import { createMockJob, createMockGhostJob, createMockStaffingJob, createMockFakeRemoteJob, createMockFilterSettings } from '@/src/test/factories';
-import type { PlatformAdapter, JobData, DetectionResult } from '@/types';
+import { createMockJob, createMockFilterSettings } from '@/src/test/factories';
+import type { PlatformAdapter, JobData } from '@/types';
 
 // Mock all dependencies
 vi.mock('@/storage/hybridStorage', () => ({

@@ -122,7 +122,8 @@ describe('HybridStorageService', () => {
       await hybridStorage.addExcludeKeyword('senior');
 
       // Should not have called set (no change)
-      const setCalls = vi.mocked(chrome.storage.local.set).mock.calls;
+      // Note: setCalls would be used to verify the calls
+      // const setCalls = vi.mocked(chrome.storage.local.set).mock.calls;
       // Check that no new keyword was added
     });
 

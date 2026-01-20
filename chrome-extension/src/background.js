@@ -135,6 +135,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  // Toggle side-by-side mode (keeps panel visible when navigating)
+  if (request.action === 'setSideBySideMode') {
+    sideBySideEnabled = request.enabled;
+    // Save preference
+    chrome.storage.local.set({ sideBySideEnabled: request.enabled });
+
+    // If enabling and panel is open, arrange immediately
+    if (sideBySideEnabled && panelWindowId && mainBrowserWindowId) {
+      ensureSideBySideArrangement(mainBrowserWindowId)
+        .then(() => sendResponse({ success: true, enabled: sideBySideEnabled }))
+        .catch(error => sendResponse({ success: false, error: error.message }));
+    } else if (!sideBySideEnabled && mainBrowserWindowId) {
+      // If disabling, restore main window
+      restoreMainWindowSize()
+        .then(() => sendResponse({ success: true, enabled: sideBySideEnabled }))
+        .catch(error => sendResponse({ success: false, error: error.message }));
+    } else {
+      sendResponse({ success: true, enabled: sideBySideEnabled });
+    }
+    return true;
+  }
+
+  // Get current side-by-side mode status
+  if (request.action === 'getSideBySideMode') {
+    sendResponse({ enabled: sideBySideEnabled });
+    return true;
+  }
+
   // Get active tab from main browser window (for panel mode site detection)
   if (request.action === 'getActiveJobTab') {
     getActiveJobTab()
@@ -275,31 +303,55 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 // Get the active tab from the main browser window (not the panel) for site detection
 async function getActiveJobTab() {
   try {
-    // Get all windows
+    // First, try to use the tracked mainBrowserWindowId if available
+    if (mainBrowserWindowId) {
+      try {
+        const win = await chrome.windows.get(mainBrowserWindowId);
+        if (win) {
+          const tabs = await chrome.tabs.query({ active: true, windowId: mainBrowserWindowId });
+          if (tabs.length > 0 && tabs[0].url) {
+            console.log('Found active job tab from tracked main window:', tabs[0].url);
+            return tabs[0];
+          }
+        }
+      } catch (e) {
+        // Window no longer exists, clear the reference
+        mainBrowserWindowId = null;
+      }
+    }
+
+    // Fallback: Get all normal windows and find the best candidate
     const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
 
     // Filter out the panel window and find the last focused normal window
     let targetWindow = null;
+    let focusedWindow = null;
 
     for (const win of windows) {
-      // Skip the panel window
-      if (win.id === panelWindowId) continue;
+      // Skip the panel window (check by ID)
+      if (panelWindowId && win.id === panelWindowId) continue;
 
-      // Prefer focused window, otherwise take any normal window
+      // Track focused window
       if (win.focused) {
-        targetWindow = win;
-        break;
+        focusedWindow = win;
       }
 
+      // Take any normal window as fallback
       if (!targetWindow) {
         targetWindow = win;
       }
     }
 
+    // Prefer focused window, fall back to any normal window
+    targetWindow = focusedWindow || targetWindow;
+
     if (!targetWindow) {
       console.log('No suitable browser window found');
       return null;
     }
+
+    // Update mainBrowserWindowId for future reference
+    mainBrowserWindowId = targetWindow.id;
 
     // Get the active tab in this window
     const tabs = await chrome.tabs.query({ active: true, windowId: targetWindow.id });
@@ -366,8 +418,24 @@ function findDisplayForWindow(windowInfo, displays) {
 // Get the current active browser window and its display
 async function getCurrentWindowDisplay() {
   try {
-    // Get the currently focused window
-    const currentWindow = await chrome.windows.getCurrent();
+    // Get all windows and find the last focused normal browser window
+    // This is more reliable than getCurrent() which can return popup windows
+    const allWindows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+
+    // Try to get the last focused window first
+    let currentWindow = null;
+    try {
+      currentWindow = await chrome.windows.getLastFocused({ windowTypes: ['normal'] });
+    } catch (e) {
+      // Fallback: find any normal window
+      currentWindow = allWindows.find(w => w.focused) || allWindows[0];
+    }
+
+    // If we still don't have a window, try any window
+    if (!currentWindow && allWindows.length > 0) {
+      currentWindow = allWindows[0];
+    }
+
     const displays = await chrome.system.display.getInfo();
 
     console.log('Current window:', currentWindow);
@@ -455,6 +523,33 @@ async function openPanelWindow(dock = 'left') {
       displayId: display.id
     }
   });
+
+  // Arrange main browser window side-by-side with panel
+  // Find a normal browser window to use as main browser (may not be focused since panel just got focus)
+  try {
+    const allWindows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+    // Find any normal window that's not the panel - prefer previously focused or largest
+    const browserWindow = allWindows.find(w => w.id !== panelWindowId);
+
+    if (browserWindow) {
+      mainBrowserWindowId = browserWindow.id;
+
+      // Arrange side-by-side if enabled - force=true to ensure it happens
+      if (sideBySideEnabled) {
+        // Small delay to let panel window settle first
+        setTimeout(async () => {
+          try {
+            await ensureSideBySideArrangement(browserWindow.id, true); // force=true
+            console.log('Arranged browser window on panel open');
+          } catch (e) {
+            console.log('Error arranging on panel open:', e);
+          }
+        }, 200);
+      }
+    }
+  } catch (e) {
+    console.log('Could not arrange side-by-side on panel open:', e);
+  }
 
   return panelWindow;
 }
@@ -642,11 +737,165 @@ chrome.windows.onRemoved.addListener((windowId) => {
         windowId: null
       }
     });
+    // Restore main window to full width when panel is closed
+    restoreMainWindowSize();
   }
 });
 
-// Restore panel state on service worker startup
-chrome.storage.local.get(['panelState'], async (result) => {
+// ===== PERSISTENT PANEL - KEEP VISIBLE WHEN NAVIGATING =====
+// Track the main browser window we're working alongside
+let mainBrowserWindowId = null;
+let sideBySideEnabled = true; // Enable side-by-side arrangement by default
+let isArrangingWindows = false; // Prevent re-entry during arrangement
+let lastArrangementTime = 0; // Debounce arrangement calls
+
+// Keep panel visible when user focuses on main browser window
+// Uses side-by-side arrangement so windows don't overlap
+chrome.windows.onFocusChanged.addListener(async (windowId) => {
+  // Ignore if no panel is open or if focus went to nothing
+  if (!panelWindowId || windowId === chrome.windows.WINDOW_ID_NONE) return;
+
+  // If the panel itself got focus, no action needed
+  if (windowId === panelWindowId) return;
+
+  // Prevent re-entry while we're arranging windows
+  if (isArrangingWindows) return;
+
+  // Debounce - don't arrange more than once per second
+  const now = Date.now();
+  if (now - lastArrangementTime < 1000) return;
+
+  try {
+    // Get the focused window info
+    const focusedWindow = await chrome.windows.get(windowId);
+
+    // Only act on normal browser windows (not popups, devtools, etc.)
+    if (focusedWindow.type !== 'normal') return;
+
+    // Store this as our main browser window
+    mainBrowserWindowId = windowId;
+    lastArrangementTime = now;
+
+    // Ensure side-by-side arrangement if enabled
+    if (sideBySideEnabled) {
+      isArrangingWindows = true;
+      try {
+        await ensureSideBySideArrangement(windowId, true); // force=true
+
+        // Also use drawAttention to make panel visible without stealing focus
+        await chrome.windows.update(panelWindowId, { drawAttention: true });
+        // Clear the attention after a brief moment
+        setTimeout(async () => {
+          try {
+            await chrome.windows.update(panelWindowId, { drawAttention: false });
+          } catch (e) { /* panel might be closed */ }
+        }, 100);
+      } finally {
+        // Reset flag after a delay to allow arrangement to settle
+        setTimeout(() => {
+          isArrangingWindows = false;
+        }, 500);
+      }
+    }
+  } catch (error) {
+    // Window might not exist anymore
+    console.log('Focus change handling error:', error);
+    isArrangingWindows = false;
+  }
+});
+
+// Ensure main browser window and panel are arranged side-by-side
+// force: if true, always resize; if false, only resize if windows overlap
+async function ensureSideBySideArrangement(browserWindowId, force = false) {
+  if (!panelWindowId) return;
+
+  try {
+    const panelState = await chrome.storage.local.get(['panelState']);
+    const dock = panelState?.panelState?.dock || 'right';
+
+    const panelWindow = await chrome.windows.get(panelWindowId);
+    const browserWindow = await chrome.windows.get(browserWindowId);
+    const displays = await chrome.system.display.getInfo();
+
+    // Find which display the panel is on
+    const display = findDisplayForWindow(panelWindow, displays);
+    if (!display) return;
+
+    const workArea = display.workArea;
+    const availableWidth = workArea.width - PANEL_WIDTH;
+
+    // Calculate browser window position and size based on panel dock position
+    let browserLeft, browserWidth;
+
+    if (dock === 'left') {
+      // Panel on left, browser on right
+      browserLeft = workArea.left + PANEL_WIDTH;
+      browserWidth = availableWidth;
+    } else {
+      // Panel on right, browser on left
+      browserLeft = workArea.left;
+      browserWidth = availableWidth;
+    }
+
+    // Check if browser window is on the same display
+    const browserOnSameDisplay = browserWindow.left >= workArea.left &&
+                                  browserWindow.left < workArea.left + workArea.width;
+
+    if (browserOnSameDisplay) {
+      // Check if browser window overlaps with panel area
+      const browserRight = browserWindow.left + browserWindow.width;
+      const panelLeft = dock === 'left' ? workArea.left : workArea.left + workArea.width - PANEL_WIDTH;
+      const panelRight = panelLeft + PANEL_WIDTH;
+
+      const overlapsPanel = (browserWindow.left < panelRight && browserRight > panelLeft);
+
+      // Resize if forced OR if windows overlap
+      if (force || overlapsPanel) {
+        // Resize browser window to fit beside panel
+        await chrome.windows.update(browserWindowId, {
+          left: browserLeft,
+          width: browserWidth,
+          top: workArea.top,
+          height: workArea.height
+        });
+        console.log(`Arranged browser window side-by-side (dock: ${dock}, force: ${force})`);
+      }
+    }
+  } catch (error) {
+    console.log('Side-by-side arrangement error:', error);
+  }
+}
+
+// Restore main window to full width when panel is closed
+async function restoreMainWindowSize() {
+  if (!mainBrowserWindowId) return;
+
+  try {
+    const displays = await chrome.system.display.getInfo();
+    const browserWindow = await chrome.windows.get(mainBrowserWindowId);
+    const display = findDisplayForWindow(browserWindow, displays);
+
+    if (display) {
+      // Restore to full width of the work area
+      await chrome.windows.update(mainBrowserWindowId, {
+        left: display.workArea.left,
+        width: display.workArea.width
+      });
+    }
+  } catch (error) {
+    console.log('Error restoring main window size:', error);
+  }
+
+  mainBrowserWindowId = null;
+}
+
+// Restore panel state and preferences on service worker startup
+chrome.storage.local.get(['panelState', 'sideBySideEnabled'], async (result) => {
+  // Restore side-by-side preference (default to true)
+  if (result.sideBySideEnabled !== undefined) {
+    sideBySideEnabled = result.sideBySideEnabled;
+  }
+
   if (result.panelState && result.panelState.isOpen && result.panelState.windowId) {
     // Check if window still exists
     try {

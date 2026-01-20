@@ -141,17 +141,20 @@ describe('GhostJobDetector', () => {
     });
   });
 
-  describe('Applicant Count Signals', () => {
-    it('should flag old posts with very few applicants', () => {
+  describe('Applicant Count Signals (Deprecated)', () => {
+    // NOTE: Numeric applicant count detection was removed because extraction was unreliable
+    // The isEarlyApplicant() detection is now handled separately in the extension
+    it('should NOT flag based on applicant count (feature removed)', () => {
       const lowApplicantJob = createMockJob({
         postedDate: '45 days ago',
         applicantCount: 5,
       });
       const result = detector.analyze(lowApplicantJob);
-      expect(result.evidence.some(e => e.toLowerCase().includes('applicant'))).toBe(true);
+      // Applicant-based detection was removed due to unreliable data extraction
+      expect(result.evidence.some(e => e.toLowerCase().includes('applicant'))).toBe(false);
     });
 
-    it('should NOT flag new posts with few applicants', () => {
+    it('should ignore applicant count for new posts', () => {
       const newJob = createMockJob({
         postedDate: '2 days ago',
         applicantCount: 5,
@@ -267,6 +270,7 @@ describe('GhostJobDetector', () => {
         company: 'Company',
         location: 'NYC',
         description: '',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any;
       expect(() => detector.analyze(incompleteJob)).not.toThrow();
     });

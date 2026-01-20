@@ -1,109 +1,119 @@
-const { chromium } = require('playwright');
+/**
+ * Test script to verify the job age badge fix on LinkedIn
+ * This will check if job age badges appear on job cards without needing to click them
+ */
+
+const { launchStealthBrowser } = require('./stealth-browser-config');
 const path = require('path');
 
 (async () => {
-  const extensionPath = path.resolve(__dirname, '../../../chrome-extension');
-  console.log('Loading extension from:', extensionPath);
+  console.log('🔍 Testing LinkedIn Job Age Badge Fix...\n');
 
-  // Launch Chrome with extension
-  const browser = await chromium.launchPersistentContext('', {
-    headless: false,
-    channel: 'chrome',
-    args: [
-      `--disable-extensions-except=${extensionPath}`,
-      `--load-extension=${extensionPath}`,
-    ],
-    slowMo: 50
-  });
+  const extensionPath = path.join(__dirname, '..', '..', '..', 'chrome-extension');
 
-  const page = await browser.newPage();
+  // Launch stealth browser with extension
+  const { browser, page } = await launchStealthBrowser(extensionPath);
 
-  // Listen to console messages
-  page.on('console', msg => {
-    const text = msg.text();
-    if (text.includes('JobFiltr') || text.includes('mosaic') || text.includes('job age')) {
-      console.log('CONSOLE:', text);
+  try {
+    // Navigate to LinkedIn jobs page
+    console.log('📍 Navigating to LinkedIn jobs...');
+    await page.goto('https://www.linkedin.com/jobs/search/?keywords=software%20engineer&location=United%20States', {
+      waitUntil: 'networkidle',
+      timeout: 60000
+    });
+
+    // Wait for page to fully load
+    await page.waitForTimeout(5000);
+
+    console.log('⏳ Waiting for job cards to load...');
+
+    // Wait for job cards to appear
+    await page.waitForSelector('li.jobs-search-results__list-item, li.scaffold-layout__list-item', {
+      timeout: 30000
+    });
+
+    // Wait for extension to process cards
+    await page.waitForTimeout(3000);
+
+    // Check for job age badges WITHOUT clicking any cards
+    console.log('\n✅ Checking for job age badges on initial load (no clicking)...\n');
+
+    const badgeInfo = await page.evaluate(() => {
+      const badges = document.querySelectorAll('.jobfiltr-age-badge');
+      const jobCards = document.querySelectorAll('li.jobs-search-results__list-item, li.scaffold-layout__list-item');
+
+      const results = {
+        totalCards: jobCards.length,
+        totalBadges: badges.length,
+        badgeDetails: []
+      };
+
+      badges.forEach((badge, index) => {
+        const jobId = badge.dataset.jobId;
+        const age = badge.dataset.age;
+        const text = badge.textContent.trim();
+
+        results.badgeDetails.push({
+          index: index + 1,
+          jobId,
+          age,
+          displayText: text
+        });
+      });
+
+      return results;
+    });
+
+    console.log(`📊 Results:`);
+    console.log(`   Total job cards found: ${badgeInfo.totalCards}`);
+    console.log(`   Total job age badges: ${badgeInfo.totalBadges}`);
+    console.log(`   Coverage: ${((badgeInfo.totalBadges / badgeInfo.totalCards) * 100).toFixed(1)}%\n`);
+
+    if (badgeInfo.badgeDetails.length > 0) {
+      console.log(`📋 Badge Details (first 10):`);
+      badgeInfo.badgeDetails.slice(0, 10).forEach(badge => {
+        console.log(`   ${badge.index}. Job ${badge.jobId}: ${badge.displayText} (${badge.age} days)`);
+      });
     }
-  });
 
-  console.log('\nNavigating to Indeed...');
-  await page.goto('https://www.indeed.com/jobs?q=software+engineer&l=remote', {
-    waitUntil: 'domcontentloaded',
-    timeout: 60000
-  });
+    // Now click on a job card and verify the ages match
+    console.log('\n🖱️ Clicking on first job card to verify consistency...');
 
-  // Wait for page to fully load
-  await page.waitForTimeout(3000);
+    await page.click('li.jobs-search-results__list-item:first-child, li.scaffold-layout__list-item:first-child');
+    await page.waitForTimeout(2000);
 
-  console.log('\n=== CHECKING IF MOSAIC EXTRACTOR WAS INJECTED ===');
+    const consistencyCheck = await page.evaluate(() => {
+      const activeCard = document.querySelector('.jobs-search-results-list__list-item--active, .scaffold-layout__list-item--active');
+      const cardBadge = activeCard?.querySelector('.jobfiltr-age-badge');
+      const detailBadge = document.querySelector('.jobfiltr-detail-age-badge');
 
-  const injectorExists = await page.evaluate(() => {
-    return !!document.getElementById('jobfiltr-mosaic-extractor');
-  });
-  console.log('Mosaic extractor script injected:', injectorExists);
+      return {
+        cardBadgeText: cardBadge?.textContent.trim() || 'Not found',
+        cardBadgeAge: cardBadge?.dataset.age || 'N/A',
+        detailBadgeText: detailBadge?.textContent.trim() || 'Not found',
+        detailBadgeAge: detailBadge?.dataset.age || 'N/A',
+        match: cardBadge?.dataset.age === detailBadge?.dataset.age
+      };
+    });
 
-  // Wait a bit more for data to be processed
-  await page.waitForTimeout(2000);
+    console.log('\n🔄 Consistency Check:');
+    console.log(`   Card badge: ${consistencyCheck.cardBadgeText} (${consistencyCheck.cardBadgeAge} days)`);
+    console.log(`   Detail badge: ${consistencyCheck.detailBadgeText} (${consistencyCheck.detailBadgeAge} days)`);
+    console.log(`   Match: ${consistencyCheck.match ? '✅ YES' : '❌ NO'}`);
 
-  // Simulate applying filters with showJobAge enabled
-  console.log('\n=== SIMULATING APPLY FILTERS WITH SHOW JOB AGE ===');
+    if (consistencyCheck.match) {
+      console.log('\n🎉 SUCCESS: Job ages match between card and detail panel!');
+    } else {
+      console.log('\n⚠️ WARNING: Job ages do NOT match. There may still be an issue.');
+    }
 
-  // Send message to content script to apply filters
-  await page.evaluate(() => {
-    // Dispatch a message event that the content script will receive
-    window.postMessage({
-      type: 'JOBFILTR_TEST_APPLY',
-      settings: { showJobAge: true }
-    }, '*');
-  });
+    console.log('\n✅ Test complete. Browser will stay open for manual inspection.');
+    console.log('   Press Ctrl+C to close when done.\n');
 
-  // Actually, let's just check if the content script's cache got populated
-  // by checking if age badges exist or if we need to trigger manually
-  await page.waitForTimeout(2000);
-
-  console.log('\n=== CHECKING FOR JOB AGE BADGES ===');
-
-  const badgeCheck = await page.evaluate(() => {
-    const badges = document.querySelectorAll('.jobfiltr-age-badge');
-    return {
-      count: badges.length,
-      samples: Array.from(badges).slice(0, 5).map(b => b.textContent.trim())
-    };
-  });
-
-  console.log('Job age badges found:', badgeCheck.count);
-  if (badgeCheck.count > 0) {
-    console.log('Sample badges:', badgeCheck.samples);
-  } else {
-    console.log('No badges yet - filters may need to be applied via popup');
+  } catch (error) {
+    console.error('❌ Error during test:', error.message);
   }
 
-  // Check job cards for data-jk
-  console.log('\n=== CHECKING JOB CARD STRUCTURE ===');
-
-  const cardInfo = await page.evaluate(() => {
-    const beacons = document.querySelectorAll('.job_seen_beacon');
-    return {
-      beaconCount: beacons.length,
-      firstBeaconHasChild: beacons[0]?.querySelector('[data-jk]') ? true : false,
-      firstChildDataJk: beacons[0]?.querySelector('[data-jk]')?.getAttribute('data-jk')
-    };
-  });
-
-  console.log('Job beacons:', cardInfo.beaconCount);
-  console.log('First beacon has [data-jk] child:', cardInfo.firstBeaconHasChild);
-  console.log('First child data-jk:', cardInfo.firstChildDataJk);
-
-  console.log('\n=== MANUAL TEST INSTRUCTIONS ===');
-  console.log('1. Click JobFiltr extension icon');
-  console.log('2. Go to Scanner tab');
-  console.log('3. Enable "Show Job Age" checkbox');
-  console.log('4. Click "Apply Filters"');
-  console.log('5. Check console for "Received job ages" message');
-  console.log('6. Verify age badges appear on job cards');
-
-  console.log('\nBrowser staying open for 90 seconds for testing...');
-  await page.waitForTimeout(90000);
-
-  await browser.close();
+  // Keep browser open for inspection
+  // await browser.close();
 })();

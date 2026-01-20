@@ -55,11 +55,40 @@
     'hays', 'allegis group', 'spherion', 'volt', 'beacon hill',
   ];
 
-  const VAGUE_INDICATORS = [
-    'fast-paced', 'self-starter', 'team player', 'dynamic',
-    'exciting opportunity', 'competitive salary', 'rock star', 'ninja',
-    'guru', 'wear many hats', 'other duties as assigned',
-  ];
+  // Vague language indicators with weights (higher = stronger ghost signal)
+  // Based on 2025 research from Interview Guys, Work Shift Guide, and FTC guidance
+  const VAGUE_INDICATORS = {
+    // High-weight indicators (strong ghost signals)
+    high: [
+      'always looking for talented',  // Generic evergreen language
+      'perfect candidate',            // Impossible standards
+      'endless possibilities',        // Vague growth promises
+      'unlimited earning potential',  // Often scam-adjacent
+      'immediate need',               // Urgency without specifics
+      'work hard play hard',          // Culture buzzword masking issues
+    ],
+    // Medium-weight indicators (moderate ghost signals)
+    medium: [
+      'rock star', 'ninja', 'guru', 'wizard', 'unicorn',  // Tech buzzwords
+      'growing team',                 // Often masks turnover
+      'wear many hats',               // Role not defined
+      'other duties as assigned',     // Catch-all responsibilities
+      'competitive salary',           // No actual salary disclosed
+      'exciting opportunity',         // Generic enthusiasm
+      'make an impact',               // Vague contribution
+      'hit the ground running',       // No training/support
+    ],
+    // Low-weight indicators (weak signals, common in legitimate posts too)
+    low: [
+      'fast-paced',                   // Common but legitimate
+      'self-starter',                 // Standard HR language
+      'team player',                  // Very common
+      'dynamic',                      // Overused but not red flag
+      'motivated individual',         // Generic
+      'passionate',                   // Overused
+      'results-driven',               // Business speak
+    ],
+  };
 
   const STORAGE_KEY = 'jobfiltr_ghost_detection';
   const CACHE_KEY = `${STORAGE_KEY}_scores`;
@@ -122,26 +151,645 @@
   // INDEED SELECTORS
   // ============================================
 
+  // Indeed selectors (updated 2025 based on Oxylabs & ScrapingBee research)
   const INDEED_SELECTORS = {
-    jobDetail: '.jobsearch-ViewJobLayout, .jobsearch-JobComponent, #jobDescriptionText',
-    title: '.jobsearch-JobInfoHeader-title, [data-testid="jobsearch-JobInfoHeader-title"]',
-    company: '[data-testid="inlineHeader-companyName"], .jobsearch-InlineCompanyRating-companyHeader',
-    location: '[data-testid="job-location"], .jobsearch-JobInfoHeader-subtitle',
-    posted: '.jobsearch-HiringInsights-entry--age, [data-testid="job-age"]',
-    description: '#jobDescriptionText, .jobsearch-jobDescriptionText',
-    salary: '#salaryInfoAndJobType',
-    applyButton: '.jobsearch-IndeedApplyButton, #indeedApplyButton',
-    sponsored: '.sponsoredJob',
-    // Multiple fallback targets for score injection
+    // Job detail container - multiple fallbacks for different page layouts
+    jobDetail: '.jobsearch-ViewJobLayout, .jobsearch-JobComponent, #jobDescriptionText, .job_seen_beacon',
+    // Title selectors with 2025 fallbacks
+    title: '.jobsearch-JobInfoHeader-title, [data-testid="jobsearch-JobInfoHeader-title"], h2.jobTitle span, h2.jobTitle > span[title]',
+    // Company selectors with additional fallbacks
+    company: '[data-testid="inlineHeader-companyName"], .jobsearch-InlineCompanyRating-companyHeader, span.companyName, [data-testid="company-name"]',
+    // Location selectors
+    location: '[data-testid="job-location"], .jobsearch-JobInfoHeader-subtitle, div.companyLocation, [data-testid="text-location"]',
+    // Posted date selectors with additional fallbacks for date extraction
+    posted: '.jobsearch-HiringInsights-entry--age, [data-testid="job-age"], .date, [data-testid="myJobsStateDate"]',
+    // Description selectors
+    description: '#jobDescriptionText, .jobsearch-jobDescriptionText, .jobDescriptionText',
+    // Salary selectors with 2025 fallbacks
+    salary: '#salaryInfoAndJobType, .salary-snippet-container, div.salary-snippet, [data-testid="salary-snippet"], .attribute_snippet',
+    // Apply button selectors
+    applyButton: '.jobsearch-IndeedApplyButton, #indeedApplyButton, .ia-IndeedApplyButton',
+    // ULTRATHINK: Enhanced sponsored selectors for maximum detection accuracy
+    sponsored: '.sponsoredJob, .sponsoredGray, .jobsearch-JobCard-Sponsored, .job-result-sponsored, [data-is-sponsored], [data-is-sponsored="true"], [data-testid="sponsored-label"], [data-sponsored="true"]',
+    // Job card selectors (for list view detection)
+    jobCard: '.job_seen_beacon, .jobsearch-ResultsList > li, [data-testid="job-result"], .tapItem',
+    // Multiple fallback targets for score injection (updated 2025)
     scoreTargets: [
+      // Primary targets
       '.jobsearch-JobInfoHeader-subtitle',
       '[data-testid="jobsearch-JobInfoHeader-subtitle"]',
       '.jobsearch-JobInfoHeader-title',
+      // Secondary targets
       '.jobsearch-ViewJobLayout header',
       '.jobsearch-JobComponent header',
+      '.jobsearch-InlineCompanyRating',
+      // 2025 additional targets
+      '.jobsearch-CompanyInfoContainer',
+      '.jobsearch-JobMetadataHeader',
+      '[data-testid="job-header"]',
+      // Fallback
       '#jobDescriptionText',
+      '.job_seen_beacon',
     ],
   };
+
+  // ============================================
+  // COMMUNITY-REPORTED COMPANIES LIST (Jan 2026)
+  // 100+ companies reported for spam/ghost jobs
+  // ============================================
+
+  /**
+   * Normalize company name for matching
+   * Mirrors the logic from lib/utils.ts normalizeCompanyName()
+   */
+  function normalizeCompanyNameForMatch(name) {
+    if (!name) return '';
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/\b(inc|llc|ltd|corp|corporation|company|co)\b/gi, '')
+      .trim();
+  }
+
+  // Pre-computed reported companies list with normalized names
+  const REPORTED_COMPANIES = [
+    // A
+    { name: 'AbbVie', normalized: 'abbvie', category: 'ghost' },
+    { name: 'Accenture', normalized: 'accenture', category: 'ghost' },
+    { name: 'Accruent', normalized: 'accruent', category: 'ghost' },
+    { name: 'AECOM', normalized: 'aecom', category: 'ghost' },
+    { name: 'Affinipay', normalized: 'affinipay', category: 'ghost' },
+    { name: 'Age of Learning', normalized: 'age of learning', category: 'ghost' },
+    { name: 'Aha!', normalized: 'aha', aliases: ['aha'], category: 'ghost' },
+    { name: 'Apotex', normalized: 'apotex', category: 'ghost' },
+    { name: 'Arrowstreet Capital', normalized: 'arrowstreet capital', category: 'ghost' },
+    { name: 'Ascendion', normalized: 'ascendion', category: 'ghost' },
+    { name: 'Assigncorp', normalized: 'assigncorp', category: 'ghost' },
+    { name: 'Atlas Health', normalized: 'atlas health', category: 'ghost' },
+    { name: 'Atlassian', normalized: 'atlassian', category: 'ghost' },
+    { name: 'Aya Healthcare', normalized: 'aya healthcare', category: 'ghost' },
+
+    // B
+    { name: 'Balfour Beatty', normalized: 'balfour beatty', aliases: ['balfour beaty'], category: 'ghost' },
+    { name: 'Bank of America', normalized: 'bank of america', aliases: ['bofa', 'bankofamerica'], category: 'ghost' },
+    { name: 'Beyond Trust', normalized: 'beyond trust', aliases: ['beyondtrust'], category: 'ghost' },
+    { name: 'Biorender', normalized: 'biorender', category: 'ghost' },
+    { name: 'Bobsled', normalized: 'bobsled', category: 'ghost' },
+    { name: 'Booksource', normalized: 'booksource', category: 'ghost' },
+    { name: 'Boston Scientific', normalized: 'boston scientific', category: 'ghost' },
+    { name: 'Burt Intelligence', normalized: 'burt intelligence', category: 'ghost' },
+    { name: 'Business Wire', normalized: 'business wire', category: 'ghost' },
+
+    // C
+    { name: 'CACI', normalized: 'caci', category: 'ghost' },
+    { name: "Caesar's", normalized: 'caesars', aliases: ['caesars', 'caesars entertainment'], category: 'ghost' },
+    { name: 'Cardinal Health', normalized: 'cardinal health', category: 'ghost' },
+    { name: 'Cedars Sinai', normalized: 'cedars sinai', aliases: ['cedarssinai'], category: 'ghost' },
+    { name: 'ChenMed', normalized: 'chenmed', category: 'ghost' },
+    { name: 'Clari', normalized: 'clari', category: 'ghost' },
+    { name: 'ClearWater', normalized: 'clearwater', aliases: ['clearwater analytics'], category: 'ghost' },
+    { name: 'Clover', normalized: 'clover', category: 'ghost' },
+    { name: 'Code and Theory', normalized: 'code and theory', category: 'ghost' },
+    { name: 'Comcast', normalized: 'comcast', category: 'ghost' },
+    { name: 'Contra', normalized: 'contra', category: 'ghost' },
+    { name: 'Cotiviti', normalized: 'cotiviti', category: 'ghost' },
+    { name: 'Credit Acceptance', normalized: 'credit acceptance', category: 'ghost' },
+    { name: 'Crocs', normalized: 'crocs', category: 'ghost' },
+    { name: 'Crossover', normalized: 'crossover', category: 'ghost' },
+    { name: 'CVS', normalized: 'cvs', aliases: ['cvs health', 'cvs pharmacy'], category: 'ghost' },
+
+    // D
+    { name: 'DCBL', normalized: 'dcbl', category: 'ghost' },
+    { name: 'Dice', normalized: 'dice', aliases: ['dicecom'], category: 'spam' },
+    { name: 'DoorDash', normalized: 'doordash', category: 'ghost' },
+
+    // E
+    { name: 'Earnin', normalized: 'earnin', category: 'ghost' },
+    { name: 'Embraer', normalized: 'embraer', category: 'ghost' },
+    { name: 'Evidation', normalized: 'evidation', category: 'ghost' },
+    { name: 'Excellence Services LLC', normalized: 'excellence services', category: 'ghost' },
+    { name: 'EY', normalized: 'ey', aliases: ['ernst young', 'ernst  young'], category: 'ghost' },
+
+    // F
+    { name: 'Fanatics', normalized: 'fanatics', category: 'ghost' },
+    { name: 'Files.com', normalized: 'filescom', aliases: ['filescom'], category: 'ghost' },
+    { name: 'FiServe', normalized: 'fiserve', aliases: ['fiserv'], category: 'ghost' },
+    { name: 'FloQast', normalized: 'floqast', category: 'ghost' },
+    { name: 'Fluency', normalized: 'fluency', category: 'ghost' },
+    { name: 'FluentStream', normalized: 'fluentstream', category: 'ghost' },
+
+    // G
+    { name: 'GE Healthcare', normalized: 'ge healthcare', aliases: ['ge health', 'general electric healthcare'], category: 'ghost' },
+    { name: 'Genworth', normalized: 'genworth', category: 'ghost' },
+    { name: 'Golden Hippo', normalized: 'golden hippo', category: 'ghost' },
+    { name: 'GoodRX', normalized: 'goodrx', aliases: ['goodrx'], category: 'ghost' },
+    { name: 'Greendot', normalized: 'greendot', aliases: ['green dot'], category: 'ghost' },
+
+    // H
+    { name: 'Harbor Freight Tools', normalized: 'harbor freight tools', aliases: ['harbor freight'], category: 'ghost' },
+    { name: 'Health Edge', normalized: 'health edge', aliases: ['healthedge'], category: 'ghost' },
+    { name: 'HireMeFast LLC', normalized: 'hiremefast', category: 'scam' },
+    { name: 'HubSpot', normalized: 'hubspot', category: 'ghost' },
+
+    // J-K
+    { name: 'JP Morgan Chase', normalized: 'jp morgan chase', aliases: ['jpmorgan', 'jp morgan', 'chase', 'jpmorganchase'], category: 'ghost' },
+    { name: 'Kforce', normalized: 'kforce', category: 'ghost' },
+    { name: "King's Hawaiian", normalized: 'kings hawaiian', aliases: ['kings hawaiian'], category: 'ghost' },
+    { name: 'Klaviyo', normalized: 'klaviyo', category: 'ghost' },
+    { name: 'Kraft & Kennedy', normalized: 'kraft  kennedy', aliases: ['kraft kennedy'], category: 'ghost' },
+
+    // L
+    { name: 'Leidos', normalized: 'leidos', category: 'ghost' },
+    { name: 'Lumenalta', normalized: 'lumenalta', category: 'ghost' },
+
+    // M
+    { name: 'Magistrate', normalized: 'magistrate', category: 'ghost' },
+    { name: 'Mandai', normalized: 'mandai', category: 'ghost' },
+    { name: 'Matterport', normalized: 'matterport', category: 'ghost' },
+    { name: 'Medix', normalized: 'medix', category: 'ghost' },
+    { name: 'Molina Health', normalized: 'molina health', aliases: ['molina healthcare'], category: 'ghost' },
+    { name: 'Motion Recruitment', normalized: 'motion recruitment', category: 'ghost' },
+    { name: 'Mozilla', normalized: 'mozilla', category: 'ghost' },
+
+    // N
+    { name: 'NBC News', normalized: 'nbc news', category: 'ghost' },
+    { name: 'NBC Universal', normalized: 'nbc universal', aliases: ['nbcuniversal'], category: 'ghost' },
+    { name: 'NV5', normalized: 'nv5', category: 'ghost' },
+
+    // O
+    { name: 'Oneforma', normalized: 'oneforma', category: 'ghost' },
+    { name: 'OneTrust', normalized: 'onetrust', category: 'ghost' },
+    { name: 'Origin', normalized: 'origin', category: 'ghost' },
+    { name: 'Oscar Health', normalized: 'oscar health', category: 'ghost' },
+
+    // P
+    { name: 'Paradox.ai', normalized: 'paradoxai', aliases: ['paradox ai', 'paradoxai'], category: 'ghost' },
+    { name: 'Polly', normalized: 'polly', category: 'ghost' },
+    { name: 'Posit', normalized: 'posit', category: 'ghost' },
+    { name: 'Prize Picks', normalized: 'prize picks', aliases: ['prizepicks'], category: 'ghost' },
+    { name: 'Publicis Health', normalized: 'publicis health', category: 'ghost' },
+
+    // R
+    { name: 'Raptive', normalized: 'raptive', category: 'ghost' },
+    { name: 'Resmed', normalized: 'resmed', aliases: ['res med'], category: 'ghost' },
+    { name: 'Robert Half', normalized: 'robert half', category: 'ghost' },
+
+    // S
+    { name: 'Seetec', normalized: 'seetec', category: 'ghost' },
+    { name: 'Signify Health', normalized: 'signify health', category: 'ghost' },
+    { name: 'SmithRX', normalized: 'smithrx', category: 'ghost' },
+    { name: 'SoCal Edison', normalized: 'socal edison', aliases: ['southern california edison', 'sce'], category: 'ghost' },
+    { name: 'SoCal Gas', normalized: 'socal gas', aliases: ['southern california gas', 'socalgas'], category: 'ghost' },
+    { name: 'Softrams', normalized: 'softrams', category: 'ghost' },
+    { name: 'Sonder', normalized: 'sonder', category: 'ghost' },
+    { name: 'Stickermule', normalized: 'stickermule', aliases: ['sticker mule'], category: 'ghost' },
+    { name: 'Sundays for Dogs', normalized: 'sundays for dogs', category: 'ghost' },
+    { name: 'Sunnova', normalized: 'sunnova', category: 'ghost' },
+    { name: 'Swooped', normalized: 'swooped', category: 'scam' },
+
+    // T
+    { name: 'Tabby', normalized: 'tabby', category: 'ghost' },
+    { name: 'Talentify.io', normalized: 'talentifyio', aliases: ['talentify'], category: 'spam' },
+    { name: 'Techie Talent', normalized: 'techie talent', category: 'scam' },
+    { name: 'TekSystems', normalized: 'teksystems', aliases: ['tek systems'], category: 'ghost' },
+    { name: 'Terrabis', normalized: 'terrabis', category: 'ghost' },
+    { name: 'Thermo Fisher', normalized: 'thermo fisher', aliases: ['thermo fisher scientific', 'thermofisher'], category: 'ghost' },
+    { name: 'Tickets.Com', normalized: 'ticketscom', aliases: ['ticketscom', 'tickets com'], category: 'ghost' },
+    { name: 'Tixr', normalized: 'tixr', category: 'ghost' },
+    { name: 'Toast', normalized: 'toast', category: 'ghost' },
+
+    // U
+    { name: 'UCLA Health', normalized: 'ucla health', category: 'ghost' },
+    { name: 'ULine', normalized: 'uline', aliases: ['uline'], category: 'ghost' },
+    { name: 'Underdog', normalized: 'underdog', category: 'ghost' },
+    { name: 'Underdog Sports', normalized: 'underdog sports', category: 'ghost' },
+    { name: 'Unisys', normalized: 'unisys', category: 'ghost' },
+
+    // V
+    { name: 'Vertafore', normalized: 'vertafore', category: 'ghost' },
+    { name: 'VXI', normalized: 'vxi', category: 'ghost' },
+
+    // W-Y
+    { name: 'Webstaurant', normalized: 'webstaurant', aliases: ['webstaurant store', 'webstaruant'], category: 'ghost' },
+    { name: 'Wrike', normalized: 'wrike', category: 'ghost' },
+    { name: 'Yahoo News', normalized: 'yahoo news', aliases: ['yahoo'], category: 'ghost' },
+
+    // Special cases with numbers/symbols
+    { name: '1-800-Pack-Rat', normalized: '1800packrat', aliases: ['1 800 pack rat', '1800packrat', '1 800 pack a rat', '1800 pack rat'], category: 'ghost' }
+  ];
+
+  // Build lookup map for O(1) matching
+  const REPORTED_COMPANY_MAP = new Map();
+  for (const company of REPORTED_COMPANIES) {
+    REPORTED_COMPANY_MAP.set(company.normalized, company);
+    if (company.aliases) {
+      for (const alias of company.aliases) {
+        REPORTED_COMPANY_MAP.set(alias, company);
+      }
+    }
+  }
+
+  /**
+   * Get category-specific warning message
+   */
+  function getCategoryMessage(category) {
+    switch (category) {
+      case 'spam': return 'posting spam job listings';
+      case 'ghost': return 'posting ghost jobs (jobs that may not actually exist)';
+      case 'scam': return 'potentially scam job postings';
+      default: return 'questionable hiring practices';
+    }
+  }
+
+  /**
+   * Detect if a company is in the reported list
+   * @param {string} companyName - The company name to check
+   * @returns {Object} Detection result with detected, confidence, company, message
+   */
+  function detectReportedCompany(companyName) {
+    if (!companyName || companyName.trim() === '') {
+      return { detected: false, confidence: 0, company: null, message: '' };
+    }
+
+    const normalized = normalizeCompanyNameForMatch(companyName);
+
+    // 1. Exact match in map (includes primary names and aliases)
+    const exactMatch = REPORTED_COMPANY_MAP.get(normalized);
+    if (exactMatch) {
+      return {
+        detected: true,
+        confidence: 1.0,
+        matchType: 'exact',
+        company: exactMatch,
+        message: `${exactMatch.name} has been reported for ${getCategoryMessage(exactMatch.category)}`
+      };
+    }
+
+    // 2. Partial match (bidirectional substring)
+    for (const company of REPORTED_COMPANIES) {
+      // Check if job company contains reported company name
+      if (normalized.includes(company.normalized) && company.normalized.length >= 3) {
+        return {
+          detected: true,
+          confidence: 0.85,
+          matchType: 'partial',
+          company: company,
+          message: `${company.name} has been reported for ${getCategoryMessage(company.category)}`
+        };
+      }
+
+      // Check if reported company name contains job company
+      if (company.normalized.includes(normalized) && normalized.length >= 3) {
+        return {
+          detected: true,
+          confidence: 0.85,
+          matchType: 'partial',
+          company: company,
+          message: `${company.name} has been reported for ${getCategoryMessage(company.category)}`
+        };
+      }
+
+      // Check aliases for partial matches
+      if (company.aliases) {
+        for (const alias of company.aliases) {
+          if (normalized.includes(alias) && alias.length >= 3) {
+            return {
+              detected: true,
+              confidence: 0.9,
+              matchType: 'alias',
+              company: company,
+              message: `${company.name} has been reported for ${getCategoryMessage(company.category)}`
+            };
+          }
+          if (alias.includes(normalized) && normalized.length >= 3) {
+            return {
+              detected: true,
+              confidence: 0.9,
+              matchType: 'alias',
+              company: company,
+              message: `${company.name} has been reported for ${getCategoryMessage(company.category)}`
+            };
+          }
+        }
+      }
+    }
+
+    return { detected: false, confidence: 0, company: null, message: '' };
+  }
+
+  /**
+   * Inject community-reported warning badge
+   * Works for both LinkedIn and Indeed with platform-specific container detection
+   * ULTRATHINK: Indeed badge matches job age/ghost badge styling (~80% size, two-line layout)
+   */
+  function injectReportedCompanyBadge(reportResult) {
+    if (!reportResult.detected) return;
+
+    // Remove existing badge if present
+    const existing = document.querySelector('.jobfiltr-reported-company-badge');
+    if (existing) existing.remove();
+
+    // Find or create badge container
+    let container = document.querySelector('.jobfiltr-badges-container');
+    if (!container) {
+      // Platform-specific title selectors
+      const titleSelectors = isLinkedIn() ? [
+        '.job-details-jobs-unified-top-card__job-title',
+        '.jobs-unified-top-card__job-title',
+        'h1.t-24',
+        '.t-24.t-bold'
+      ] : [
+        'h1.jobsearch-JobInfoHeader-title',
+        '[data-testid="jobsearch-JobInfoHeader-title"]',
+        '.jobsearch-JobInfoHeader-title',
+        '.jobsearch-JobInfoHeader-title-container'
+      ];
+
+      let titleEl = null;
+      for (const sel of titleSelectors) {
+        titleEl = document.querySelector(sel);
+        if (titleEl) break;
+      }
+
+      if (titleEl) {
+        container = document.createElement('div');
+        container.className = 'jobfiltr-badges-container';
+        container.style.cssText = 'display: flex; gap: 10px; margin: 10px 0; flex-wrap: wrap; align-items: flex-start;';
+        titleEl.insertAdjacentElement('afterend', container);
+        console.log('[GhostDetection] Created badges container for reported company badge');
+      }
+    }
+
+    if (!container) {
+      console.log('[GhostDetection] Could not find badge container for reported company badge');
+      return;
+    }
+
+    // Create warning badge - ULTRATHINK: Indeed uses matching style with job age/ghost badges
+    // Inject styles first to ensure glow animation is available
+    injectStyles();
+
+    const badge = document.createElement('div');
+    badge.className = 'jobfiltr-reported-company-badge';
+
+    if (isIndeed()) {
+      // Indeed styling - matches job age badge and ghost analysis badge (~80% size, two-line layout)
+      // ULTRATHINK: Add glow class for steady glowing animation on Indeed
+      badge.classList.add('jobfiltr-reported-company-badge-glow');
+
+      badge.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 15px;">⚠️</span>
+          <div>
+            <div style="font-weight: 700; font-size: 12px;">Community Reported</div>
+            <div style="font-size: 9px; opacity: 0.8;">Spam/Ghost Reports • Click for details</div>
+          </div>
+        </div>
+      `;
+      badge.style.cssText = `
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        color: #9a3412;
+        padding: 10px 13px;
+        border-radius: 10px;
+        font-size: 9px;
+        font-weight: 600;
+        border: 1px solid #f9731650;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        max-width: fit-content;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+      `;
+    } else {
+      // LinkedIn/default styling
+      badge.style.cssText = `
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border: 2px solid #f97316;
+        border-radius: 8px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 12px;
+        font-weight: 600;
+        color: #9a3412;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(249, 115, 22, 0.2);
+        transition: all 0.2s ease;
+      `;
+      badge.innerHTML = `
+        <span style="font-size: 14px;">⚠️</span>
+        <span>Community Reported</span>
+      `;
+    }
+
+    badge.title = reportResult.message;
+
+    // Click handler to show modal
+    badge.addEventListener('click', () => showReportedCompanyModal(reportResult));
+
+    // Hover effects - ULTRATHINK: For Indeed, only transform on hover (glow animation handles box-shadow)
+    badge.addEventListener('mouseenter', () => {
+      badge.style.transform = 'scale(1.02)';
+      if (!isIndeed()) {
+        badge.style.boxShadow = '0 4px 8px rgba(249, 115, 22, 0.3)';
+      }
+    });
+    badge.addEventListener('mouseleave', () => {
+      badge.style.transform = 'scale(1)';
+      if (!isIndeed()) {
+        badge.style.boxShadow = '0 2px 4px rgba(249, 115, 22, 0.2)';
+      }
+    });
+
+    // ULTRATHINK: Position at END of container (right side, after job age badge) for Indeed
+    // For LinkedIn, keep at beginning for visibility
+    if (isIndeed()) {
+      container.appendChild(badge);
+      console.log('[GhostDetection] Injected community-reported badge to RIGHT of other badges (Indeed)');
+    } else {
+      container.insertBefore(badge, container.firstChild);
+      console.log('[GhostDetection] Injected community-reported badge to LEFT (LinkedIn)');
+    }
+    console.log('[GhostDetection] Injected community-reported warning badge for:', reportResult.company?.name);
+  }
+
+  /**
+   * Show modal with reported company details
+   */
+  function showReportedCompanyModal(reportResult) {
+    // Remove existing modal
+    const existing = document.querySelector('.jobfiltr-reported-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.className = 'jobfiltr-reported-modal';
+    modal.innerHTML = `
+      <div style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+      " onclick="this.parentElement.remove()">
+        <div style="
+          background: white;
+          border-radius: 12px;
+          padding: 24px;
+          max-width: 450px;
+          width: 90%;
+          box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        " onclick="event.stopPropagation()">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h2 style="margin: 0; font-size: 20px; color: #9a3412; display: flex; align-items: center; gap: 8px;">
+              <span>⚠️</span> Community Reported
+            </h2>
+            <button onclick="this.closest('.jobfiltr-reported-modal').remove()" style="
+              background: none;
+              border: none;
+              font-size: 24px;
+              cursor: pointer;
+              color: #94a3b8;
+            ">&times;</button>
+          </div>
+
+          <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+            <div style="font-weight: 600; color: #92400e; font-size: 16px; margin-bottom: 8px;">
+              ${reportResult.company?.name || 'Unknown Company'}
+            </div>
+            <div style="color: #78350f; font-size: 14px;">
+              ${reportResult.message}
+            </div>
+          </div>
+
+          <div style="color: #64748b; font-size: 13px; line-height: 1.5;">
+            <p style="margin: 0 0 12px 0;">
+              <strong>What this means:</strong> Users have reported that this company frequently posts jobs that may not represent genuine hiring opportunities.
+            </p>
+            <p style="margin: 0;">
+              <strong>Recommendation:</strong> Research the company thoroughly before applying. Look for recent employee reviews and verify the role through the company's official website.
+            </p>
+          </div>
+
+          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 11px;">
+            Community reports as of January 2026 • Powered by JobFiltr
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+  }
+
+  // ============================================
+  // SEMANTIC PANEL DETECTION (Resilient to DOM changes)
+  // ============================================
+
+  /**
+   * Find the job detail panel using semantic patterns
+   * This is more resilient to LinkedIn DOM changes than specific CSS selectors
+   * @returns {HTMLElement|null} The detail panel element or null
+   */
+  function findDetailPanelSemanticly() {
+    // STRATEGY 1: Find by ARIA role (most stable)
+    const mainContent = document.querySelector('[role="main"], main, #main');
+    if (mainContent) {
+      // Look for job-related content in main area
+      const heading = mainContent.querySelector('h1, h2');
+      if (heading && heading.textContent.length > 5) {
+        // Verify it's in a detail panel area (not sidebar)
+        const rect = heading.getBoundingClientRect();
+        if (rect.left > window.innerWidth * 0.3) {
+          // Return the heading's parent for insertion
+          return heading.parentElement || heading;
+        }
+      }
+    }
+
+    // STRATEGY 2: Find by position (right side of split view for LinkedIn)
+    const allContainers = document.querySelectorAll('div, section, article');
+    for (const container of allContainers) {
+      const rect = container.getBoundingClientRect();
+
+      // Right side, reasonable width, visible
+      if (rect.left > window.innerWidth * 0.35 &&
+          rect.width > 400 &&
+          rect.height > 300 &&
+          rect.top >= 0 &&
+          rect.top < window.innerHeight) {
+
+        // Check if it contains job-related content
+        const text = container.textContent?.slice(0, 2000) || '';
+        if (text.includes('Apply') ||
+            text.includes('Description') ||
+            text.includes('Skills') ||
+            text.includes('Qualifications') ||
+            (text.includes('ago') && text.includes('applicant'))) {
+
+          // Find the best insertion point within this container
+          const title = container.querySelector('h1, h2');
+          if (title) {
+            return title.parentElement || title;
+          }
+          return container;
+        }
+      }
+    }
+
+    // STRATEGY 3: Find by URL-based job ID matching
+    const urlMatch = window.location.href.match(/\/jobs\/view\/(\d+)/);
+    if (urlMatch) {
+      const jobId = urlMatch[1];
+
+      // Look for elements referencing this job ID
+      const jobElements = document.querySelectorAll(`[data-job-id="${jobId}"], [data-entity-urn*="${jobId}"]`);
+      for (const el of jobElements) {
+        // Find the detail panel ancestor (not list item)
+        let current = el;
+        while (current && current !== document.body) {
+          const rect = current.getBoundingClientRect();
+          if (rect.width > 400 && rect.left > window.innerWidth * 0.3) {
+            const title = current.querySelector('h1, h2');
+            if (title) {
+              return title.parentElement || title;
+            }
+            return current;
+          }
+          current = current.parentElement;
+        }
+      }
+    }
+
+    // STRATEGY 4: Find job card that's marked as active/selected
+    const activeSelectors = [
+      '[class*="active"]',
+      '[class*="selected"]',
+      '[aria-selected="true"]'
+    ];
+
+    for (const selector of activeSelectors) {
+      const activeElements = document.querySelectorAll(selector);
+      for (const el of activeElements) {
+        // Check if this is in the detail area (not sidebar list)
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 400 && rect.left > window.innerWidth * 0.3) {
+          const title = el.querySelector('h1, h2');
+          if (title) {
+            return title.parentElement || title;
+          }
+        }
+      }
+    }
+
+    return null;
+  }
 
   // ============================================
   // STATE
@@ -153,6 +801,14 @@
   let currentScore = null;
   let currentJobId = null;
   let observer = null;
+
+  // FIX: Use a Map to store scores by job ID instead of a single global score
+  // This ensures each job badge shows its own score when clicked
+  const jobScoreCache = new Map();
+  const jobDataCache = new Map();
+
+  // Counter for generating unique IDs when URL params are missing
+  let uniqueIdCounter = 0;
 
   // ============================================
   // UTILITY FUNCTIONS
@@ -267,11 +923,40 @@
 
   function calculateVagueness(text) {
     const normalized = text.toLowerCase();
-    let vagueCount = 0;
-    for (const indicator of VAGUE_INDICATORS) {
-      if (normalized.includes(indicator)) vagueCount++;
+    let weightedScore = 0;
+    let matchedIndicators = [];
+
+    // High-weight indicators (0.25 each, max contribution)
+    for (const indicator of VAGUE_INDICATORS.high) {
+      if (normalized.includes(indicator)) {
+        weightedScore += 0.25;
+        matchedIndicators.push(`HIGH:${indicator}`);
+      }
     }
-    return Math.min(1, vagueCount / 5);
+
+    // Medium-weight indicators (0.12 each)
+    for (const indicator of VAGUE_INDICATORS.medium) {
+      if (normalized.includes(indicator)) {
+        weightedScore += 0.12;
+        matchedIndicators.push(`MED:${indicator}`);
+      }
+    }
+
+    // Low-weight indicators (0.05 each)
+    for (const indicator of VAGUE_INDICATORS.low) {
+      if (normalized.includes(indicator)) {
+        weightedScore += 0.05;
+        matchedIndicators.push(`LOW:${indicator}`);
+      }
+    }
+
+    // Log matched indicators for debugging (only if matches found)
+    if (matchedIndicators.length > 0) {
+      console.log('[GhostDetection] Vague indicators found:', matchedIndicators.join(', '));
+    }
+
+    // Cap at 1.0 and return
+    return Math.min(1, weightedScore);
   }
 
   function checkStaffingAgency(company) {
@@ -281,10 +966,16 @@
         return { isLikely: true, confidence: 0.95 };
       }
     }
-    const indicators = ['staffing', 'recruiting', 'talent', 'solutions', 'consulting'];
+    // "staffing" in company name is a very strong indicator - give it higher weight
+    // Other indicators are supporting signals
+    const strongIndicators = ['staffing', 'recruiting', 'recruiters'];
+    const weakIndicators = ['talent', 'solutions', 'consulting', 'workforce', 'employment'];
     let score = 0;
-    for (const ind of indicators) {
-      if (normalized.includes(ind)) score += 0.2;
+    for (const ind of strongIndicators) {
+      if (normalized.includes(ind)) score += 0.4; // Strong indicator = immediate flag
+    }
+    for (const ind of weakIndicators) {
+      if (normalized.includes(ind)) score += 0.15;
     }
     return { isLikely: score >= 0.4, confidence: Math.min(0.9, score) };
   }
@@ -353,6 +1044,34 @@
           autoHide: false,
           autoHideThreshold: 80,
         });
+      }
+    });
+  }
+
+  // Check if ghost analysis is enabled in filter settings
+  async function isGhostAnalysisEnabled() {
+    if (!isExtensionContextValid()) {
+      return { enabled: true, showCommunityWarnings: true }; // Default to enabled if can't check
+    }
+
+    return new Promise((resolve) => {
+      try {
+        chrome.storage.local.get('filterSettings', (result) => {
+          if (chrome.runtime.lastError) {
+            console.error('[GhostDetection] Error checking filter settings:', chrome.runtime.lastError);
+            resolve({ enabled: true, showCommunityWarnings: true });
+            return;
+          }
+          const filterSettings = result.filterSettings || {};
+          // Default to true if not set
+          const enabled = filterSettings.enableGhostAnalysis !== false;
+          // Community-reported warnings checkbox (controls spam/ghost company warning badge)
+          const showCommunityWarnings = filterSettings.showCommunityReportedWarnings !== false;
+          resolve({ enabled, showCommunityWarnings });
+        });
+      } catch (e) {
+        console.error('[GhostDetection] Failed to check filter settings:', e);
+        resolve({ enabled: true, showCommunityWarnings: true });
       }
     });
   }
@@ -636,10 +1355,14 @@
   // CORE ANALYSIS
   // ============================================
 
+  // Cache version - increment when algorithm changes to invalidate old cached scores
+  const CACHE_VERSION = 2;
+
   async function analyzeJob(job) {
     const cached = await getCachedScore(job.id);
-    if (cached) {
-      console.log('[GhostDetection] Using cached score');
+    // Only use cache if version matches (invalidate old cached scores)
+    if (cached && cached.version === CACHE_VERSION) {
+      console.log('[GhostDetection] Using cached score (v' + CACHE_VERSION + ')');
       return cached;
     }
 
@@ -695,11 +1418,40 @@
     overall = Math.min(100, Math.max(0, overall));
 
     const category = getCategory(overall);
-    const confidence = signals.length > 0
-      ? signals.reduce((sum, s) => sum + s.confidence, 0) / signals.length
-      : 0.5;
 
-    const score = { overall, confidence, category, signals, breakdown, timestamp: Date.now() };
+    // Calculate confidence based on data quality and signal consistency
+    // This produces varied confidence scores based on actual job data
+    let confidence = 0.5;
+    if (signals.length > 0) {
+      // 1. Data completeness: how many signals have known/real data vs unknowns
+      const knownSignals = signals.filter(s =>
+        s.value !== -1 &&
+        !s.description?.toLowerCase().includes('unknown') &&
+        s.normalizedValue !== undefined
+      );
+      const dataCompleteness = knownSignals.length / signals.length;
+
+      // 2. Signal consistency: lower variance in risk values = higher confidence
+      const normalizedValues = signals.map(s => s.normalizedValue || 0);
+      const mean = normalizedValues.reduce((a, b) => a + b, 0) / normalizedValues.length;
+      const variance = normalizedValues.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / normalizedValues.length;
+      const consistency = 1 - Math.min(1, Math.sqrt(variance) * 2); // Lower variance = higher consistency
+
+      // 3. Evidence strength: weighted by signal importance
+      const totalWeight = signals.reduce((sum, s) => sum + s.weight, 0);
+      const weightedEvidence = totalWeight > 0
+        ? signals.reduce((sum, s) => sum + (s.normalizedValue > 0 ? s.weight : 0), 0) / totalWeight
+        : 0;
+      const evidenceStrength = Math.abs(overall - 50) / 50; // How far from neutral (50%)
+
+      // Combine factors: 40% completeness, 30% consistency, 30% evidence strength
+      confidence = (dataCompleteness * 0.4) + (consistency * 0.3) + (evidenceStrength * 0.3);
+
+      // Scale to 50-95% range (never 100% certain, never below 50% if we have data)
+      confidence = 0.5 + (confidence * 0.45);
+    }
+
+    const score = { overall, confidence, category, signals, breakdown, timestamp: Date.now(), version: CACHE_VERSION };
     await cacheScore(job.id, score);
 
     return score;
@@ -745,6 +1497,17 @@
           opacity: 1;
           transform: translateX(0);
         }
+      }
+      @keyframes jobfiltr-reported-glow {
+        0%, 100% {
+          box-shadow: 0 2px 6px rgba(0,0,0,0.1), 0 0 8px rgba(249, 115, 22, 0.3);
+        }
+        50% {
+          box-shadow: 0 2px 6px rgba(0,0,0,0.1), 0 0 16px rgba(249, 115, 22, 0.5);
+        }
+      }
+      .jobfiltr-reported-company-badge-glow {
+        animation: jobfiltr-reported-glow 2s ease-in-out infinite;
       }
       .jobfiltr-ghost-score:hover {
         transform: scale(1.02);
@@ -907,6 +1670,129 @@
     document.querySelector('.jobfiltr-ghost-score')?.remove();
     document.getElementById('jobfiltr-floating-badge-container')?.remove();
 
+    const color = SCORE_COLORS[category] || SCORE_COLORS.medium_risk;
+    const label = SCORE_LABELS[category] || 'Unknown';
+
+    // Calculate display percentage: for "safe" category, show legitimacy % (100 - ghostScore)
+    // For risk categories, show the ghost/risk score directly
+    const displayPercent = (category === 'safe') ? (100 - score) : score;
+
+    // Get risk level emoji
+    const riskEmoji = {
+      safe: '✅',
+      low_risk: '🔵',
+      medium_risk: '🟡',
+      high_risk: '🟠',
+      likely_ghost: '👻'
+    }[category] || '❓';
+
+    const badge = document.createElement('div');
+    badge.className = 'jobfiltr-ghost-score jobfiltr-ghost-badge-container';
+
+    // Use Indeed-specific styling and positioning
+    if (isIndeed()) {
+      // Indeed styling - ULTRATHINK: Sized to ~80% of original for detail panel
+      badge.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 15px;">${riskEmoji}</span>
+          <div>
+            <div style="font-weight: 700; font-size: 12px;">${displayPercent}% ${label}</div>
+            <div style="font-size: 9px; opacity: 0.8;">Ghost Job Analysis • Click for details</div>
+          </div>
+        </div>
+      `;
+      badge.style.cssText = `
+        background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+        color: #ffffff;
+        padding: 10px 13px;
+        border-radius: 10px;
+        font-size: 9px;
+        font-weight: 600;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        border: 1px solid ${color}50;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        max-width: fit-content;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      `;
+      badge.addEventListener('click', onClick);
+
+      // For Indeed: Find or create a badges container directly under the job title
+      // This ensures ghost badge is on the LEFT, and job age badge will be on the RIGHT
+      let badgesContainer = document.querySelector('.jobfiltr-badges-container');
+
+      if (!badgesContainer) {
+        // Find the job title element to place badges directly under it
+        const jobTitleSelectors = [
+          'h1.jobsearch-JobInfoHeader-title',
+          '[data-testid="jobsearch-JobInfoHeader-title"]',
+          '.jobsearch-JobInfoHeader-title',
+          '.jobsearch-JobInfoHeader-title-container'
+        ];
+
+        let jobTitle = null;
+        for (const selector of jobTitleSelectors) {
+          jobTitle = document.querySelector(selector);
+          if (jobTitle) break;
+        }
+
+        if (jobTitle) {
+          // Create the badges container directly under the job title
+          // ULTRATHINK: Gap and margin sized to ~80% to match badge sizes
+          badgesContainer = document.createElement('div');
+          badgesContainer.className = 'jobfiltr-badges-container';
+          badgesContainer.style.cssText = `
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: flex-start;
+            margin: 10px 0;
+          `;
+          jobTitle.insertAdjacentElement('afterend', badgesContainer);
+          console.log('[GhostDetection] Created badges container under job title for Indeed');
+        }
+      }
+
+      if (badgesContainer) {
+        // Insert ghost badge at the beginning (left side)
+        badgesContainer.insertBefore(badge, badgesContainer.firstChild);
+        console.log('[GhostDetection] Added ghost badge to badges container (left side)');
+        return true;
+      }
+
+      // Fallback: If no title found, use standard insertion
+      console.warn('[GhostDetection] Could not find job title, using fallback insertion');
+    } else {
+      // LinkedIn/default styling - ULTRATHINK: Sized to ~80% of original for detail panel
+      badge.innerHTML = `
+        <div style="
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 9px 13px;
+          background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+          border: 2px solid ${color};
+          border-radius: 10px;
+          cursor: pointer;
+          margin: 10px 0;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          transition: all 0.3s ease;
+          box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+        ">
+          ${createCircularProgress(displayPercent, color, 45)}
+          <div style="display: flex; flex-direction: column; gap: 3px;">
+            <div style="display: flex; align-items: center; gap: 5px;">
+              <span style="font-size: 13px;">${riskEmoji}</span>
+              <span style="font-size: 11px; font-weight: 600; color: #ffffff;">${label}</span>
+            </div>
+            <span style="font-size: 9px; color: #94a3b8;">Ghost Job Analysis • Click for details</span>
+          </div>
+        </div>
+      `;
+      badge.addEventListener('click', onClick);
+    }
+
+    // Standard insertion for LinkedIn and fallback
     // Handle both single selector (string) and array of selectors
     const selectors = Array.isArray(scoreTargets) ? scoreTargets : [scoreTargets];
 
@@ -923,67 +1809,34 @@
     }
 
     if (!target) {
-      console.warn('[GhostDetection] Could not find injection target. Tried:', selectors.join(', '));
+      console.warn('[GhostDetection] Standard selectors failed. Trying semantic detection...');
 
-      // Last resort fallback: create a floating badge at the top of the viewport
-      console.log('[GhostDetection] Using floating badge fallback');
-      const floatingContainer = document.createElement('div');
-      floatingContainer.id = 'jobfiltr-floating-badge-container';
-      floatingContainer.style.cssText = `
-        position: fixed;
-        top: 80px;
-        right: 20px;
-        z-index: 9999;
-        animation: slideInRight 0.3s ease-out;
-      `;
-      document.body.appendChild(floatingContainer);
-      target = floatingContainer;
-      usedSelector = 'floating-fallback';
+      // ===== SEMANTIC PANEL DETECTION (Resilient to DOM changes) =====
+      target = findDetailPanelSemanticly();
+
+      if (target) {
+        usedSelector = 'semantic-detection';
+        console.log('[GhostDetection] Found target via semantic detection');
+      } else {
+        // Last resort fallback: create a floating badge at the top of the viewport
+        console.log('[GhostDetection] Using floating badge fallback');
+        const floatingContainer = document.createElement('div');
+        floatingContainer.id = 'jobfiltr-floating-badge-container';
+        floatingContainer.style.cssText = `
+          position: fixed;
+          top: 80px;
+          right: 20px;
+          z-index: 9999;
+          animation: slideInRight 0.3s ease-out;
+        `;
+        document.body.appendChild(floatingContainer);
+        target = floatingContainer;
+        usedSelector = 'floating-fallback';
+      }
     } else {
       console.log('[GhostDetection] Found injection target:', usedSelector);
     }
 
-    const color = SCORE_COLORS[category] || SCORE_COLORS.medium_risk;
-    const label = SCORE_LABELS[category] || 'Unknown';
-
-    // Get risk level emoji
-    const riskEmoji = {
-      safe: '✅',
-      low_risk: '🔵',
-      medium_risk: '🟡',
-      high_risk: '🟠',
-      likely_ghost: '👻'
-    }[category] || '❓';
-
-    const badge = document.createElement('div');
-    badge.className = 'jobfiltr-ghost-score jobfiltr-ghost-badge-container';
-    badge.innerHTML = `
-      <div style="
-        display: inline-flex;
-        align-items: center;
-        gap: 12px;
-        padding: 10px 16px;
-        background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
-        border: 2px solid ${color};
-        border-radius: 12px;
-        cursor: pointer;
-        margin: 12px 0;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-      ">
-        ${createCircularProgress(score, color, 56)}
-        <div style="display: flex; flex-direction: column; gap: 3px;">
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="font-size: 16px;">${riskEmoji}</span>
-            <span style="font-size: 14px; font-weight: 600; color: #ffffff;">${label}</span>
-          </div>
-          <span style="font-size: 11px; color: #94a3b8;">Ghost Job Analysis • Click for details</span>
-        </div>
-      </div>
-    `;
-
-    badge.addEventListener('click', onClick);
     target.insertAdjacentElement('afterend', badge);
     return true;
   }
@@ -1017,17 +1870,26 @@
     return false;
   }
 
-  function showDetails() {
-    if (!currentJob || !currentScore) return;
+  // FIX: showDetails now accepts a jobId parameter to look up the correct score
+  // This prevents the global currentScore from showing the wrong job's score
+  function showDetails(jobId = null) {
+    // Look up the specific job's score and data from cache
+    const scoreToShow = jobId ? jobScoreCache.get(jobId) : currentScore;
+    const jobToShow = jobId ? jobDataCache.get(jobId) : currentJob;
 
-    console.log('[GhostDetection] Score details:', currentScore);
+    if (!jobToShow || !scoreToShow) {
+      console.warn('[GhostDetection] No score/job data for:', jobId);
+      return;
+    }
+
+    console.log('[GhostDetection] Score details for job:', jobId, scoreToShow);
 
     // Remove any existing modal
     document.querySelector('.jobfiltr-modal')?.remove();
 
     const getColor = (cat) => SCORE_COLORS[cat] || SCORE_COLORS.medium_risk;
     const getLabel = (cat) => SCORE_LABELS[cat] || 'Unknown';
-    const color = getColor(currentScore.category);
+    const color = getColor(scoreToShow.category);
 
     // Detect dark mode
     const darkMode = isDarkMode();
@@ -1088,12 +1950,12 @@
     `;
 
     // Score section background - navy for safe, theme-aware for others
-    const scoreSectionBg = currentScore.category === 'safe'
+    const scoreSectionBg = scoreToShow.category === 'safe'
       ? 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)'
       : (darkMode ? 'linear-gradient(135deg, #27272a 0%, #18181b 100%)' : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)');
 
-    const scoreLabelColor = currentScore.category === 'safe' ? '#ffffff' : theme.modalText;
-    const scoreConfidenceColor = currentScore.category === 'safe' ? '#94a3b8' : theme.modalTextSecondary;
+    const scoreLabelColor = scoreToShow.category === 'safe' ? '#ffffff' : theme.modalText;
+    const scoreConfidenceColor = scoreToShow.category === 'safe' ? '#94a3b8' : theme.modalTextSecondary;
 
     content.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -1116,9 +1978,9 @@
 
       <div style="text-align: center; padding: 24px; background: ${scoreSectionBg}; border-radius: 12px; margin-bottom: 20px;">
         <div style="display: inline-block; margin-bottom: 12px;">
-          ${createCircularProgress(currentScore.overall, currentScore.category === 'safe' ? '#4ade80' : color, 100, true, 'jobfiltr-modal-score')}
+          ${createCircularProgress(scoreToShow.category === 'safe' ? (100 - scoreToShow.overall) : scoreToShow.overall, scoreToShow.category === 'safe' ? '#4ade80' : color, 100, true, 'jobfiltr-modal-score')}
         </div>
-        <div style="font-size: 18px; font-weight: 600; color: ${scoreLabelColor}; margin-bottom: 4px;">${getLabel(currentScore.category)}</div>
+        <div style="font-size: 18px; font-weight: 600; color: ${scoreLabelColor}; margin-bottom: 4px;">${getLabel(scoreToShow.category)}</div>
         <div id="jobfiltr-modal-confidence" style="font-size: 13px; color: ${scoreConfidenceColor};">
           Confidence: 0%
         </div>
@@ -1126,7 +1988,7 @@
 
       <h3 style="font-size: 13px; color: ${theme.modalTextSecondary}; margin: 20px 0 12px; text-transform: uppercase; letter-spacing: 0.5px;">Risk Breakdown</h3>
       <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
-        ${Object.entries(currentScore.breakdown)
+        ${Object.entries(scoreToShow.breakdown)
           .filter(([_, value]) => value > 0)
           .map(([category, value]) => {
             const categoryDescriptions = {
@@ -1161,7 +2023,7 @@
 
       <h3 style="font-size: 13px; color: ${theme.modalTextSecondary}; margin: 20px 0 12px; text-transform: uppercase; letter-spacing: 0.5px;">Detection Signals</h3>
       <div style="display: flex; flex-direction: column; gap: 8px;">
-        ${currentScore.signals
+        ${scoreToShow.signals
           .filter((s) => s.normalizedValue > 0.1)
           .slice(0, 5)
           .map((s) => `
@@ -1214,8 +2076,8 @@
 
     // Trigger animations after modal is in DOM
     setTimeout(() => {
-      animateScoreCount('jobfiltr-modal-score', currentScore.overall, 1500);
-      animateConfidenceCount('jobfiltr-modal-confidence', Math.round(currentScore.confidence * 100), 1500);
+      animateScoreCount('jobfiltr-modal-score', scoreToShow.category === 'safe' ? (100 - scoreToShow.overall) : scoreToShow.overall, 1500);
+      animateConfidenceCount('jobfiltr-modal-confidence', Math.round(scoreToShow.confidence * 100), 1500);
     }, 100);
   }
 
@@ -1283,16 +2145,48 @@
       const container = document.querySelector(INDEED_SELECTORS.jobDetail);
       if (!container) return null;
 
+      // FIX: Generate truly unique job IDs to prevent score collisions
+      // Priority order: URL params > DOM data attributes > content hash > unique counter
       const params = new URLSearchParams(window.location.search);
-      const id = params.get('vjk') || params.get('jk') || `${Date.now()}`;
+      let id = params.get('vjk') || params.get('jk');
+
+      // If no URL param, try to get from DOM data attributes
+      if (!id) {
+        const jobCard = document.querySelector('[data-jk], [data-vjk], [data-job-id]');
+        if (jobCard) {
+          id = jobCard.getAttribute('data-jk') ||
+               jobCard.getAttribute('data-vjk') ||
+               jobCard.getAttribute('data-job-id');
+        }
+      }
+
+      // Extract job data first so we can use it for ID generation if needed
+      const title = getText(INDEED_SELECTORS.title);
+      const company = getText(INDEED_SELECTORS.company);
+      const location = getText(INDEED_SELECTORS.location);
+
+      // If still no ID, create a content-based hash for consistent identification
+      if (!id) {
+        // Create a simple hash from job content for consistent IDs
+        const contentKey = `${title}|${company}|${location}`.toLowerCase().replace(/\s+/g, '_');
+        // Use a simple hash function for the content
+        let hash = 0;
+        for (let i = 0; i < contentKey.length; i++) {
+          const char = contentKey.charCodeAt(i);
+          hash = ((hash << 5) - hash) + char;
+          hash = hash & hash; // Convert to 32bit integer
+        }
+        id = `content_${Math.abs(hash)}_${++uniqueIdCounter}`;
+        console.log('[GhostDetection] Generated content-based ID:', id, 'from:', title, '@', company);
+      }
 
       return {
         id: `indeed_${id}`,
         platform: 'indeed',
         url: window.location.href,
-        title: getText(INDEED_SELECTORS.title),
-        company: getText(INDEED_SELECTORS.company),
-        location: getText(INDEED_SELECTORS.location),
+        title,
+        company,
+        location,
         postedDate: getText(INDEED_SELECTORS.posted) || null,
         description: getText(INDEED_SELECTORS.description),
         salary: getText(INDEED_SELECTORS.salary) || undefined,
@@ -1312,21 +2206,43 @@
   async function analyzeLinkedIn() {
     if (!config?.enabled) return;
 
+    // Check if ghost analysis is enabled in filter settings
+    const ghostSettings = await isGhostAnalysisEnabled();
+    if (!ghostSettings.enabled) {
+      console.log('[GhostDetection] Ghost analysis disabled in filter settings, skipping');
+      return;
+    }
+
     const job = extractLinkedInJob();
     if (!job || job.id === currentJob?.id) return;
 
     currentJob = job;
-    console.log('[GhostDetection] Analyzing LinkedIn job:', job.title, '@', job.company);
+    console.log('[GhostDetection] Analyzing LinkedIn job:', job.title, '@', job.company, 'ID:', job.id);
 
     try {
       const score = await analyzeJob(job);
       currentScore = score;
 
-      console.log(`[GhostDetection] Score: ${score.overall} (${score.category})`);
+      // FIX: Store score and job data in caches by job ID for accurate badge click handling
+      jobScoreCache.set(job.id, score);
+      jobDataCache.set(job.id, job);
 
+      console.log(`[GhostDetection] Score: ${score.overall} (${score.category}) for job:`, job.id);
+
+      // Ghost analysis badge automatically shows when toggle is ON
       if (config.showScores) {
-        // Use scoreTargets array for multiple fallback injection points
-        injectScoreUI(score.overall, score.category, LINKEDIN_SELECTORS.scoreTargets, showDetails);
+        // FIX: Pass job ID to showDetails callback so clicking badge shows the correct job's score
+        const jobId = job.id;
+        injectScoreUI(score.overall, score.category, LINKEDIN_SELECTORS.scoreTargets, () => showDetails(jobId));
+      }
+
+      // Community-reported warnings badge (controlled by separate checkbox)
+      if (ghostSettings.showCommunityWarnings) {
+        const reportResult = detectReportedCompany(job.company);
+        if (reportResult.detected) {
+          console.log(`[GhostDetection] Community-reported company detected: ${reportResult.company?.name}`);
+          injectReportedCompanyBadge(reportResult);
+        }
       }
     } catch (e) {
       console.error('[GhostDetection] LinkedIn analysis error:', e);
@@ -1336,21 +2252,43 @@
   async function analyzeIndeed() {
     if (!config?.enabled) return;
 
+    // Check if ghost analysis is enabled in filter settings
+    const ghostSettings = await isGhostAnalysisEnabled();
+    if (!ghostSettings.enabled) {
+      console.log('[GhostDetection] Ghost analysis disabled in filter settings, skipping');
+      return;
+    }
+
     const job = extractIndeedJob();
     if (!job || job.id === currentJob?.id) return;
 
     currentJob = job;
-    console.log('[GhostDetection] Analyzing Indeed job:', job.title, '@', job.company);
+    console.log('[GhostDetection] Analyzing Indeed job:', job.title, '@', job.company, 'ID:', job.id);
 
     try {
       const score = await analyzeJob(job);
       currentScore = score;
 
-      console.log(`[GhostDetection] Score: ${score.overall} (${score.category})`);
+      // FIX: Store score and job data in caches by job ID for accurate badge click handling
+      jobScoreCache.set(job.id, score);
+      jobDataCache.set(job.id, job);
 
+      console.log(`[GhostDetection] Score: ${score.overall} (${score.category}) for job:`, job.id);
+
+      // Ghost analysis badge automatically shows when toggle is ON
       if (config.showScores) {
-        // Use scoreTargets array for multiple fallback injection points
-        injectScoreUI(score.overall, score.category, INDEED_SELECTORS.scoreTargets, showDetails);
+        // FIX: Pass job ID to showDetails callback so clicking badge shows the correct job's score
+        const jobId = job.id;
+        injectScoreUI(score.overall, score.category, INDEED_SELECTORS.scoreTargets, () => showDetails(jobId));
+      }
+
+      // Community-reported warnings badge (controlled by separate checkbox)
+      if (ghostSettings.showCommunityWarnings) {
+        const reportResult = detectReportedCompany(job.company);
+        if (reportResult.detected) {
+          console.log(`[GhostDetection] Community-reported company detected: ${reportResult.company?.name}`);
+          injectReportedCompanyBadge(reportResult);
+        }
       }
     } catch (e) {
       console.error('[GhostDetection] Indeed analysis error:', e);
@@ -1443,6 +2381,16 @@
       currentJob = null;
       currentScore = null;
       currentJobId = null;
+
+      // Limit cache size to prevent memory issues (keep last 50 jobs)
+      if (jobScoreCache.size > 50) {
+        const keysToDelete = [...jobScoreCache.keys()].slice(0, jobScoreCache.size - 50);
+        keysToDelete.forEach(k => {
+          jobScoreCache.delete(k);
+          jobDataCache.delete(k);
+        });
+      }
+
       if (isLinkedIn() || isIndeed()) {
         setTimeout(() => {
           if (isLinkedIn()) analyzeLinkedIn();

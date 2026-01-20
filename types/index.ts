@@ -19,6 +19,30 @@ export interface BlocklistEntry {
   submittedCount: number;
 }
 
+/**
+ * Community-reported company for spam/ghost job detection
+ * These are companies reported by users for questionable hiring practices
+ */
+export interface ReportedCompany {
+  name: string;              // Original display name
+  normalized: string;        // Normalized for matching
+  aliases?: string[];        // Alternative names/spellings (normalized)
+  category: 'spam' | 'ghost' | 'scam';
+  lastUpdated: string;       // ISO date string
+}
+
+/**
+ * Result from reported company detection
+ */
+export interface ReportedCompanyResult {
+  detected: boolean;
+  confidence: number;
+  matchType: 'exact' | 'alias' | 'partial' | 'none';
+  company: ReportedCompany | null;
+  matchedOn: string;
+  message: string;
+}
+
 export interface ProRequiredError {
   type: 'pro_required';
   feature: string;
@@ -50,7 +74,10 @@ export interface JobData {
   remoteType?: 'true_remote' | 'hybrid' | 'onsite' | 'unclear';
   postedDate?: string | null;
   salary?: string;
+  /** @deprecated Use isEarlyApplicant instead - numeric extraction was unreliable */
   applicantCount?: number;
+  /** Indicates if job is an early applicant opportunity */
+  isEarlyApplicant?: boolean;
 }
 
 // Detection result from analyzers

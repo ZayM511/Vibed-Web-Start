@@ -1,3 +1,46 @@
+/* ===== ULTRATHINK: Flash Prevention for Visa Sponsorship Filter =====
+ * When visa filter is active, hide all job cards by default until processed.
+ * This prevents the flash of cards appearing then disappearing.
+ * Cards are revealed after being processed by the filter logic.
+ */
+
+/* Indeed: Hide unprocessed job cards when visa filter is active */
+body.jobfiltr-visa-filter-active .jobsearch-ResultsList > li:not([data-jobfiltr-processed]),
+body.jobfiltr-visa-filter-active .job_seen_beacon:not([data-jobfiltr-processed]),
+body.jobfiltr-visa-filter-active li[data-jk]:not([data-jobfiltr-processed]) {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transition: none !important;
+}
+
+/* Reveal processed cards smoothly */
+body.jobfiltr-visa-filter-active .jobsearch-ResultsList > li[data-jobfiltr-processed],
+body.jobfiltr-visa-filter-active .job_seen_beacon[data-jobfiltr-processed],
+body.jobfiltr-visa-filter-active li[data-jk][data-jobfiltr-processed] {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transition: opacity 0.15s ease-out !important;
+}
+
+/* LinkedIn: Same flash prevention */
+body.jobfiltr-visa-filter-active .job-card-container:not([data-jobfiltr-processed]),
+body.jobfiltr-visa-filter-active .jobs-search-results__list-item:not([data-jobfiltr-processed]),
+body.jobfiltr-visa-filter-active .scaffold-layout__list-item:not([data-jobfiltr-processed]) {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transition: none !important;
+}
+
+body.jobfiltr-visa-filter-active .job-card-container[data-jobfiltr-processed],
+body.jobfiltr-visa-filter-active .jobs-search-results__list-item[data-jobfiltr-processed],
+body.jobfiltr-visa-filter-active .scaffold-layout__list-item[data-jobfiltr-processed] {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transition: opacity 0.15s ease-out !important;
+}
+
+/* ===== End Flash Prevention ===== */
+
 .jobfiltr-indicator {
   position: fixed;
   top: 20px;

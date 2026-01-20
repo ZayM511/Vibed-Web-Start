@@ -15,7 +15,8 @@ const SELECTORS = {
   description: '#jobDescriptionText, .jobsearch-jobDescriptionText, .jobsearch-JobComponent-description',
   salary: '#salaryInfoAndJobType, .jobsearch-JobMetadataHeader-item',
   applyButton: '.jobsearch-IndeedApplyButton, #indeedApplyButton',
-  sponsored: '.sponsoredJob, .jobsearch-JobCard-Sponsored',
+  // ULTRATHINK: Enhanced sponsored selectors for maximum detection accuracy
+  sponsored: '.sponsoredJob, .sponsoredGray, .jobsearch-JobCard-Sponsored, .job-result-sponsored, [data-is-sponsored], [data-is-sponsored="true"], [data-testid="sponsored-label"], [data-sponsored="true"]',
   scoreTarget: '.jobsearch-JobInfoHeader-subtitle, [data-testid="jobsearch-JobInfoHeader-subtitle"]'
 };
 

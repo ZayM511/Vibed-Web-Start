@@ -24,6 +24,10 @@ function extractJobInfo() {
     const companyElem = document.querySelector('.vNEEBe, .nJlQNd');
     const company = companyElem ? companyElem.textContent.trim() : null;
 
+    // Extract location
+    const locationElem = document.querySelector('.Qk80Jf, .sMzDkb, .I2Cbhb');
+    const location = locationElem ? locationElem.textContent.trim() : null;
+
     // Extract description
     const descriptionElem = document.querySelector('.HBvzbc, .WbZuDe');
     const description = descriptionElem ? descriptionElem.textContent.trim() : '';
@@ -32,6 +36,7 @@ function extractJobInfo() {
       url,
       title,
       company,
+      location,
       description,
       platform: 'google-jobs'
     };
@@ -72,43 +77,6 @@ function isSponsored(jobCard) {
   }
 }
 
-// ===== ENTRY LEVEL ACCURACY CHECK =====
-function checkEntryLevelAccuracy(jobCard) {
-  try {
-    const descriptionElem = jobCard.querySelector('.HBvzbc');
-    if (!descriptionElem) return null;
-
-    const description = descriptionElem.textContent.toLowerCase();
-
-    const isEntryLevel = description.includes('entry level') || description.includes('entry-level');
-    if (!isEntryLevel) return null;
-
-    // Check for experience requirements
-    const experiencePatterns = [
-      /(\d+)\+?\s*years?\s+(?:of\s+)?experience/gi,
-      /minimum\s+(?:of\s+)?(\d+)\s+years?/gi
-    ];
-
-    for (const pattern of experiencePatterns) {
-      const matches = description.matchAll(pattern);
-      for (const match of matches) {
-        const years = parseInt(match[1]);
-        if (years >= 3) {
-          return {
-            mismatch: true,
-            years,
-            message: `⚠️ Labeled Entry Level but requires ${years}+ years`
-          };
-        }
-      }
-    }
-
-    return { mismatch: false };
-  } catch (error) {
-    return null;
-  }
-}
-
 // ===== JOB AGE DETECTION =====
 function getJobAge(jobCard) {
   try {
@@ -135,14 +103,100 @@ function getJobAge(jobCard) {
 }
 
 // ===== VISA SPONSORSHIP DETECTION =====
+// Comprehensive pattern matching with negative-first priority
+
+// Negative patterns - job does NOT offer sponsorship (check FIRST)
+const VISA_NEGATIVE_PATTERNS = [
+  /\b(not|no|cannot|can't|won't|will\s+not|unable\s+to|do\s+not|does\s+not)\s+(provide\s+)?(sponsor|sponsorship)/i,
+  /sponsor(ship)?\s+(is\s+)?(not|unavailable)/i,
+  /without\s+sponsor/i,
+  /\bno\s+visa\s+(support|sponsorship|assistance)/i,
+  /must\s+(be|have|already\s+be)\s+(legally\s+)?(authorized|eligible)/i,
+  /must\s+have\s+(valid\s+)?(work\s+)?(authorization|permit|visa)/i,
+  /authorized\s+to\s+work.*without\s+sponsor/i,
+  /not\s+eligible\s+for\s+sponsor/i,
+  /sponsorship\s+(is\s+)?not\s+(available|offered|provided)/i
+];
+
+// Positive patterns - job OFFERS sponsorship
+const VISA_POSITIVE_PATTERNS = [
+  // Direct sponsorship mentions
+  /\b(will|can|may|able\s+to)\s+(provide\s+)?sponsor/i,
+  /visa\s+sponsor(ship)?(\s+available|\s+provided|\s+offered)?/i,
+  /sponsor(s|ing|ed)?\s+(visa|work\s+authorization)/i,
+  /willing\s+to\s+sponsor/i,
+  /sponsorship\s+(is\s+)?(available|provided|offered)/i,
+  /open\s+to\s+sponsor/i,
+
+  // Specific visa types (presence indicates sponsorship possible)
+  /\bh-?1b\b/i,
+  /\bh-?2b\b/i,
+  /\bo-?1\b/i,
+  /\btn\s+visa\b/i,
+  /\bl-?1\b/i,
+  /\be-?2\b/i,
+  /\beb-?[123]\b/i,
+  /\bperm\s+(sponsorship|process|filing)/i,
+  /green\s+card\s+sponsor/i,
+
+  // Work authorization support
+  /work\s+authorization\s+sponsor/i,
+  /immigration\s+sponsor/i,
+  /sponsor.*work\s+(permit|authorization|visa)/i
+];
+
+/**
+ * Check if job description text offers visa sponsorship
+ * Uses negative-first priority to avoid false positives
+ * @param {string} text - Job description text
+ * @returns {boolean} - True if job offers sponsorship
+ */
+function hasVisaSponsorshipText(text) {
+  if (!text || typeof text !== 'string') return false;
+
+  const normalized = text.toLowerCase();
+
+  // Check NEGATIVE patterns FIRST - they override positive matches
+  for (const pattern of VISA_NEGATIVE_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return false;  // Explicitly says NO sponsorship
+    }
+  }
+
+  // Check POSITIVE patterns
+  for (const pattern of VISA_POSITIVE_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return true;  // Mentions sponsorship positively
+    }
+  }
+
+  return false;  // No mention of sponsorship
+}
+
 function hasVisaSponsorship(jobCard) {
   try {
-    const descriptionElem = jobCard.querySelector('.HBvzbc');
-    if (!descriptionElem) return false;
+    // Try multiple selectors for job description
+    const descriptionSelectors = [
+      '.HBvzbc',
+      '.WbZuDe',
+      '.YgLbBe',
+      '[data-share-url] .HBvzbc'
+    ];
 
-    const description = descriptionElem.textContent.toLowerCase();
-    return /visa\s+sponsor|h-1b|h1b|sponsorship\s+available/i.test(description);
+    let description = '';
+    for (const selector of descriptionSelectors) {
+      const elem = jobCard.querySelector(selector) || document.querySelector(selector);
+      if (elem) {
+        description = elem.textContent || '';
+        break;
+      }
+    }
+
+    if (!description) return false;
+
+    return hasVisaSponsorshipText(description);
   } catch (error) {
+    console.error('JobFiltr: Error checking visa sponsorship:', error);
     return false;
   }
 }
@@ -170,15 +224,7 @@ function applyFilters(settings) {
       reasons.push('Sponsored');
     }
 
-    // Filter 4: Entry Level Accuracy
-    if (settings.entryLevelAccuracy) {
-      const check = checkEntryLevelAccuracy(jobCard);
-      if (check && check.mismatch) {
-        addBadgeToJob(jobCard, check.message, 'warning');
-      }
-    }
-
-    // Filter 6: Job Age Display
+    // Filter 4: Job Age Display
     if (settings.showJobAge) {
       const jobAge = getJobAge(jobCard);
       if (jobAge !== null && jobAge > 30) {

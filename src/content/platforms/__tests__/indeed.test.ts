@@ -269,6 +269,7 @@ describe('IndeedAdapter', () => {
         description: '',
       };
       // Should not throw
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(() => adapter.hideJob(job as any)).not.toThrow();
     });
   });

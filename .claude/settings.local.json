@@ -44,7 +44,13 @@
       "Bash(npm install:*)",
       "Skill(playwright-skill)",
       "Skill(playwright-skill:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(without fail\" by:\n- Trying 15+ detail panel selectors\n- Trying 10+ time element selectors within each panel\n- Supporting 15+ time format variations\n- Robust fallback to active card badges\n- Extensive logging for debugging\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(node run.js:*)",
+      "Bash(cmd /c dir \"c:\\\\Users\\\\isaia\\\\OneDrive\\\\Documents\\\\2025 Docs\\\\Claude Copy\\\\Vibed-Web-Start-1\\\\chrome-extension\" /b)",
+      "Bash(npm run build:*)",
+      "Bash(node test-job-age-fix.js:*)",
+      "mcp__plugin_perplexity_perplexity__perplexity_research"
     ],
     "deny": [],
     "ask": [],
