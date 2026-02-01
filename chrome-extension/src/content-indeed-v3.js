@@ -1721,6 +1721,28 @@ function matchesExcludeKeywords(jobCard, keywords) {
   return keywords.some(keyword => text.includes(keyword.toLowerCase()));
 }
 
+// ===== EXCLUDE COMPANIES =====
+function getCompanyNameForFilter(jobCard) {
+  const selectors = [
+    '[data-testid="company-name"]',
+    '.companyName',
+    '.company',
+    'span[data-testid="company-name"]'
+  ];
+  for (const selector of selectors) {
+    const el = jobCard.querySelector(selector);
+    if (el) return el.textContent.trim().toLowerCase();
+  }
+  return '';
+}
+
+function matchesExcludeCompanies(jobCard, companies) {
+  if (!companies || companies.length === 0) return false;
+  const companyName = getCompanyNameForFilter(jobCard);
+  if (!companyName) return false;
+  return companies.some(excluded => companyName.includes(excluded.toLowerCase()));
+}
+
 // ===== SALARY DETECTION =====
 // Detects if a job card has salary OR hourly rate information
 // Jobs with hourly rates (e.g., "$20/hr", "$18 an hour") should be considered as having salary info
@@ -2225,6 +2247,56 @@ function addWorkTypeUnclearBadge(jobCard) {
  */
 function removeWorkTypeBadge(jobCard) {
   const badge = jobCard.querySelector('.jobfiltr-worktype-badge');
+  if (badge) badge.remove();
+}
+
+/**
+ * Add "No Salary Info" notification badge to job card
+ * Shows when Salary filter is enabled and job has no salary information
+ * @param {Element} jobCard - The job card element
+ */
+function addNoSalaryBadge(jobCard) {
+  // Don't add duplicate badges
+  if (jobCard.querySelector('.jobfiltr-nosalary-badge')) return;
+
+  const badge = document.createElement('div');
+  badge.className = 'jobfiltr-nosalary-badge';
+  badge.innerHTML = `<span style="margin-right: 4px;">💰</span>No Salary Info`;
+  badge.title = 'This job listing does not include salary or compensation information';
+
+  // Light gray/neutral style
+  const bgColor = '#f3f4f6'; // Light gray
+  const textColor = '#6b7280'; // Medium gray
+
+  badge.style.cssText = `
+    background: ${bgColor};
+    color: ${textColor};
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 1px solid ${textColor}30;
+    display: inline-flex;
+    align-items: center;
+    cursor: help;
+    pointer-events: auto;
+    white-space: nowrap;
+  `;
+
+  // Append to the main container
+  const container = getOrCreateTopBadgesContainer(jobCard);
+  container.appendChild(badge);
+
+  log('Added No Salary Info badge to job card');
+}
+
+/**
+ * Remove no salary badge from job card
+ * @param {Element} jobCard - The job card element
+ */
+function removeNoSalaryBadge(jobCard) {
+  const badge = jobCard.querySelector('.jobfiltr-nosalary-badge');
   if (badge) badge.remove();
 }
 
@@ -3773,6 +3845,14 @@ function applyFilters(settings) {
       }
     }
 
+    // Filter 6b: Exclude Companies
+    if (settings.filterExcludeCompanies && settings.excludeCompanies?.length > 0) {
+      if (matchesExcludeCompanies(jobCard, settings.excludeCompanies)) {
+        shouldHide = true;
+        reasons.push('Excluded company');
+      }
+    }
+
     // Filter 7: Salary Range Filter
     if (settings.filterSalary) {
       // 7a: Hide jobs without salary info
@@ -3794,6 +3874,13 @@ function applyFilters(settings) {
           }
         }
       }
+    }
+
+    // Filter 7c: No Salary Info Badge (display notification for visible cards without salary)
+    // Shows badge when salary filter is enabled and job has no salary info but is not hidden
+    removeNoSalaryBadge(jobCard);
+    if (settings.filterSalary && !shouldHide && !hasSalaryInfo(jobCard)) {
+      addNoSalaryBadge(jobCard);
     }
 
     // Filter 8: Active Recruiting Badge
@@ -4605,6 +4692,14 @@ function performFullScan() {
       }
     }
 
+    // Filter 6b: Exclude Companies
+    if (filterSettings.filterExcludeCompanies && filterSettings.excludeCompanies?.length > 0) {
+      if (matchesExcludeCompanies(jobCard, filterSettings.excludeCompanies)) {
+        shouldHide = true;
+        reasons.push('Excluded company');
+      }
+    }
+
     // Filter 7: Salary Range Filter
     if (filterSettings.filterSalary) {
       // 7a: Hide jobs without salary info
@@ -4626,6 +4721,13 @@ function performFullScan() {
           }
         }
       }
+    }
+
+    // Filter 7c: No Salary Info Badge (display notification for visible cards without salary)
+    // Shows badge when salary filter is enabled and job has no salary info but is not hidden
+    removeNoSalaryBadge(jobCard);
+    if (filterSettings.filterSalary && !shouldHide && !hasSalaryInfo(jobCard)) {
+      addNoSalaryBadge(jobCard);
     }
 
     // Filter 8: Active Recruiting Badge

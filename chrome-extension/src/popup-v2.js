@@ -638,7 +638,7 @@ let currentDockSide = null;
 let panelWindowId = null;
 let ownWindowId = null; // Track our own window ID for exclusion
 
-function detectPanelMode() {
+async function detectPanelMode() {
   const urlParams = new URLSearchParams(window.location.search);
   isPanelMode = urlParams.get('mode') === 'panel';
   currentDockSide = urlParams.get('dock') || 'left';
@@ -651,10 +651,10 @@ function detectPanelMode() {
     initPanelModeListeners(); // Set up tab/window change listeners
 
     // Track our own window ID so we can exclude it from tab queries
-    chrome.windows.getCurrent().then(win => {
-      ownWindowId = win.id;
-      console.log('Panel window ID:', ownWindowId);
-    });
+    // IMPORTANT: Must await this before site detection runs
+    const win = await chrome.windows.getCurrent();
+    ownWindowId = win.id;
+    console.log('Panel window ID:', ownWindowId);
   }
 
   return isPanelMode;
@@ -922,25 +922,35 @@ let currentTabId = null; // Track the active job site tab ID
 
 // Helper function to safely get active job tab (handles service worker being inactive)
 async function safeGetActiveJobTab() {
+  // Helper to check if URL is a job site
+  const isJobSiteUrl = (url) => {
+    if (!url) return false;
+    return url.includes('linkedin.com') || url.includes('indeed.com') ||
+           (url.includes('google.com') && url.includes('search'));
+  };
+
   // First try background script (most reliable)
   try {
     const response = await chrome.runtime.sendMessage({ action: 'getActiveJobTab' });
     if (response && response.tab) {
+      console.log('Got tab from background:', response.tab.url);
       return response.tab;
     }
+    console.log('Background returned no tab, using fallback');
   } catch (error) {
     // Service worker may be inactive - this is expected in MV3
-    console.log('Background script not available, using fallback');
+    console.log('Background script not available, using fallback:', error.message);
   }
 
   // Fallback: query tabs directly, excluding our own panel window
   // Get all normal (non-popup) windows
   const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+  console.log(`Fallback: Found ${windows.length} normal windows, ownWindowId=${ownWindowId}`);
 
   // Sort by focused status to prioritize the currently focused browser window
   windows.sort((a, b) => (b.focused ? 1 : 0) - (a.focused ? 1 : 0));
 
-  // Check each window for a job site tab
+  // Check each window for a job site tab (prioritize job sites)
   for (const win of windows) {
     // Skip our own window if we know it
     if (ownWindowId && win.id === ownWindowId) continue;
@@ -949,11 +959,28 @@ async function safeGetActiveJobTab() {
     const jobTab = tabs.find(t =>
       t.url &&
       !t.url.startsWith('chrome-extension://') &&
-      (t.url.includes('linkedin.com') || t.url.includes('indeed.com') || t.url.includes('google.com/search'))
+      isJobSiteUrl(t.url)
     );
 
     if (jobTab) {
+      console.log('Fallback found job site tab:', jobTab.url);
       return jobTab;
+    }
+  }
+
+  // Second fallback: any active tab in any normal window (not just job sites)
+  for (const win of windows) {
+    if (ownWindowId && win.id === ownWindowId) continue;
+
+    const tabs = await chrome.tabs.query({ active: true, windowId: win.id });
+    const validTab = tabs.find(t =>
+      t.url &&
+      !t.url.startsWith('chrome-extension://')
+    );
+
+    if (validTab) {
+      console.log('Fallback found non-job-site tab:', validTab.url);
+      return validTab;
     }
   }
 
@@ -965,12 +992,15 @@ async function safeGetActiveJobTab() {
     t.windowId !== ownWindowId
   );
 
+  console.log('Final fallback tab:', validTab?.url || 'none');
   return validTab || null;
 }
 
 async function detectCurrentSite() {
   try {
     let tab;
+
+    console.log(`[detectCurrentSite] isPanelMode=${isPanelMode}, ownWindowId=${ownWindowId}`);
 
     if (isPanelMode) {
       // In panel mode, use helper to safely get active tab
@@ -981,7 +1011,10 @@ async function detectCurrentSite() {
       tab = activeTab;
     }
 
+    console.log(`[detectCurrentSite] tab=${tab ? tab.url : 'null'}`);
+
     if (!tab || !tab.url) {
+      console.log('[detectCurrentSite] No valid tab found');
       currentSite = null;
       updateSiteStatus(null);
       return null;
@@ -999,6 +1032,8 @@ async function detectCurrentSite() {
       site = 'google-jobs';
     }
 
+    console.log(`[detectCurrentSite] Detected site=${site} from URL=${url}`);
+
     currentSite = site;
     updateSiteStatus(site);
 
@@ -1014,6 +1049,81 @@ async function detectCurrentSite() {
       filtersContainer.style.opacity = '0.5';
       filtersContainer.style.pointerEvents = 'none';
       applyBtn.disabled = true;
+    }
+
+    // Issue #6 Fix: Auto-dim Salary Range and Early Applicant sections on LinkedIn
+    // LinkedIn doesn't provide salary data, early applicant indicators, or applied job tracking reliably
+    const salaryFilter = document.querySelector('.filter-item.expandable:has(#filterSalary)');
+    const earlyApplicantFilter = document.getElementById('earlyApplicantFilter');
+    const appliedJobsFilter = document.querySelector('.filter-item:has(#filterApplied)');
+
+    if (site === 'linkedin') {
+      // Dim and disable Salary Range filter on LinkedIn
+      if (salaryFilter) {
+        salaryFilter.style.opacity = '0.5';
+        salaryFilter.style.pointerEvents = 'none';
+        salaryFilter.title = 'Not available on LinkedIn - Salary data is not consistently provided';
+        const salaryCheckbox = document.getElementById('filterSalary');
+        if (salaryCheckbox) {
+          salaryCheckbox.checked = false;
+          salaryCheckbox.disabled = true;
+        }
+      }
+
+      // Dim and disable Early Applicant filter on LinkedIn
+      if (earlyApplicantFilter) {
+        earlyApplicantFilter.style.opacity = '0.5';
+        earlyApplicantFilter.style.pointerEvents = 'none';
+        earlyApplicantFilter.title = 'Not available on LinkedIn - Early applicant data is not consistently provided';
+        const earlyApplicantCheckbox = document.getElementById('filterEarlyApplicant');
+        if (earlyApplicantCheckbox) {
+          earlyApplicantCheckbox.checked = false;
+          earlyApplicantCheckbox.disabled = true;
+        }
+      }
+
+      // Dim and disable Auto-Hide Applied Jobs filter on LinkedIn
+      if (appliedJobsFilter) {
+        appliedJobsFilter.style.opacity = '0.5';
+        appliedJobsFilter.style.pointerEvents = 'none';
+        appliedJobsFilter.title = 'Not available on LinkedIn - Applied job status is not consistently provided';
+        const appliedCheckbox = document.getElementById('filterApplied');
+        if (appliedCheckbox) {
+          appliedCheckbox.checked = false;
+          appliedCheckbox.disabled = true;
+        }
+      }
+    } else {
+      // Re-enable on Indeed and Google Jobs
+      if (salaryFilter) {
+        salaryFilter.style.opacity = '1';
+        salaryFilter.style.pointerEvents = 'auto';
+        salaryFilter.title = '';
+        const salaryCheckbox = document.getElementById('filterSalary');
+        if (salaryCheckbox) {
+          salaryCheckbox.disabled = false;
+        }
+      }
+
+      if (earlyApplicantFilter) {
+        earlyApplicantFilter.style.opacity = '1';
+        earlyApplicantFilter.style.pointerEvents = 'auto';
+        earlyApplicantFilter.title = '';
+        const earlyApplicantCheckbox = document.getElementById('filterEarlyApplicant');
+        if (earlyApplicantCheckbox) {
+          earlyApplicantCheckbox.disabled = false;
+        }
+      }
+
+      if (appliedJobsFilter) {
+        appliedJobsFilter.style.opacity = '1';
+        appliedJobsFilter.style.pointerEvents = 'auto';
+        appliedJobsFilter.title = '';
+        const appliedCheckbox = document.getElementById('filterApplied');
+        if (appliedCheckbox) {
+          appliedCheckbox.disabled = false;
+        }
+      }
     }
 
     return site;
@@ -1150,6 +1260,7 @@ async function requestPageInfo() {
 let filterSettings = {};
 let includeKeywords = [];
 let excludeKeywords = [];
+let excludeCompanies = [];
 let filtersInitialized = false; // Track if filters have been loaded
 
 async function initializeFilters() {
@@ -1207,6 +1318,7 @@ async function loadFilterSettings() {
 
     document.getElementById('filterIncludeKeywords').checked = filterSettings.filterIncludeKeywords || false;
     document.getElementById('filterExcludeKeywords').checked = filterSettings.filterExcludeKeywords || false;
+    document.getElementById('filterExcludeCompanies').checked = filterSettings.filterExcludeCompanies || false;
     document.getElementById('filterSalary').checked = filterSettings.filterSalary || false;
     document.getElementById('minSalary').value = filterSettings.minSalary || '';
     document.getElementById('maxSalary').value = filterSettings.maxSalary || '';
@@ -1257,18 +1369,6 @@ async function loadFilterSettings() {
       visaSponsorshipStats.classList.add('hidden');
     }
 
-    // Benefits Indicator
-    document.getElementById('showBenefitsIndicator').checked = filterSettings.showBenefitsIndicator || false;
-    updateBenefitsLegend(filterSettings.showBenefitsIndicator || false);
-
-    // Hide benefits indicator toggle for Indeed (LinkedIn only feature)
-    if (currentSite === 'indeed') {
-      const benefitsToggle = document.querySelector('#showBenefitsIndicator')?.closest('.filter-item');
-      if (benefitsToggle) {
-        benefitsToggle.classList.add('hidden');
-      }
-    }
-
     // Early Applicant Display Mode
     if (document.getElementById('earlyApplicantDisplayMode')) {
       document.getElementById('earlyApplicantDisplayMode').value = filterSettings.earlyApplicantDisplayMode || 'hide';
@@ -1285,9 +1385,10 @@ async function loadFilterSettings() {
     document.getElementById('showCommunityReportedWarnings').checked = showCommunityReportedWarnings;
     updateGhostSettingsState(enableGhostAnalysis);
 
-    // Load keywords
+    // Load keywords and companies
     includeKeywords = filterSettings.includeKeywords || [];
     excludeKeywords = filterSettings.excludeKeywords || [];
+    excludeCompanies = filterSettings.excludeCompanies || [];
     renderKeywordChips();
 
   } catch (error) {
@@ -1341,10 +1442,6 @@ async function resetFiltersToDefault() {
   const sponsoredStats = document.getElementById('sponsoredStats');
   if (sponsoredStats) sponsoredStats.classList.add('hidden');
 
-  // Benefits Indicator
-  document.getElementById('showBenefitsIndicator').checked = false;
-  updateBenefitsLegend(false);
-
   // Early Applicant Display Mode
   if (document.getElementById('earlyApplicantDisplayMode')) {
     document.getElementById('earlyApplicantDisplayMode').value = 'hide';
@@ -1367,18 +1464,6 @@ async function resetFiltersToDefault() {
   // Update filter stats
   updateFilterStats();
 }
-
-// Benefits legend toggle
-function updateBenefitsLegend(show) {
-  const legend = document.getElementById('benefitsLegend');
-  if (legend) {
-    legend.classList.toggle('hidden', !show);
-  }
-}
-
-document.getElementById('showBenefitsIndicator')?.addEventListener('change', (e) => {
-  updateBenefitsLegend(e.target.checked);
-});
 
 // ===== URGENTLY HIRING FILTER UX =====
 // Request count of urgently hiring jobs from content script for UX improvements
@@ -1684,6 +1769,7 @@ document.getElementById('filterSponsored')?.addEventListener('change', (e) => {
     if (statsSection) statsSection.classList.add('hidden');
   }
 
+  // Save settings but DON'T auto-apply - user must click "Apply Filters" button
   saveFilterSettings();
 });
 
@@ -1719,8 +1805,7 @@ async function saveFilterSettings() {
     filterEarlyApplicant: document.getElementById('filterEarlyApplicant'),
     filterTrueRemote: document.getElementById('filterTrueRemote'),
     filterJobAge: document.getElementById('filterJobAge'),
-    filterPostingAge: document.getElementById('filterPostingAge'),
-    showBenefitsIndicator: document.getElementById('showBenefitsIndicator')
+    filterPostingAge: document.getElementById('filterPostingAge')
   };
 
   console.log('%c[JobFiltr Popup] DEBUG: Checkbox elements and states:', 'background: #FF5722; color: white; padding: 2px 6px;');
@@ -1742,10 +1827,12 @@ async function saveFilterSettings() {
     showWorkTypeUnclear: document.getElementById('showWorkTypeUnclear')?.checked ?? true,
     filterIncludeKeywords: document.getElementById('filterIncludeKeywords')?.checked || false,
     filterExcludeKeywords: document.getElementById('filterExcludeKeywords')?.checked || false,
+    filterExcludeCompanies: document.getElementById('filterExcludeCompanies')?.checked || false,
     // CRITICAL: Use spread to create COPIES of arrays, not references
     // This prevents issues if global arrays are reassigned later
     includeKeywords: [...includeKeywords],
     excludeKeywords: [...excludeKeywords],
+    excludeCompanies: [...excludeCompanies],
     filterSalary: document.getElementById('filterSalary')?.checked || false,
     minSalary: document.getElementById('minSalary')?.value || '',
     maxSalary: document.getElementById('maxSalary')?.value || '',
@@ -1758,8 +1845,6 @@ async function saveFilterSettings() {
     hideApplied: document.getElementById('filterApplied')?.checked || false,
     filterUrgentlyHiring: document.getElementById('filterUrgentlyHiring')?.checked || false,
     visaOnly: document.getElementById('filterVisa')?.checked || false,
-    // Benefits Indicator
-    showBenefitsIndicator: document.getElementById('showBenefitsIndicator')?.checked || false,
     // Early Applicant Display Mode
     earlyApplicantDisplayMode: document.getElementById('earlyApplicantDisplayMode')?.value || 'hide',
     // Job Posting Age Filter
@@ -1794,6 +1879,40 @@ async function saveFilterSettings() {
   console.log('%c[JobFiltr Popup] Settings saved to chrome.storage.local', 'background: #9C27B0; color: white; padding: 2px 6px;');
 }
 
+// Helper function to save settings AND auto-apply to content script
+// This provides immediate feedback without requiring "Apply Filters" button click
+async function saveAndApplyFilters() {
+  await saveFilterSettings();
+
+  // Get the active tab and send APPLY_FILTERS message
+  try {
+    let tabId = currentTabId;
+    if (!tabId) {
+      if (isPanelMode) {
+        const tab = await safeGetActiveJobTab();
+        tabId = tab?.id;
+      } else {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        tabId = tab?.id;
+      }
+    }
+
+    if (tabId && currentSite) {
+      console.log('%c[JobFiltr Popup] Auto-applying filters to tab', 'background: #4CAF50; color: white; padding: 2px 6px;', tabId);
+      await chrome.tabs.sendMessage(tabId, {
+        type: 'APPLY_FILTERS',
+        settings: filterSettings,
+        site: currentSite
+      });
+    }
+  } catch (error) {
+    // Silently ignore - content script may not be loaded yet
+    console.log('[JobFiltr Popup] Auto-apply skipped:', error.message);
+  }
+
+  updateFilterStats();
+}
+
 function updateFilterStats() {
   // ULTRATHINK: Count ALL main filters consistently
   // This must match countActiveFilters() for template saving consistency
@@ -1805,14 +1924,14 @@ function updateFilterStats() {
     'trueRemoteAccuracy',      // Count True Remote as 1 filter when enabled
     'filterIncludeKeywords',
     'filterExcludeKeywords',
+    'filterExcludeCompanies',
     'filterSalary',
     // hideNoSalary is NOT counted separately - it's part of filterSalary
     'showActiveRecruiting',
     'showJobAge',
     'hideApplied',
     'filterUrgentlyHiring',
-    'visaOnly',
-    'showBenefitsIndicator'    // Display setting - counts as active filter
+    'visaOnly'
     // Note: earlyApplicantDisplayMode is controlled by filterEarlyApplicant checkbox
   ];
 
@@ -1846,6 +1965,19 @@ function renderKeywordChips() {
     excludeKeywords.forEach((keyword, index) => {
       const chip = createKeywordChip(keyword, 'exclude', index);
       excludeContainer.appendChild(chip);
+    });
+  }
+
+  // Render exclude companies
+  const companiesContainer = document.getElementById('excludeCompaniesChips');
+  companiesContainer.innerHTML = '';
+
+  if (excludeCompanies.length === 0) {
+    companiesContainer.innerHTML = '<span class="keywords-empty">No companies added</span>';
+  } else {
+    excludeCompanies.forEach((company, index) => {
+      const chip = createCompanyChip(company, index);
+      companiesContainer.appendChild(chip);
     });
   }
 }
@@ -1933,6 +2065,57 @@ function removeKeyword(type, index) {
   saveFilterSettings();
 }
 
+// ===== EXCLUDE COMPANIES MANAGEMENT =====
+function createCompanyChip(company, index) {
+  const chip = document.createElement('span');
+  chip.className = 'keyword-chip exclude';
+  chip.innerHTML = `
+    ${company}
+    <button class="keyword-chip-remove" data-type="company" data-index="${index}">&times;</button>
+  `;
+
+  chip.querySelector('.keyword-chip-remove').addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    removeCompany(index);
+  });
+
+  return chip;
+}
+
+async function addCompany(company) {
+  company = company.trim().toLowerCase();
+
+  if (!company) return false;
+
+  if (excludeCompanies.includes(company)) {
+    console.log('  Company already exists in excludeCompanies');
+    return false;
+  }
+
+  excludeCompanies.push(company);
+  console.log('%c[JobFiltr Popup] COMPANY ADDED TO EXCLUDE:', 'background: #E91E63; color: white; padding: 4px 8px; font-weight: bold;');
+  console.log('  Company:', company);
+  console.log('  Array now:', JSON.stringify(excludeCompanies));
+
+  // AUTO-ENABLE: When user adds a company, enable the filter
+  const checkbox = document.getElementById('filterExcludeCompanies');
+  if (checkbox && !checkbox.checked) {
+    checkbox.checked = true;
+    console.log('%c[JobFiltr Popup] Auto-enabled Exclude Companies filter', 'background: #4CAF50; color: white; padding: 2px 6px;');
+  }
+
+  renderKeywordChips();
+  await saveFilterSettings();
+  return true;
+}
+
+function removeCompany(index) {
+  excludeCompanies.splice(index, 1);
+  renderKeywordChips();
+  saveFilterSettings();
+}
+
 // CRITICAL FIX: Auto-save keyword checkbox changes to prevent tab-switch reset
 // Other filters auto-save on change, keyword filters must do the same
 document.getElementById('filterIncludeKeywords')?.addEventListener('change', (e) => {
@@ -1991,6 +2174,32 @@ document.getElementById('addExcludeKeyword').addEventListener('click', async () 
   input.focus();
 });
 
+// Exclude company input handlers
+document.getElementById('excludeCompanyInput').addEventListener('keypress', async (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const input = e.target;
+    const added = await addCompany(input.value);
+    if (added) {
+      input.value = '';
+    }
+  }
+});
+
+document.getElementById('addExcludeCompany').addEventListener('click', async () => {
+  const input = document.getElementById('excludeCompanyInput');
+  const added = await addCompany(input.value);
+  if (added) {
+    input.value = '';
+  }
+  input.focus();
+});
+
+// Auto-save Exclude Companies checkbox changes
+document.getElementById('filterExcludeCompanies')?.addEventListener('change', () => {
+  saveFilterSettings();
+});
+
 // ===== TEMPLATES MANAGEMENT =====
 const TEMPLATES_STORAGE_KEY = 'jobfiltr_templates';
 let templates = [];
@@ -2020,9 +2229,10 @@ function countActiveFilters(settings) {
   const mainFilters = [
     'hideStaffing', 'hideSponsored', 'filterEarlyApplicant', 'filterPostingAge',
     'trueRemoteAccuracy', 'filterIncludeKeywords', 'filterExcludeKeywords',
+    'filterExcludeCompanies',
     'filterSalary', // hideNoSalary is NOT counted separately - it's part of filterSalary
     'showActiveRecruiting', 'showJobAge', 'hideApplied', 'filterUrgentlyHiring',
-    'visaOnly', 'showBenefitsIndicator'
+    'visaOnly'
   ];
   return mainFilters.filter(key => settings[key] === true).length;
 }
@@ -2043,63 +2253,96 @@ function getCurrentFilterSettings() {
     showWorkTypeUnclear: document.getElementById('showWorkTypeUnclear').checked,
     filterIncludeKeywords: document.getElementById('filterIncludeKeywords').checked,
     filterExcludeKeywords: document.getElementById('filterExcludeKeywords').checked,
+    filterExcludeCompanies: document.getElementById('filterExcludeCompanies').checked,
     includeKeywords: [...includeKeywords],
     excludeKeywords: [...excludeKeywords],
+    excludeCompanies: [...excludeCompanies],
     filterSalary: document.getElementById('filterSalary').checked,
     minSalary: document.getElementById('minSalary').value,
     maxSalary: document.getElementById('maxSalary').value,
+    salaryPeriod: document.getElementById('salaryPeriod')?.value || 'yearly',
     hideNoSalary: document.getElementById('hideNoSalary').checked,
+    normalizePartTime: document.getElementById('normalizePartTime')?.checked || false,
     showActiveRecruiting: document.getElementById('filterActiveRecruiting').checked,
     showJobAge: document.getElementById('filterJobAge').checked,
     hideApplied: document.getElementById('filterApplied').checked,
     filterUrgentlyHiring: document.getElementById('filterUrgentlyHiring').checked,
     visaOnly: document.getElementById('filterVisa').checked,
-    showBenefitsIndicator: document.getElementById('showBenefitsIndicator').checked,
-    earlyApplicantDisplayMode: document.getElementById('earlyApplicantDisplayMode')?.value || 'hide'
+    earlyApplicantDisplayMode: document.getElementById('earlyApplicantDisplayMode')?.value || 'hide',
+    enableGhostAnalysis: document.getElementById('enableGhostAnalysis')?.checked ?? true,
+    showCommunityReportedWarnings: document.getElementById('showCommunityReportedWarnings')?.checked ?? true
   };
 }
 
 function applyTemplateSettings(settings) {
-  // Apply all settings to UI
+  // Apply all settings to UI - explicitly set everything to ensure clean state
+  // Filters that aren't in the template will default to false/empty
+
+  // Staffing filter
   document.getElementById('filterStaffing').checked = settings.hideStaffing || false;
-  const staffingMode = settings.staffingDisplayMode || 'hide';
-  document.getElementById('staffingDisplayMode').value = staffingMode;
+  document.getElementById('staffingDisplayMode').value = settings.staffingDisplayMode || 'hide';
+
+  // Sponsored filter
   document.getElementById('filterSponsored').checked = settings.hideSponsored || false;
+
+  // Early Applicant filter
   document.getElementById('filterEarlyApplicant').checked = settings.filterEarlyApplicant || false;
+  if (document.getElementById('earlyApplicantDisplayMode')) {
+    document.getElementById('earlyApplicantDisplayMode').value = settings.earlyApplicantDisplayMode || 'hide';
+  }
+
+  // Posting Age filter
   document.getElementById('filterPostingAge').checked = settings.filterPostingAge || false;
   document.getElementById('postingAgeRange').value = settings.postingAgeRange || '1w';
+
+  // True Remote Accuracy filter
   document.getElementById('filterTrueRemote').checked = settings.trueRemoteAccuracy || false;
   document.getElementById('excludeHybrid').checked = settings.excludeHybrid !== false;
   document.getElementById('excludeOnsite').checked = settings.excludeOnsite !== false;
   document.getElementById('excludeInOffice').checked = settings.excludeInOffice !== false;
   document.getElementById('excludeInPerson').checked = settings.excludeInPerson !== false;
   document.getElementById('showWorkTypeUnclear').checked = settings.showWorkTypeUnclear !== false;
+
+  // Keywords filters
   document.getElementById('filterIncludeKeywords').checked = settings.filterIncludeKeywords || false;
   document.getElementById('filterExcludeKeywords').checked = settings.filterExcludeKeywords || false;
+  document.getElementById('filterExcludeCompanies').checked = settings.filterExcludeCompanies || false;
+
+  // Salary filter
   document.getElementById('filterSalary').checked = settings.filterSalary || false;
   document.getElementById('minSalary').value = settings.minSalary || '';
   document.getElementById('maxSalary').value = settings.maxSalary || '';
+  document.getElementById('salaryPeriod').value = settings.salaryPeriod || 'yearly';
   document.getElementById('hideNoSalary').checked = settings.hideNoSalary || false;
+  if (document.getElementById('normalizePartTime')) {
+    document.getElementById('normalizePartTime').checked = settings.normalizePartTime || false;
+  }
+
+  // Info badges
   document.getElementById('filterActiveRecruiting').checked = settings.showActiveRecruiting || false;
   document.getElementById('filterJobAge').checked = settings.showJobAge || false;
+
+  // Other filters
   document.getElementById('filterApplied').checked = settings.hideApplied || false;
   document.getElementById('filterUrgentlyHiring').checked = settings.filterUrgentlyHiring || false;
   document.getElementById('filterVisa').checked = settings.visaOnly || false;
-  document.getElementById('showBenefitsIndicator').checked = settings.showBenefitsIndicator || false;
-  if (document.getElementById('earlyApplicantDisplayMode')) {
-    document.getElementById('earlyApplicantDisplayMode').value = settings.earlyApplicantDisplayMode || 'hide';
+
+  // Ghost Job Analysis settings
+  if (document.getElementById('enableGhostAnalysis')) {
+    document.getElementById('enableGhostAnalysis').checked = settings.enableGhostAnalysis !== false;
+  }
+  if (document.getElementById('showCommunityReportedWarnings')) {
+    document.getElementById('showCommunityReportedWarnings').checked = settings.showCommunityReportedWarnings !== false;
   }
 
-  // Apply keywords
+  // Apply keywords and companies - clear and replace with template values
   includeKeywords = settings.includeKeywords || [];
   excludeKeywords = settings.excludeKeywords || [];
+  excludeCompanies = settings.excludeCompanies || [];
   renderKeywordChips();
 
-  // Update benefits legend visibility
-  updateBenefitsLegend(settings.showBenefitsIndicator || false);
-
-  // Update filter stats
-  filterSettings = settings;
+  // Update filter stats with template settings
+  filterSettings = { ...settings };
   updateFilterStats();
 }
 
@@ -2140,10 +2383,13 @@ async function toggleFavorite(id) {
   }
 }
 
-function loadTemplate(id) {
+async function loadTemplate(id) {
   const template = templates.find(t => t.id === id);
   if (template) {
     applyTemplateSettings(template.settings);
+
+    // CRITICAL: Save and apply filters to persist template settings and update content scripts
+    await saveAndApplyFilters();
 
     // Set as active template
     activeTemplateId = id;
@@ -2355,24 +2601,9 @@ document.getElementById('templateNameInput')?.addEventListener('keydown', (e) =>
 
 // Apply Filters Button
 document.getElementById('applyFilters').addEventListener('click', async () => {
-  // Check if user is authenticated before applying filters
-  if (!currentUser) {
-    const btn = document.getElementById('applyFilters');
-    const originalText = btn.innerHTML;
-
-    // Show sign-in required feedback
-    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 9v2m0 4h.01M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> Sign in required';
-    btn.style.background = 'var(--warning)';
-
-    setTimeout(() => {
-      btn.innerHTML = originalText;
-      btn.style.background = '';
-      // Show auth overlay
-      showAuthOverlay();
-    }, 1500);
-
-    return;
-  }
+  // NOTE: Auth check REMOVED for basic filters - consistent with content script
+  // Auth is only required for premium/cloud features, not basic filtering
+  // This matches the content script's loadAndApplyFilters() behavior
 
   // CRITICAL: Rebuild filterSettings from current UI state to ensure freshness
   // This is the DEFINITIVE source of truth when applying filters
@@ -2525,22 +2756,24 @@ document.getElementById('resetFilters').addEventListener('click', async () => {
   activeTemplateId = null;
   renderTemplates();
 
-  // Reset all checkboxes
-  document.querySelectorAll('.filter-checkbox').forEach(checkbox => {
-    checkbox.checked = false;
-  });
+  // Use comprehensive reset function that handles all form elements
+  await resetFiltersToDefault();
 
-  // Reset other inputs
-  document.getElementById('minSalary').value = '';
-  document.getElementById('maxSalary').value = '';
-
-  // Reset keywords
+  // Also reset keywords (resetFiltersToDefault doesn't clear these)
   includeKeywords = [];
   excludeKeywords = [];
   renderKeywordChips();
 
-  filterSettings = {};
-  await chrome.storage.local.set({ filterSettings: {} });
+  // Reset dropdown values not covered by resetFiltersToDefault
+  if (document.getElementById('postingAgeRange')) {
+    document.getElementById('postingAgeRange').value = '1w';
+  }
+  if (document.getElementById('earlyApplicantDisplayMode')) {
+    document.getElementById('earlyApplicantDisplayMode').value = 'hide';
+  }
+  if (document.getElementById('applicantRange')) {
+    document.getElementById('applicantRange').value = 'under10';
+  }
 
   // Send reset message to content script
   try {
@@ -3870,12 +4103,13 @@ function initResponsiveSizing() {
 }
 
 // ===== INITIALIZATION =====
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // Notify background that popup is opened (for notification suppression)
   chrome.runtime.sendMessage({ type: 'POPUP_OPENED' }).catch(() => {});
 
-  // Detect if in panel mode first
-  detectPanelMode();
+  // Detect if in panel mode first - MUST await to ensure ownWindowId is set
+  // before site detection runs (fixes LinkedIn/Indeed detection in panel mode)
+  await detectPanelMode();
 
   // Initialize responsive button sizing
   initResponsiveSizing();
@@ -3888,6 +4122,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load templates
   loadTemplates();
   loadTemplatesCollapsedState();
+
+  // SAVE-ONLY: Save filter settings when checkboxes change, but DON'T auto-apply
+  // User must click "Apply Filters" button to apply changes
+  document.querySelectorAll('.filter-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', async () => {
+      // Debounce to avoid rapid-fire saves
+      clearTimeout(window._filterAutoApplyTimeout);
+      window._filterAutoApplyTimeout = setTimeout(async () => {
+        await saveFilterSettings();
+        // Update UI stats but DON'T apply filters - user must click "Apply Filters"
+        updateFilterStats();
+        console.log('[JobFiltr Popup] Settings saved (click Apply Filters to apply)');
+      }, 300);
+    });
+  });
 });
 
 // Listen for messages from content script

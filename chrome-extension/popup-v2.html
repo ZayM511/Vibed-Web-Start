@@ -355,6 +355,27 @@
           </div>
         </div>
 
+        <!-- Filter: Exclude Companies -->
+        <div class="filter-item expandable">
+          <div class="filter-header">
+            <label class="filter-label">
+              <input type="checkbox" id="filterExcludeCompanies" class="filter-checkbox">
+              <span class="filter-title">Exclude Companies</span>
+            </label>
+            <span class="filter-badge badge-warning">Hide Jobs</span>
+          </div>
+          <p class="filter-description">Hide all jobs from specific companies (partial match)</p>
+          <div class="filter-options keywords-section">
+            <div class="keywords-input-container">
+              <input type="text" id="excludeCompanyInput" placeholder="Type company name and press Enter" class="keyword-input">
+              <button type="button" id="addExcludeCompany" class="keyword-add-btn">+</button>
+            </div>
+            <div class="keywords-chips" id="excludeCompaniesChips">
+              <!-- Chips will be added here dynamically -->
+            </div>
+          </div>
+        </div>
+
         <!-- Filter: Salary Range -->
         <div class="filter-item expandable">
           <div class="filter-header">
@@ -461,27 +482,6 @@
           </div>
         </div>
 
-        <!-- Benefits Indicator -->
-        <div class="filter-item">
-          <div class="filter-header">
-            <label class="filter-label">
-              <input type="checkbox" id="showBenefitsIndicator" class="filter-checkbox">
-              <span class="filter-title">Show Benefits Indicator</span>
-            </label>
-            <span class="filter-badge badge-new">New</span>
-          </div>
-          <p class="filter-description">Display badges for jobs mentioning benefits (health, 401k, PTO, etc.)</p>
-          <div class="benefits-legend hidden" id="benefitsLegend">
-            <p class="filter-options-label">Benefits detected:</p>
-            <div class="benefits-tags">
-              <span class="benefit-tag health">Health</span>
-              <span class="benefit-tag retirement">401k</span>
-              <span class="benefit-tag pto">PTO</span>
-              <span class="benefit-tag equity">Equity</span>
-              <span class="benefit-tag other">+More</span>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- Templates Section -->
