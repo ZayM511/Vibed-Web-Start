@@ -147,6 +147,80 @@ export const adminAddEntry = mutation({
 });
 
 /**
+ * Get waitlist analytics data (admin only)
+ */
+export const getWaitlistAnalytics = query({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("waitlist").collect();
+
+    const total = all.length;
+    const now = Date.now();
+    const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+    const thisWeek = all.filter((w) => w.createdAt >= oneWeekAgo).length;
+
+    // Group by status
+    const byStatus = {
+      pending: all.filter((w) => w.status === "pending").length,
+      confirmed: all.filter((w) => w.status === "confirmed").length,
+      invited: all.filter((w) => w.status === "invited").length,
+      converted: all.filter((w) => w.status === "converted").length,
+    };
+
+    // Group by location
+    const locationMap: Record<string, number> = {};
+    for (const entry of all) {
+      const loc = entry.location?.trim() || "Unknown";
+      locationMap[loc] = (locationMap[loc] || 0) + 1;
+    }
+    const byLocation = Object.entries(locationMap)
+      .map(([location, count]) => ({ location, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // Group by source
+    const sourceMap: Record<string, number> = {};
+    for (const entry of all) {
+      const src = entry.source?.trim() || "direct";
+      sourceMap[src] = (sourceMap[src] || 0) + 1;
+    }
+    const bySource = Object.entries(sourceMap)
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // Daily signups for last 30 days
+    const dailyMap: Record<string, number> = {};
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now - i * 24 * 60 * 60 * 1000);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      dailyMap[key] = 0;
+    }
+    for (const entry of all) {
+      if (entry.createdAt >= thirtyDaysAgo) {
+        const d = new Date(entry.createdAt);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        if (key in dailyMap) {
+          dailyMap[key]++;
+        }
+      }
+    }
+    const dailySignups = Object.entries(dailyMap).map(([date, count]) => ({
+      date,
+      count,
+    }));
+
+    return {
+      total,
+      thisWeek,
+      byStatus,
+      byLocation,
+      bySource,
+      dailySignups,
+    };
+  },
+});
+
+/**
  * Admin: Remove a waitlist entry by ID
  */
 export const adminRemoveEntry = mutation({

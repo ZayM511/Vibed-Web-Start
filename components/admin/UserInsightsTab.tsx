@@ -14,6 +14,9 @@ import {
   Calendar,
   Clock,
   Download,
+  UserPlus,
+  MapPin,
+  Target,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,6 +69,8 @@ interface ClerkUser {
 }
 
 const PIE_COLORS = ["#06b6d4", "#f59e0b"];
+const STATUS_COLORS = ["#f59e0b", "#06b6d4", "#8b5cf6", "#22c55e"];
+const SOURCE_COLORS = ["#6366f1", "#ec4899", "#f59e0b", "#22c55e", "#06b6d4"];
 
 export function UserInsightsTab() {
   const { user } = useUser();
@@ -73,6 +78,9 @@ export function UserInsightsTab() {
 
   // Founder dashboard data from Convex
   const founderData = useQuery(api.analytics.getFounderDashboard, { userEmail });
+
+  // Waitlist analytics data
+  const waitlistAnalytics = useQuery(api.waitlist.getWaitlistAnalytics);
 
   // Clerk users fetched from API route
   const [clerkUsers, setClerkUsers] = useState<ClerkUser[]>([]);
@@ -559,6 +567,400 @@ export function UserInsightsTab() {
                       })}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* WAITLIST ANALYTICS SECTION */}
+      {/* ═══════════════════════════════════════════════════════ */}
+
+      {/* Divider */}
+      <motion.div variants={itemVariants} className="relative py-4">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-white/10" />
+        </div>
+        <div className="relative flex justify-center">
+          <span className="bg-background px-4 text-white/40 text-sm font-medium uppercase tracking-widest">
+            Waitlist Analytics
+          </span>
+        </div>
+      </motion.div>
+
+      {/* Waitlist Stat Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <AnimatedStatCard
+          title="Total Signups"
+          value={waitlistAnalytics?.total ?? 0}
+          subtitle="All waitlist entries"
+          icon={UserPlus}
+          gradient="bg-gradient-to-br from-indigo-500/20 to-violet-500/20"
+          delay={0}
+        />
+        <AnimatedStatCard
+          title="This Week"
+          value={waitlistAnalytics?.thisWeek ?? 0}
+          subtitle="Last 7 days"
+          icon={TrendingUp}
+          gradient="bg-gradient-to-br from-emerald-500/20 to-green-500/20"
+          delay={0.05}
+        />
+        <AnimatedStatCard
+          title="Top Location"
+          value={waitlistAnalytics?.byLocation?.[0]?.count ?? 0}
+          subtitle={waitlistAnalytics?.byLocation?.[0]?.location ?? "N/A"}
+          icon={MapPin}
+          gradient="bg-gradient-to-br from-amber-500/20 to-yellow-500/20"
+          delay={0.1}
+        />
+        <AnimatedStatCard
+          title="Conversion Rate"
+          value={
+            waitlistAnalytics?.total
+              ? Math.round(
+                  ((waitlistAnalytics.byStatus.converted) /
+                    waitlistAnalytics.total) *
+                    100
+                )
+              : 0
+          }
+          subtitle="Converted to users"
+          icon={Target}
+          gradient="bg-gradient-to-br from-purple-500/20 to-pink-500/20"
+          delay={0.15}
+        />
+      </div>
+
+      {/* Signup Trend & Status Breakdown */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Signup Trend */}
+        <motion.div variants={itemVariants}>
+          <Card className="bg-white/5 backdrop-blur-xl border border-indigo-500/30 shadow-lg shadow-indigo-500/10">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-indigo-400" />
+                Signup Trend (Last 30 Days)
+              </CardTitle>
+              <CardDescription className="text-white/60">
+                Daily waitlist signups
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {waitlistAnalytics?.dailySignups ? (
+                <ResponsiveContainer width="100%" height={280}>
+                  <AreaChart data={waitlistAnalytics.dailySignups}>
+                    <defs>
+                      <linearGradient id="signupGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                    <XAxis
+                      dataKey="date"
+                      stroke="rgba(255,255,255,0.5)"
+                      fontSize={10}
+                      tickFormatter={(v) => {
+                        const d = new Date(v);
+                        return `${d.getMonth() + 1}/${d.getDate()}`;
+                      }}
+                    />
+                    <YAxis stroke="rgba(255,255,255,0.5)" fontSize={12} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "rgba(15,15,30,0.95)",
+                        border: "1px solid rgba(99,102,241,0.3)",
+                        borderRadius: "8px",
+                        color: "#fff",
+                      }}
+                      formatter={(value: number) => [value, "Signups"]}
+                      labelFormatter={(label) => {
+                        const d = new Date(label);
+                        return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="count"
+                      stroke="#6366f1"
+                      fill="url(#signupGradient)"
+                      strokeWidth={2}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[280px]">
+                  <div className="h-8 w-8 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Status Breakdown */}
+        <motion.div variants={itemVariants}>
+          <Card className="bg-white/5 backdrop-blur-xl border border-amber-500/30 shadow-lg shadow-amber-500/10">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Target className="h-5 w-5 text-amber-400" />
+                Status Breakdown
+              </CardTitle>
+              <CardDescription className="text-white/60">
+                Waitlist entry statuses
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {waitlistAnalytics?.byStatus ? (
+                <>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: "Pending", value: waitlistAnalytics.byStatus.pending },
+                          { name: "Confirmed", value: waitlistAnalytics.byStatus.confirmed },
+                          { name: "Invited", value: waitlistAnalytics.byStatus.invited },
+                          { name: "Converted", value: waitlistAnalytics.byStatus.converted },
+                        ].filter((d) => d.value > 0)}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {[
+                          { name: "Pending", value: waitlistAnalytics.byStatus.pending },
+                          { name: "Confirmed", value: waitlistAnalytics.byStatus.confirmed },
+                          { name: "Invited", value: waitlistAnalytics.byStatus.invited },
+                          { name: "Converted", value: waitlistAnalytics.byStatus.converted },
+                        ]
+                          .filter((d) => d.value > 0)
+                          .map((_, index) => (
+                            <Cell key={`status-cell-${index}`} fill={STATUS_COLORS[index % STATUS_COLORS.length]} />
+                          ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "rgba(15,15,30,0.95)",
+                          border: "1px solid rgba(245,158,11,0.3)",
+                          borderRadius: "8px",
+                          color: "#fff",
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap justify-center gap-4 mt-2">
+                    {[
+                      { label: "Pending", color: "bg-amber-500", count: waitlistAnalytics.byStatus.pending },
+                      { label: "Confirmed", color: "bg-cyan-500", count: waitlistAnalytics.byStatus.confirmed },
+                      { label: "Invited", color: "bg-violet-500", count: waitlistAnalytics.byStatus.invited },
+                      { label: "Converted", color: "bg-green-500", count: waitlistAnalytics.byStatus.converted },
+                    ].map((s) => (
+                      <div key={s.label} className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${s.color}`} />
+                        <span className="text-white/70 text-sm">
+                          {s.label} ({s.count})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-[280px]">
+                  <div className="h-8 w-8 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* Top Locations & Signup Sources */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Locations Bar Chart */}
+        <motion.div variants={itemVariants}>
+          <Card className="bg-white/5 backdrop-blur-xl border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-emerald-400" />
+                Top Locations
+              </CardTitle>
+              <CardDescription className="text-white/60">
+                Where signups are coming from
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {waitlistAnalytics?.byLocation && waitlistAnalytics.byLocation.length > 0 ? (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart
+                    data={waitlistAnalytics.byLocation.slice(0, 10)}
+                    layout="vertical"
+                    margin={{ left: 20 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                    <XAxis type="number" stroke="rgba(255,255,255,0.5)" fontSize={12} allowDecimals={false} />
+                    <YAxis
+                      dataKey="location"
+                      type="category"
+                      stroke="rgba(255,255,255,0.5)"
+                      fontSize={11}
+                      width={120}
+                      tickFormatter={(v) => (v.length > 18 ? v.substring(0, 16) + "..." : v)}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "rgba(15,15,30,0.95)",
+                        border: "1px solid rgba(34,197,94,0.3)",
+                        borderRadius: "8px",
+                        color: "#fff",
+                      }}
+                      formatter={(value: number) => [value, "Signups"]}
+                    />
+                    <Bar dataKey="count" fill="#22c55e" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[280px]">
+                  <p className="text-white/40">No location data yet</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Signup Sources */}
+        <motion.div variants={itemVariants}>
+          <Card className="bg-white/5 backdrop-blur-xl border border-pink-500/30 shadow-lg shadow-pink-500/10">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <UserPlus className="h-5 w-5 text-pink-400" />
+                Signup Sources
+              </CardTitle>
+              <CardDescription className="text-white/60">
+                How users found the waitlist
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {waitlistAnalytics?.bySource && waitlistAnalytics.bySource.length > 0 ? (
+                <>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie
+                        data={waitlistAnalytics.bySource}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={5}
+                        dataKey="count"
+                        nameKey="source"
+                      >
+                        {waitlistAnalytics.bySource.map((_, index) => (
+                          <Cell key={`source-cell-${index}`} fill={SOURCE_COLORS[index % SOURCE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "rgba(15,15,30,0.95)",
+                          border: "1px solid rgba(236,72,153,0.3)",
+                          borderRadius: "8px",
+                          color: "#fff",
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap justify-center gap-4 mt-2">
+                    {waitlistAnalytics.bySource.map((s, i) => (
+                      <div key={s.source} className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: SOURCE_COLORS[i % SOURCE_COLORS.length] }}
+                        />
+                        <span className="text-white/70 text-sm">
+                          {s.source} ({s.count})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-[280px]">
+                  <p className="text-white/40">No source data yet</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* Location Table */}
+      <motion.div variants={itemVariants}>
+        <Card className="bg-white/5 backdrop-blur-xl border border-teal-500/30 shadow-lg shadow-teal-500/10">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-teal-400" />
+              All Locations
+            </CardTitle>
+            <CardDescription className="text-white/60">
+              Full geographic breakdown ({waitlistAnalytics?.byLocation?.length ?? 0} unique locations)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {waitlistAnalytics?.byLocation && waitlistAnalytics.byLocation.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/10">
+                      <th className="text-left py-3 px-4 text-white/60 font-medium text-sm">#</th>
+                      <th className="text-left py-3 px-4 text-white/60 font-medium text-sm">Location</th>
+                      <th className="text-left py-3 px-4 text-white/60 font-medium text-sm">Signups</th>
+                      <th className="text-left py-3 px-4 text-white/60 font-medium text-sm">% of Total</th>
+                      <th className="text-left py-3 px-4 text-white/60 font-medium text-sm">Distribution</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {waitlistAnalytics.byLocation.map((loc, index) => {
+                      const pct = waitlistAnalytics.total
+                        ? ((loc.count / waitlistAnalytics.total) * 100).toFixed(1)
+                        : "0";
+                      return (
+                        <tr
+                          key={loc.location}
+                          className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                        >
+                          <td className="py-3 px-4 text-white/40 text-sm">{index + 1}</td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-3.5 w-3.5 text-teal-400/60" />
+                              <span className="text-white text-sm font-medium">{loc.location}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-white/80 text-sm font-mono">{loc.count}</td>
+                          <td className="py-3 px-4 text-white/60 text-sm">{pct}%</td>
+                          <td className="py-3 px-4">
+                            <div className="w-full bg-white/10 rounded-full h-2 max-w-[200px]">
+                              <div
+                                className="bg-gradient-to-r from-teal-500 to-emerald-500 h-2 rounded-full transition-all"
+                                style={{
+                                  width: `${Math.max(
+                                    (loc.count / (waitlistAnalytics.byLocation[0]?.count || 1)) * 100,
+                                    4
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <MapPin className="h-12 w-12 text-white/20 mx-auto mb-4" />
+                <p className="text-white/60">No location data yet</p>
               </div>
             )}
           </CardContent>
