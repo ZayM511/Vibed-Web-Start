@@ -23,6 +23,7 @@ export default function WaitlistPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailWarning, setEmailWarning] = useState(false);
 
   const joinWaitlist = useMutation(api.waitlist.joinWaitlist);
   const sendConfirmation = useAction(api.waitlistEmail.sendWaitlistConfirmation);
@@ -59,6 +60,7 @@ export default function WaitlistPage() {
       }
 
       // Send confirmation email to user (don't block on failure)
+      let emailFailed = false;
       try {
         await sendConfirmation({
           email: email.trim(),
@@ -66,6 +68,7 @@ export default function WaitlistPage() {
         });
       } catch (emailError) {
         console.error("Failed to send confirmation email:", emailError);
+        emailFailed = true;
       }
 
       // Send admin notification (don't block on failure)
@@ -79,6 +82,10 @@ export default function WaitlistPage() {
         });
       } catch (adminEmailError) {
         console.error("Failed to send admin notification:", adminEmailError);
+      }
+
+      if (emailFailed) {
+        setEmailWarning(true);
       }
 
       setIsSubmitted(true);
@@ -319,9 +326,9 @@ export default function WaitlistPage() {
                       You&apos;re on the list!
                     </h2>
                     <p className="text-white/70 mb-6">
-                      Thanks for joining! Check your inbox for a confirmation
-                      email. We&apos;ll notify you as soon as JobFiltr is ready
-                      to launch.
+                      {emailWarning
+                        ? "Thanks for joining! We couldn\u0027t send a confirmation email right now, but don\u0027t worry \u2014 you\u0027re on the list. We\u0027ll notify you when JobFiltr is ready to launch."
+                        : "Thanks for joining! Check your inbox for a confirmation email. We\u0027ll notify you as soon as JobFiltr is ready to launch."}
                     </p>
                     <Button
                       onClick={() => (window.location.href = "/")}
