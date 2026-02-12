@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "JobFiltr - Filter Out Fake Jobs & Scams",
+  title: "JobFiltr - Take Control of Your Job Search",
   description: "JobFiltr helps job seekers filter out fake listings, ghost jobs, and scams. Smart detection for LinkedIn and Indeed powered by AI and community reports.",
   icons: {
     icon: "/jobfiltr-logo.png",
