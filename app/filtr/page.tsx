@@ -109,8 +109,28 @@ export default function JobFiltrPage() {
   const { isLimitReached, scansRemaining, isUnlimited, isLoading: scanLoading } = useScanUsage();
   const [activeTab, setActiveTab] = useState<"scan" | "history">("scan");
 
+  // All hooks must be called before any early returns
+  const [selectedScanId, setSelectedScanId] = useState<string | null>(null);
+  const [selectedScanType, setSelectedScanType] = useState<"manual" | "ghost" | null>(null);
+  const [currentScanId, setCurrentScanId] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  // Convex hooks - Manual scan
+  const scrapeAndAnalyze = useAction(api.scans.actions.scrapeAndAnalyzeAction);
+  const deleteManualScan = useMutation(api.scans.mutations.deleteScanResultMutation);
+  const manualScanHistory = useQuery(api.scans.queries.getScanHistoryQuery);
+
+  // Convex hooks - Ghost job detector
+  const createJobScan = useMutation(api.jobScans.createJobScan);
+  const deleteJobScan = useMutation(api.jobScans.deleteJobScan);
+  const ghostJobHistory = useQuery(api.jobScans.getRecentUserScans, { limit: 50 });
+
   // Check if user is admin
   const isAdmin = user?.primaryEmailAddress?.emailAddress === ADMIN_EMAIL;
+
+  // Show loading state while data is being fetched
+  const isLoadingData = subLoading || scanLoading;
 
   // Show loading state while checking auth
   if (!isLoaded) {
@@ -151,24 +171,6 @@ export default function JobFiltrPage() {
       </div>
     );
   }
-  const [selectedScanId, setSelectedScanId] = useState<string | null>(null);
-  const [selectedScanType, setSelectedScanType] = useState<"manual" | "ghost" | null>(null);
-  const [currentScanId, setCurrentScanId] = useState<string | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-
-  // Show loading state while data is being fetched
-  const isLoadingData = subLoading || scanLoading;
-
-  // Convex hooks - Manual scan
-  const scrapeAndAnalyze = useAction(api.scans.actions.scrapeAndAnalyzeAction);
-  const deleteManualScan = useMutation(api.scans.mutations.deleteScanResultMutation);
-  const manualScanHistory = useQuery(api.scans.queries.getScanHistoryQuery);
-
-  // Convex hooks - Ghost job detector
-  const createJobScan = useMutation(api.jobScans.createJobScan);
-  const deleteJobScan = useMutation(api.jobScans.deleteJobScan);
-  const ghostJobHistory = useQuery(api.jobScans.getRecentUserScans, { limit: 50 });
 
   // Combine and normalize scan histories using adapter
   const combinedHistory = combineAndSortScans(manualScanHistory, ghostJobHistory);

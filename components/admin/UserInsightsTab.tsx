@@ -12,8 +12,6 @@ import {
   DollarSign,
   TrendingUp,
   Calendar,
-  Mail,
-  MapPin,
   Clock,
   Download,
 } from "lucide-react";

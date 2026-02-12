@@ -4,8 +4,6 @@ import Link from "next/link";
 import { GpcStatusBadge } from "./GpcBanner";
 
 export function Footer() {
-  const currentYear = new Date().getFullYear();
-
   return (
     <footer className="relative z-10 border-t border-white/10 bg-background/80 backdrop-blur-xl">
       <div className="container mx-auto px-4 md:px-6 py-8">

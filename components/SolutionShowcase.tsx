@@ -10,15 +10,13 @@ import {
   TrendingDown,
   Lock,
   Brain,
-  ArrowRight,
   Download,
   X,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TypingAnimation } from "@/components/ui/typing-animation";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { JobFilterLogo } from "@/components/JobFilterLogo";
 import { useUser, SignInButton, SignUpButton } from "@clerk/nextjs";
 import { WAITLIST_MODE } from "@/lib/feature-flags";
@@ -31,23 +29,8 @@ const AlertDiamondIcon = ({ className }: { className?: string }) => (
 );
 
 export function SolutionShowcase() {
-  const [currentPhrase, setCurrentPhrase] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const { isSignedIn } = useUser();
-
-  const phrases = [
-    "Stop wasting time on fake jobs",
-    "Find real opportunities faster",
-    "Protect your job search today",
-    "Join thousands of smart job seekers",
-  ];
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentPhrase((prev) => (prev + 1) % phrases.length);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [phrases.length]);
 
   const fadeUpVariants = {
     hidden: { opacity: 0, y: 30 },
@@ -175,13 +158,6 @@ export function SolutionShowcase() {
                 >
                   <Card className="bg-gradient-to-br from-white/[0.08] to-white/[0.04] border-white/10 backdrop-blur-sm h-full group-hover:border-white/30 transition-all duration-300">
                     <CardContent className="p-8">
-                      {/* Coming Soon Badge */}
-                      {'comingSoon' in prop && prop.comingSoon && (
-                        <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-xs font-semibold text-white shadow-lg">
-                          Coming soon
-                        </div>
-                      )}
-
                       {/* Icon */}
                       <div
                         className={`mb-6 p-4 rounded-2xl bg-gradient-to-br ${prop.color} inline-flex group-hover:scale-110 transition-transform duration-300`}

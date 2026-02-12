@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { AlertTriangle, Clock, TrendingUp, Users, ShieldAlert, Ghost, Ban, XCircle, Target } from "lucide-react";
+import { ShieldAlert, Ghost } from "lucide-react";
 import { StatsPulse } from "./StatsPulse";
 import { CountingNumber } from "./ui/counting-number";
 import { SlotMachineNumber } from "./ui/slot-machine-number";
@@ -19,73 +19,6 @@ export function HeroStatement() {
       },
     }),
   };
-
-  const extendedStats = [
-    {
-      icon: AlertTriangle,
-      value: 27.4,
-      suffix: "%",
-      label: "of job listings on LinkedIn are fake postings with no intention to hire",
-      color: "from-rose-400 to-red-500",
-      source: "ResumeUp.AI 2025",
-    },
-    {
-      icon: Clock,
-      value: 45,
-      suffix: "%",
-      label: "of fake job postings are created solely for data collection purposes",
-      color: "from-amber-400 to-orange-500",
-      source: "Job Market Research 2025",
-    },
-    {
-      icon: TrendingUp,
-      value: 38,
-      suffix: "%",
-      label: "of companies post jobs they never intend to fill to appear growing",
-      color: "from-violet-400 to-purple-500",
-      source: "Greenhouse 2025",
-    },
-    {
-      icon: ShieldAlert,
-      value: 67,
-      suffix: "%",
-      label: "of job seekers report applying to positions that were never real",
-      color: "from-red-400 to-rose-500",
-      source: "Job Market Research 2025",
-    },
-    {
-      icon: Users,
-      value: 25,
-      suffix: "%",
-      label: "of job candidates have been searching for over a year due to fake postings",
-      color: "from-cyan-400 to-blue-500",
-      source: "Fortune 2025",
-    },
-    {
-      icon: Target,
-      value: 17,
-      suffix: "%",
-      label: "of fake job ads exist purely for market research and candidate database building",
-      color: "from-orange-400 to-amber-500",
-      source: "TPD Hiring Survey 2025",
-    },
-    {
-      icon: Ban,
-      value: 23,
-      suffix: "%",
-      label: "of all job postings in 2025 are confirmed scams designed to steal personal information",
-      color: "from-blue-400 to-indigo-500",
-      source: "Job Market Research 2025",
-    },
-    {
-      icon: XCircle,
-      value: 33,
-      suffix: "%",
-      label: "of all job listings posted are either fake or scams combined",
-      color: "from-fuchsia-400 to-pink-500",
-      source: "Industry Analysis 2025",
-    },
-  ];
 
   return (
     <div className="relative max-w-4xl mx-auto px-4">

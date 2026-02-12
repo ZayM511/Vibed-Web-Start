@@ -22,6 +22,7 @@ import {
   ShieldX,
   Eye,
 } from "lucide-react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { AnimatedStatCard } from "@/components/admin/AnimatedStatCard";
 import { UserInsightsTab } from "@/components/admin/UserInsightsTab";
@@ -77,26 +78,7 @@ export default function AdminPage() {
   const userEmail = user?.primaryEmailAddress?.emailAddress;
   const isFounder = !!userEmail && FOUNDER_EMAILS.includes(userEmail);
 
-  if (WAITLIST_MODE && isLoaded && !isFounder) {
-    return (
-      <>
-        <HeaderNav />
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-indigo-950 to-purple-900">
-          <div className="text-center max-w-md px-6">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-500/20 mb-6">
-              <ShieldX className="h-8 w-8 text-red-400" />
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-3">Access Denied</h1>
-            <p className="text-white/60 mb-6">This page is restricted to authorized administrators.</p>
-            <a href="/" className="text-indigo-400 hover:text-indigo-300 transition-colors">
-              Return to Home
-            </a>
-          </div>
-        </div>
-      </>
-    );
-  }
-
+  // All hooks must be called before any early returns
   // Data queries
   const scanStats = useQuery(api.analytics.getScanStats);
   const userStats = useQuery(api.analytics.getUserActivityStats);
@@ -128,6 +110,31 @@ export default function AdminPage() {
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<{ id: Id<"waitlist">; email: string } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Report removal
+  const removeReport = useMutation(api.feedback.adminRemoveEntry);
+  const [deleteReportTarget, setDeleteReportTarget] = useState<{ id: Id<"feedback">; company: string } | null>(null);
+  const [deleteReportLoading, setDeleteReportLoading] = useState(false);
+
+  if (WAITLIST_MODE && isLoaded && !isFounder) {
+    return (
+      <>
+        <HeaderNav />
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-indigo-950 to-purple-900">
+          <div className="text-center max-w-md px-6">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-500/20 mb-6">
+              <ShieldX className="h-8 w-8 text-red-400" />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-3">Access Denied</h1>
+            <p className="text-white/60 mb-6">This page is restricted to authorized administrators.</p>
+            <Link href="/" className="text-indigo-400 hover:text-indigo-300 transition-colors">
+              Return to Home
+            </Link>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   const handleAddEntry = async () => {
     if (!addForm.email.trim()) {
@@ -169,11 +176,6 @@ export default function AdminPage() {
       setDeleteLoading(false);
     }
   };
-
-  // Report removal
-  const removeReport = useMutation(api.feedback.adminRemoveEntry);
-  const [deleteReportTarget, setDeleteReportTarget] = useState<{ id: Id<"feedback">; company: string } | null>(null);
-  const [deleteReportLoading, setDeleteReportLoading] = useState(false);
 
   const handleRemoveReport = async () => {
     if (!deleteReportTarget) return;

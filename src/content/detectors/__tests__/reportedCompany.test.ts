@@ -4,7 +4,7 @@
  * Tests the community-reported spam/ghost job company detection feature
  */
 
-import { reportedCompanyDetector, ReportedCompanyDetector } from '../reportedCompany';
+import { reportedCompanyDetector } from '../reportedCompany';
 import { REPORTED_COMPANIES, REPORTED_COMPANY_MAP } from '../../../data/reportedCompanies';
 
 describe('ReportedCompanyDetector', () => {

@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-import { cn } from "@/lib/utils";
 import { WAITLIST_MODE, FOUNDER_EMAILS } from "@/lib/feature-flags";
 
 // Custom admin icon component
