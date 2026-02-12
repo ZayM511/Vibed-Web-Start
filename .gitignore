@@ -29,6 +29,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+dev.log
 
 # env files (can opt-in for committing if needed)
 .env*
@@ -46,11 +47,27 @@ next-env.d.ts
 /.clerk/
 nul
 
+# Claude Code internal files
+.claude/mcp-servers/
+.claude/mcp.json.backup
+.claude/plans/
+.claude/ralph-loop.local.md
+.claude/skills/playwright-skill/*.js
+.claude/skills/playwright-skill/*.png
+.claude/skills/playwright-skill/*.json
+.claude/skills/playwright-skill/*.md
+.claude/skills/playwright-skill/tmpclaude-*
+.claude/skills/*/package-lock.json
+
+# Temp files from Claude Code
+tmpclaude-*
+
 # Chrome extension debug profiles
 chrome-extension/.chrome-debug-profile/
 chrome-extension/.chrome-debug-profile-backup/
+chrome-extension/.test-profile/
 
-# Test screenshots and output files (can be large)
+# Test screenshots and output files
 test-screenshots/
 TEST_RESULTS.json
 TEST_RESULTS_SUMMARY.md
@@ -65,18 +82,48 @@ temp-search.js
 snapshot*.txt
 
 # Chrome extension test/debug files
-chrome-extension/.test-profile/
 chrome-extension/test-inject.js
+chrome-extension/test-*.html
 chrome-extension/tools/
+chrome-extension/diagnostic-*.js
+chrome-extension/add-errors-tab.bat
+chrome-extension/tmpclaude-*
+chrome-extension/tests/tmpclaude-*
 chrome-extension/HOW_TO_TEST.md
 chrome-extension/MANUAL_TEST_CHECKLIST.md
 chrome-extension/TESTING_GUIDE_8_ISSUES.md
+chrome-extension/ERROR_MONITORING_GUIDE.md
+chrome-extension/EXTENSION_ERRORS_TAB_ADDITIONS.md
+chrome-extension/FINAL_ERROR_LOGS_BUTTON.md
+chrome-extension/KEYWORD_FILTER_DEBUG.md
+chrome-extension/QUICK_INSTALL_ERROR_BUTTON.md
 
-# Dev notes
+# Dev notes and debug markdown
 BROWSER_OPEN_NEXT_STEPS.md
+ALL_BADGE_FIXES_SUMMARY.md
+BENEFITS_BADGE_ANALYSIS.md
+CRITICAL_MODULE_LOADING_FIX.md
+DOCUMENT_DELETE_VERIFICATION.md
+ERROR_MONITORING_GUIDE.md
+FINAL_CRITICAL_FIXES.md
+FINAL_STATUS.md
+FIX_SUMMARY.md
+IMPLEMENTATION_SUMMARY.md
+PAGINATION_FIXES_COMPLETE.md
+PHASE_2_COMPLETE.md
+QUICK_START_GUIDE.md
+QUICK_TEST_GUIDE.md
+SCANNER_FIX_COMPLETE.md
+SCANNER_POSTING_AGE_FIX.md
+SCANNER_POSTING_AGE_FIX_V2.md
+SCANNER_TESTING_INSTRUCTIONS.md
+TEST_DELETE_HYPOTHESIS.md
+TRASH_BUTTON_FIX_README.md
 
-# MCP server lock files (internal tooling)
-.claude/mcp-servers/*/package-lock.json
-.claude/skills/*/package-lock.json
+# Windows batch/launcher files
+*.bat
+launch-chrome-debug.js
+
+# MCP server lock files
 mcp-server/package-lock.json
 jobfiltr/package-lock.json
