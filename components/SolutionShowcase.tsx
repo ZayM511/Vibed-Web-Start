@@ -122,7 +122,7 @@ export function SolutionShowcase() {
             </h2>
 
             <p className="text-lg md:text-xl text-white/70 leading-relaxed max-w-4xl mx-auto mb-8">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-white to-rose-300 font-semibold">JobFiltr</span> is your
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-white from-40% to-[#93c5fd] font-semibold">JobFiltr</span> is your
               companion for the modern job search. We provide optimal filters,
               spot red flags, and identify fake postings with no intent to hire —{" "}
               <span className="text-white font-bold">
