@@ -257,4 +257,117 @@ http.route({
   }),
 });
 
+// ===== Extension Auth Routes =====
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
+http.route({
+  path: "/auth/signup",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const { email, password, name } = await request.json();
+
+      if (!email || !password) {
+        return new Response(
+          JSON.stringify({ message: "Email and password are required" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+        );
+      }
+
+      if (password.length < 8) {
+        return new Response(
+          JSON.stringify({ message: "Password must be at least 8 characters" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+        );
+      }
+
+      const result = await ctx.runAction(internal.extensionAuth.signup, {
+        email,
+        password,
+        name: name || undefined,
+      });
+
+      if (!result.success) {
+        return new Response(
+          JSON.stringify({ message: result.error }),
+          { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ token: result.token, email: result.email, name: result.name }),
+        { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+      );
+    } catch (error) {
+      console.error("Signup error:", error);
+      return new Response(
+        JSON.stringify({ message: "Account creation failed. Please try again." }),
+        { status: 500, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+      );
+    }
+  }),
+});
+
+http.route({
+  path: "/auth/signin",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const { email, password } = await request.json();
+
+      if (!email || !password) {
+        return new Response(
+          JSON.stringify({ message: "Email and password are required" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+        );
+      }
+
+      const result = await ctx.runAction(internal.extensionAuth.signin, {
+        email,
+        password,
+      });
+
+      if (!result.success) {
+        return new Response(
+          JSON.stringify({ message: result.error }),
+          { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ token: result.token, email: result.email, name: result.name }),
+        { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+      );
+    } catch (error) {
+      console.error("Signin error:", error);
+      return new Response(
+        JSON.stringify({ message: "Sign in failed. Please try again." }),
+        { status: 500, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+      );
+    }
+  }),
+});
+
+// CORS preflight for auth routes
+http.route({
+  path: "/auth/signup",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }),
+});
+
+http.route({
+  path: "/auth/signin",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }),
+});
+
 export default http;

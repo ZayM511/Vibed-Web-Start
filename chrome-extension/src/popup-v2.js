@@ -427,7 +427,7 @@ async function signInWithEmail() {
 
   try {
     // Call backend API for authentication
-    const response = await fetch('https://reminiscent-goldfish-690.convex.cloud/api/auth/signin', {
+    const response = await fetch('https://adamant-orca-697.convex.site/auth/signin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
@@ -540,7 +540,7 @@ async function signInWithGoogle() {
     // Try to exchange Google token for our backend token
     let backendToken = null;
     try {
-      const backendResponse = await fetch('https://reminiscent-goldfish-690.convex.cloud/api/auth/google', {
+      const backendResponse = await fetch('https://adamant-orca-697.convex.site/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -636,7 +636,7 @@ async function createAccount() {
   createBtn.disabled = true;
 
   try {
-    const response = await fetch('https://reminiscent-goldfish-690.convex.cloud/api/auth/signup', {
+    const response = await fetch('https://adamant-orca-697.convex.site/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, name })
@@ -732,22 +732,31 @@ document.getElementById('signOutBtn')?.addEventListener('click', signOut);
 document.querySelector('#authSwitchToSignUp button')?.addEventListener('click', showCreateAccountForm);
 document.querySelector('#authSwitchToSignIn button')?.addEventListener('click', showSignInForm);
 
-// Password visibility toggle
-document.getElementById('togglePassword')?.addEventListener('click', () => {
-  const passwordInput = document.getElementById('authPassword');
-  const eyeOpen = document.querySelector('.eye-open');
-  const eyeClosed = document.querySelector('.eye-closed');
+// Password visibility toggle helper
+function setupPasswordToggle(toggleBtnId, inputId) {
+  const toggleBtn = document.getElementById(toggleBtnId);
+  if (!toggleBtn) return;
+  toggleBtn.addEventListener('click', () => {
+    const input = document.getElementById(inputId);
+    const eyeOpen = toggleBtn.querySelector('.eye-open');
+    const eyeClosed = toggleBtn.querySelector('.eye-closed');
+    if (input.type === 'password') {
+      input.type = 'text';
+      eyeOpen.classList.add('hidden');
+      eyeClosed.classList.remove('hidden');
+    } else {
+      input.type = 'password';
+      eyeOpen.classList.remove('hidden');
+      eyeClosed.classList.add('hidden');
+    }
+  });
+}
 
-  if (passwordInput.type === 'password') {
-    passwordInput.type = 'text';
-    eyeOpen.classList.add('hidden');
-    eyeClosed.classList.remove('hidden');
-  } else {
-    passwordInput.type = 'password';
-    eyeOpen.classList.remove('hidden');
-    eyeClosed.classList.add('hidden');
-  }
-});
+// Sign-in password toggle
+setupPasswordToggle('togglePassword', 'authPassword');
+// Create account password toggles
+setupPasswordToggle('toggleCreatePassword', 'createPassword');
+setupPasswordToggle('toggleConfirmPassword', 'confirmPassword');
 
 // User dropdown toggle
 document.getElementById('userBtn')?.addEventListener('click', (e) => {
@@ -4270,20 +4279,20 @@ document.getElementById('openSettings').addEventListener('click', () => {
 });
 
 document.getElementById('openContact').addEventListener('click', () => {
-  chrome.tabs.create({ url: 'http://localhost:3004/contact' });
+  chrome.tabs.create({ url: 'https://jobfiltr.app/contact' });
 });
 
 document.getElementById('openPrivacy').addEventListener('click', () => {
-  chrome.tabs.create({ url: 'http://localhost:3004/privacy' });
+  chrome.tabs.create({ url: 'https://jobfiltr.app/privacy' });
 });
 
 document.getElementById('openWebApp').addEventListener('click', () => {
-  chrome.tabs.create({ url: 'http://localhost:3004/dashboard' });
+  chrome.tabs.create({ url: 'https://jobfiltr.app/dashboard' });
 });
 
 // Upgrade to Pro button - navigates to dashboard subscription section
 document.getElementById('upgradeBtn')?.addEventListener('click', () => {
-  chrome.tabs.create({ url: 'http://localhost:3004/dashboard#subscription' });
+  chrome.tabs.create({ url: 'https://jobfiltr.app/dashboard#subscription' });
   // Close the user dropdown
   document.getElementById('userDropdown')?.classList.add('hidden');
 });

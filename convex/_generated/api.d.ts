@@ -16,6 +16,8 @@ import type * as dataCollection from "../dataCollection.js";
 import type * as documents from "../documents.js";
 import type * as email from "../email.js";
 import type * as extensionApi from "../extensionApi.js";
+import type * as extensionAuth from "../extensionAuth.js";
+import type * as extensionAuthHelpers from "../extensionAuthHelpers.js";
 import type * as extensionErrors from "../extensionErrors.js";
 import type * as featureCache from "../featureCache.js";
 import type * as featureExtraction from "../featureExtraction.js";
@@ -56,6 +58,8 @@ declare const fullApi: ApiFromModules<{
   documents: typeof documents;
   email: typeof email;
   extensionApi: typeof extensionApi;
+  extensionAuth: typeof extensionAuth;
+  extensionAuthHelpers: typeof extensionAuthHelpers;
   extensionErrors: typeof extensionErrors;
   featureCache: typeof featureCache;
   featureExtraction: typeof featureExtraction;

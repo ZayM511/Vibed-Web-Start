@@ -55,6 +55,25 @@ export default function RootLayout({
                 formButtonPrimary: "bg-white text-black hover:bg-gray-200",
                 formFieldInput: "bg-[#1a1a1a] border-[#3a3a3a] text-white",
                 footerActionLink: "text-white hover:text-gray-300",
+                // Error messages & validation text
+                formFieldLabel: "text-white text-sm",
+                formFieldErrorText: "text-red-400 text-sm",
+                formFieldWarningText: "text-yellow-400 text-xs",
+                formFieldSuccessText: "text-emerald-400 text-sm",
+                formFieldInfoText: "text-blue-400 text-sm",
+                // Password visibility toggle
+                formFieldInputShowPasswordButton: "text-white/60 hover:text-white focus:text-white",
+                // Divider between social + email options
+                dividerLine: "bg-white/20",
+                dividerText: "text-white/50",
+                // Other form elements for dark theme
+                formFieldAction: "text-white/70 hover:text-white",
+                identityPreviewEditButton: "text-white/70 hover:text-white",
+                formResendCodeLink: "text-white/70 hover:text-white",
+                otpCodeFieldInput: "bg-[#1a1a1a] border-[#3a3a3a] text-white",
+                alternativeMethodsBlockButton: "text-white/70 border-[#3a3a3a] hover:bg-[#2a2a2a]",
+                alert: "bg-red-900/30 border-red-500/30 text-red-300",
+                alertText: "text-red-300",
               }
             }}
           >

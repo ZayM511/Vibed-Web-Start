@@ -5,7 +5,7 @@
 const DEFAULT_CONVEX_URL = 'https://reminiscent-goldfish-690.convex.cloud';
 
 // Default Web App Base URL (for Visit Website and Contact Us links)
-const DEFAULT_WEB_APP_URL = 'http://localhost:3000';
+const DEFAULT_WEB_APP_URL = 'https://jobfiltr.app';
 
 // Founder emails that can see analytics dashboard
 const FOUNDER_EMAILS = [

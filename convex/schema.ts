@@ -351,6 +351,19 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_created", ["createdAt"]),
 
+  // Extension Users (separate from Clerk-managed website users)
+  extensionUsers: defineTable({
+    email: v.string(),
+    passwordHash: v.string(),
+    salt: v.string(),
+    name: v.optional(v.string()),
+    token: v.optional(v.string()),
+    tokenExpiry: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_email", ["email"])
+    .index("by_token", ["token"]),
+
   // Chrome Extension Error Logs
   extensionErrors: defineTable({
     // Error details
