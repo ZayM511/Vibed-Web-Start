@@ -105,7 +105,7 @@ export default defineSchema({
     type: v.union(
       v.literal("feedback"),
       v.literal("improvement"),
-      v.literal("feature"),
+      v.literal("report"),
       v.literal("bug"),
       v.literal("other")
     ),
@@ -113,6 +113,12 @@ export default defineSchema({
     email: v.optional(v.string()),
     userId: v.optional(v.string()),
     userName: v.optional(v.string()),
+    // Report categories (only used when type is "report")
+    reportCategories: v.optional(v.object({
+      scamJob: v.boolean(),
+      spamJob: v.boolean(),
+      ghostJob: v.boolean(),
+    })),
     status: v.union(
       v.literal("new"),
       v.literal("reviewing"),
@@ -325,6 +331,25 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_userId", ["userId"]),
+
+  // Waitlist Signups
+  waitlist: defineTable({
+    email: v.string(),
+    name: v.optional(v.string()),
+    location: v.optional(v.string()), // Location field (optional for backwards compatibility)
+    source: v.optional(v.string()), // Where they signed up from
+    status: v.union(
+      v.literal("pending"),
+      v.literal("confirmed"),
+      v.literal("invited"),
+      v.literal("converted")
+    ),
+    emailConfirmed: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_email", ["email"])
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"]),
 
   // Chrome Extension Error Logs
   extensionErrors: defineTable({

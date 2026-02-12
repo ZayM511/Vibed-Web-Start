@@ -2,16 +2,23 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { MessageSquare, Send, CheckCircle2, Lightbulb, Bug, ArrowLeft } from "lucide-react";
+import { MessageSquare, Send, CheckCircle2, Lightbulb, Bug, ArrowLeft, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { useMutation } from "convex/react";
+import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { HeaderNav } from "@/components/HeaderNav";
+import { Footer } from "@/components/Footer";
 
-type FeedbackType = "feedback" | "improvement" | "feature" | "bug" | "other";
+type FeedbackType = "feedback" | "improvement" | "report" | "bug" | "other";
+
+type ReportCategories = {
+  scamJob: boolean;
+  spamJob: boolean;
+  ghostJob: boolean;
+};
 
 export default function ContactPage() {
   const { user } = useUser();
@@ -22,8 +29,34 @@ export default function ContactPage() {
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [reportCategories, setReportCategories] = useState<ReportCategories>({
+    scamJob: false,
+    spamJob: false,
+    ghostJob: false,
+  });
 
   const submitFeedback = useMutation(api.feedback.submitFeedback);
+  const sendEmailNotification = useAction(api.email.sendFeedbackNotification);
+  const sendUserConfirmation = useAction(api.email.sendUserConfirmation);
+
+  // Email validation function
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email.trim());
+  };
+
+  // Check if at least one report category is selected (only for report type)
+  const hasReportCategory = reportCategories.scamJob || reportCategories.spamJob || reportCategories.ghostJob;
+
+  // Form validation - all required fields must be filled and email must be valid
+  const isFormValid =
+    selectedType !== null &&
+    name.trim() !== "" &&
+    email.trim() !== "" &&
+    isValidEmail(email) &&
+    subject.trim() !== "" &&
+    message.trim() !== "" &&
+    (selectedType !== "report" || hasReportCategory);
 
   const feedbackTypes = [
     {
@@ -41,15 +74,11 @@ export default function ContactPage() {
       color: "from-amber-500 to-orange-500",
     },
     {
-      type: "feature" as FeedbackType,
-      icon: () => (
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" className="h-6 w-6">
-          <path fill="currentColor" d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0m0 1.5a6.5 6.5 0 1 0 0 13a6.5 6.5 0 0 0 0-13m0 1.25a.75.75 0 0 1 .688.451l1.045 2.412l2.618.25a.75.75 0 0 1 .425 1.309l-1.971 1.74l.572 2.565a.75.75 0 0 1-1.113.81L8 10.948l-2.264 1.337a.75.75 0 0 1-1.113-.809l.571-2.565l-1.97-1.74a.75.75 0 0 1 .425-1.309l2.617-.25L7.312 3.2l.051-.097A.75.75 0 0 1 8 2.75m-.534 3.866a.75.75 0 0 1-.616.448l-1.336.127l1.006.89a.75.75 0 0 1 .235.725l-.292 1.31l1.156-.682l.09-.046a.75.75 0 0 1 .672.046l1.155.681l-.29-1.31a.75.75 0 0 1 .234-.725l1.005-.889l-1.335-.127a.75.75 0 0 1-.616-.448L8 5.385z"/>
-        </svg>
-      ),
-      label: "Feature Request",
-      description: "Request a new feature",
-      color: "from-blue-500 to-cyan-500",
+      type: "report" as FeedbackType,
+      icon: AlertTriangle,
+      label: "Report A Company",
+      description: "Report scam, spam, or ghost jobs",
+      color: "from-orange-500 to-red-500",
     },
     {
       type: "bug" as FeedbackType,
@@ -62,18 +91,52 @@ export default function ContactPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedType || !name.trim() || !email.trim() || !subject.trim() || !message.trim()) return;
+
+    // Use the isFormValid check
+    if (!isFormValid) return;
 
     setIsSubmitting(true);
 
     try {
+      // Save feedback to database
       await submitFeedback({
         type: selectedType,
         message: message.trim(),
         email: email.trim() || undefined,
         userId: user?.id,
         userName: user?.fullName || undefined,
+        reportCategories: selectedType === "report" ? reportCategories : undefined,
       });
+
+      // Send email notification to team (don't block on failure)
+      try {
+        await sendEmailNotification({
+          type: selectedType,
+          name: name.trim(),
+          email: email.trim(),
+          subject: subject.trim(),
+          message: message.trim(),
+          reportCategories: selectedType === "report" ? reportCategories : undefined,
+        });
+      } catch (emailError) {
+        // Log email error but don't fail the submission
+        console.error("Failed to send team email notification:", emailError);
+      }
+
+      // Send confirmation email to user (don't block on failure)
+      try {
+        await sendUserConfirmation({
+          type: selectedType,
+          name: name.trim(),
+          email: email.trim(),
+          subject: subject.trim(),
+          message: message.trim(),
+          reportCategories: selectedType === "report" ? reportCategories : undefined,
+        });
+      } catch (emailError) {
+        // Log email error but don't fail the submission
+        console.error("Failed to send user confirmation email:", emailError);
+      }
 
       setIsSubmitted(true);
       setName("");
@@ -81,6 +144,7 @@ export default function ContactPage() {
       setSubject("");
       setMessage("");
       setSelectedType(null);
+      setReportCategories({ scamJob: false, spamJob: false, ghostJob: false });
 
       // Reset after 3 seconds
       setTimeout(() => {
@@ -231,9 +295,144 @@ export default function ContactPage() {
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="your.email@example.com"
                           required
-                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                          className={`w-full px-4 py-3 bg-white/5 border rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                            email.trim() && !isValidEmail(email)
+                              ? "border-red-500/50 focus:ring-red-500"
+                              : "border-white/10 focus:ring-indigo-500"
+                          }`}
                         />
+                        {email.trim() && !isValidEmail(email) && (
+                          <p className="text-red-400 text-xs mt-1">
+                            Please enter a valid email address
+                          </p>
+                        )}
                       </div>
+
+                      {/* Report Categories - Only shown when "report" type is selected */}
+                      {selectedType === "report" && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          <label className="block text-white text-sm font-medium mb-3">
+                            Report Type(s) *
+                          </label>
+                          <p className="text-white/50 text-sm mb-4">
+                            Select all categories that apply to this company report
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {/* Scam Job */}
+                            <label
+                              className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition-all duration-200 ${
+                                reportCategories.scamJob
+                                  ? "bg-red-500/20 border-red-500/50"
+                                  : "bg-white/5 border-white/10 hover:border-white/20"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={reportCategories.scamJob}
+                                onChange={(e) =>
+                                  setReportCategories((prev) => ({
+                                    ...prev,
+                                    scamJob: e.target.checked,
+                                  }))
+                                }
+                                className="sr-only"
+                              />
+                              <div
+                                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                                  reportCategories.scamJob
+                                    ? "bg-red-500 border-red-500"
+                                    : "border-white/30"
+                                }`}
+                              >
+                                {reportCategories.scamJob && (
+                                  <CheckCircle2 className="h-4 w-4 text-white" />
+                                )}
+                              </div>
+                              <div>
+                                <span className="text-white font-medium">Scam Job</span>
+                                <p className="text-white/40 text-xs">Fraudulent or deceptive listing</p>
+                              </div>
+                            </label>
+
+                            {/* Spam Job */}
+                            <label
+                              className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition-all duration-200 ${
+                                reportCategories.spamJob
+                                  ? "bg-amber-500/20 border-amber-500/50"
+                                  : "bg-white/5 border-white/10 hover:border-white/20"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={reportCategories.spamJob}
+                                onChange={(e) =>
+                                  setReportCategories((prev) => ({
+                                    ...prev,
+                                    spamJob: e.target.checked,
+                                  }))
+                                }
+                                className="sr-only"
+                              />
+                              <div
+                                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                                  reportCategories.spamJob
+                                    ? "bg-amber-500 border-amber-500"
+                                    : "border-white/30"
+                                }`}
+                              >
+                                {reportCategories.spamJob && (
+                                  <CheckCircle2 className="h-4 w-4 text-white" />
+                                )}
+                              </div>
+                              <div>
+                                <span className="text-white font-medium">Spam Job</span>
+                                <p className="text-white/40 text-xs">Repetitive or misleading posts</p>
+                              </div>
+                            </label>
+
+                            {/* Ghost Job */}
+                            <label
+                              className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition-all duration-200 ${
+                                reportCategories.ghostJob
+                                  ? "bg-purple-500/20 border-purple-500/50"
+                                  : "bg-white/5 border-white/10 hover:border-white/20"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={reportCategories.ghostJob}
+                                onChange={(e) =>
+                                  setReportCategories((prev) => ({
+                                    ...prev,
+                                    ghostJob: e.target.checked,
+                                  }))
+                                }
+                                className="sr-only"
+                              />
+                              <div
+                                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                                  reportCategories.ghostJob
+                                    ? "bg-purple-500 border-purple-500"
+                                    : "border-white/30"
+                                }`}
+                              >
+                                {reportCategories.ghostJob && (
+                                  <CheckCircle2 className="h-4 w-4 text-white" />
+                                )}
+                              </div>
+                              <div>
+                                <span className="text-white font-medium">Ghost Job</span>
+                                <p className="text-white/40 text-xs">Position not actually being filled</p>
+                              </div>
+                            </label>
+                          </div>
+                        </motion.div>
+                      )}
 
                       {/* Subject */}
                       <div>
@@ -274,7 +473,7 @@ export default function ContactPage() {
                       <Button
                         type="submit"
                         size="lg"
-                        disabled={!selectedType || !name.trim() || !email.trim() || !subject.trim() || !message.trim() || isSubmitting}
+                        disabled={!isFormValid || isSubmitting}
                         className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isSubmitting ? (
@@ -345,6 +544,9 @@ export default function ContactPage() {
         </motion.div>
         </div>
       </div>
+
+      {/* Footer */}
+      <Footer />
     </>
   );
 }

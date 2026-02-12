@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -15,8 +16,11 @@ import { Button } from "@/components/ui/button";
 import {
   Scan,
   History,
-  ArrowLeft
+  ArrowLeft,
+  ShieldAlert
 } from "lucide-react";
+
+const ADMIN_EMAIL = "isaiah.e.malone@gmail.com";
 
 // Feature Components
 import { EnhancedScanForm } from "@/components/scanner/EnhancedScanForm";
@@ -100,9 +104,53 @@ function ElegantShape({
 }
 
 export default function JobFiltrPage() {
+  const { user, isLoaded } = useUser();
   const { isPro, isLoading: subLoading } = useSubscription();
   const { isLimitReached, scansRemaining, isUnlimited, isLoading: scanLoading } = useScanUsage();
   const [activeTab, setActiveTab] = useState<"scan" | "history">("scan");
+
+  // Check if user is admin
+  const isAdmin = user?.primaryEmailAddress?.emailAddress === ADMIN_EMAIL;
+
+  // Show loading state while checking auth
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin h-12 w-12 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto" />
+          <p className="text-white/60">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied if not admin
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="absolute inset-0 bg-gradient-to-br from-red-500/[0.15] via-transparent to-orange-500/[0.15] blur-3xl" />
+        <div className="relative z-10">
+          <Card className="max-w-md mx-auto bg-white/5 backdrop-blur-sm border-red-500/30">
+            <CardContent className="flex flex-col items-center justify-center py-16 px-8">
+              <div className="p-4 rounded-full bg-red-500/20 border border-red-500/30 mb-6">
+                <ShieldAlert className="h-12 w-12 text-red-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">Access Denied</h2>
+              <p className="text-white/70 text-center mb-6">
+                This page is restricted to administrators only.
+              </p>
+              <Link href="/">
+                <Button className="gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  Return Home
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
   const [selectedScanId, setSelectedScanId] = useState<string | null>(null);
   const [selectedScanType, setSelectedScanType] = useState<"manual" | "ghost" | null>(null);
   const [currentScanId, setCurrentScanId] = useState<string | null>(null);

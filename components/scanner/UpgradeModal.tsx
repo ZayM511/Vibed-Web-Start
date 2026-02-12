@@ -202,11 +202,11 @@ export function UpgradeModal({ open, onOpenChange }: UpgradeModalProps) {
               </div>
               <div className="text-right">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold">$3.99</span>
+                  <span className="text-3xl font-bold">$7.99</span>
                   <span className="text-sm text-muted-foreground">/month</span>
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                  or $39.99/year (save 17%)
+                  or $79.99/year (save 17%)
                 </p>
               </div>
             </div>

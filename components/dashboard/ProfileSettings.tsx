@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Mail, Save, Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -25,7 +24,6 @@ export function ProfileSettings() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [location, setLocation] = useState("");
-  const [hideLocationFromReviews, setHideLocationFromReviews] = useState(false);
 
   // Update form when user loads
   useEffect(() => {
@@ -39,7 +37,6 @@ export function ProfileSettings() {
   useEffect(() => {
     if (userProfile) {
       setLocation(userProfile.location || "");
-      setHideLocationFromReviews(userProfile.hideLocationFromReviews);
     }
   }, [userProfile]);
 
@@ -64,7 +61,7 @@ export function ProfileSettings() {
       const firstName = nameParts[0] || "";
       const lastName = nameParts.slice(1).join(" ") || "";
 
-      console.log("Updating profile with:", { firstName, lastName, location, hideLocationFromReviews });
+      console.log("Updating profile with:", { firstName, lastName, location });
       console.log("Current user:", user);
 
       // Update Clerk user profile
@@ -78,7 +75,7 @@ export function ProfileSettings() {
       // Update Convex user profile with location (optional)
       await upsertUserProfile({
         location: location.trim() || undefined,
-        hideLocationFromReviews,
+        hideLocationFromReviews: false,
       });
 
       // Reload user to see changes
@@ -273,30 +270,6 @@ export function ProfileSettings() {
           )}
         </div>
 
-        {/* Hide Location from Reviews */}
-        {location && (
-          <div className="flex items-center space-x-3 p-4 bg-white/5 rounded-lg border border-white/10">
-            <Checkbox
-              id="hideLocation"
-              checked={hideLocationFromReviews}
-              onCheckedChange={(checked) => setHideLocationFromReviews(checked === true)}
-              disabled={!isEditing}
-              className="border-white/20 data-[state=checked]:bg-indigo-500"
-            />
-            <div className="flex-1">
-              <Label
-                htmlFor="hideLocation"
-                className="text-white font-medium cursor-pointer"
-              >
-                Hide location from reviews
-              </Label>
-              <p className="text-xs text-white/50 mt-1">
-                When enabled, your location will not be displayed on your public community reviews
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Action Buttons */}
         <div className="flex gap-3 pt-4">
           {isEditing ? (
@@ -323,7 +296,6 @@ export function ProfileSettings() {
                   setIsEditing(false);
                   setName(user?.fullName || "");
                   setLocation(userProfile?.location || "");
-                  setHideLocationFromReviews(userProfile?.hideLocationFromReviews || false);
                 }}
                 disabled={isSaving}
                 variant="outline"

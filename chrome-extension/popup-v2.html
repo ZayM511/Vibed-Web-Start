@@ -44,22 +44,21 @@
     <!-- Header -->
     <header class="header">
       <div class="logo-section">
-        <div class="logo-icon">
-          <svg width="24" height="24" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style="stop-color:var(--accent);stop-opacity:1" />
-                <stop offset="100%" style="stop-color:var(--accent-hover);stop-opacity:1" />
-              </linearGradient>
-            </defs>
-            <circle cx="50" cy="50" r="47" fill="url(#logoGradient)"/>
-            <line x1="22" y1="34" x2="78" y2="34" stroke="white" stroke-width="6" stroke-linecap="round"/>
-            <line x1="30" y1="50" x2="70" y2="50" stroke="white" stroke-width="6" stroke-linecap="round"/>
-            <line x1="38" y1="66" x2="62" y2="66" stroke="white" stroke-width="6" stroke-linecap="round"/>
-            <path d="M70 58 L76 66 L88 50" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
-          </svg>
+        <div class="logo-icon" id="logoIcon" data-state="default">
+          <!-- DEFAULT STATE: Theme-aware main logo -->
+          <img class="logo-img logo-default logo-dark" src="icons/logo-main-dark.png" alt="JobFiltr" />
+          <img class="logo-img logo-default logo-light" src="icons/logo-main-light.png" alt="JobFiltr" />
+          <!-- VERIFIED STATE: Scan result icon -->
+          <img class="logo-img logo-verified" src="icons/logo-verified.jpeg" alt="JobFiltr Verified" />
+          <!-- WARNING STATE: Scan result icon -->
+          <img class="logo-img logo-warning" src="icons/logo-warning.jpeg" alt="JobFiltr Warning" />
+          <!-- DANGER STATE: Scan result icon -->
+          <img class="logo-img logo-danger" src="icons/logo-danger.jpeg" alt="JobFiltr Danger" />
+          <!-- SCANNER STATE: Scanning in progress icon -->
+          <img class="logo-img logo-scanner" src="icons/logo-scanner.jpeg" alt="JobFiltr Scanning" />
         </div>
         <h1 class="logo-text">JobFiltr</h1>
+        <span class="header-plan-badge free" id="headerPlanBadge">Free</span>
       </div>
 
       <!-- Header Actions -->
@@ -109,6 +108,20 @@
             <div class="user-info">
               <span class="user-greeting" id="userGreeting">Hi there!</span>
               <span class="user-email" id="userEmail">user@email.com</span>
+            </div>
+            <div class="subscription-badge-container" id="subscriptionBadgeContainer">
+              <div class="subscription-badge free" id="subscriptionBadge">
+                <svg class="badge-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="currentColor"/>
+                </svg>
+                <span id="subscriptionText">Free Plan</span>
+              </div>
+              <button class="upgrade-btn" id="upgradeBtn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Upgrade to Pro
+              </button>
             </div>
             <button class="dropdown-item" id="signOutBtn">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -634,14 +647,26 @@
               <span class="ghost-toggle-slider"></span>
             </label>
           </div>
-          <p class="ghost-settings-description">Analyze job postings for signs of ghost jobs, scams, or spam</p>
-          <div class="ghost-settings-options" id="ghostSettingsOptions">
-            <label class="ghost-option">
+          <p class="ghost-settings-description">Analyze job postings for signs of ghost jobs</p>
+        </div>
+
+        <!-- Community Reported Warnings Settings -->
+        <div class="ghost-analysis-settings" id="communityReportedSettings">
+          <div class="ghost-settings-header">
+            <div class="ghost-settings-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
+                <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span>Community Reported Warnings</span>
+            </div>
+            <label class="ghost-toggle">
               <input type="checkbox" id="showCommunityReportedWarnings" checked>
-              <span class="ghost-option-text">Show community-reported company warnings</span>
+              <span class="ghost-toggle-slider"></span>
             </label>
-            <p class="ghost-option-hint">Displays warning badge for companies reported for spam/ghost jobs by users</p>
           </div>
+          <p class="ghost-settings-description">Show warnings for companies reported for spam/ghost jobs by users</p>
         </div>
 
         <!-- Loading State -->
@@ -1052,19 +1077,8 @@
       <div class="auth-container">
         <div class="auth-header">
           <div class="auth-logo">
-            <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <linearGradient id="authLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style="stop-color:var(--accent);stop-opacity:1" />
-                  <stop offset="100%" style="stop-color:var(--accent-hover);stop-opacity:1" />
-                </linearGradient>
-              </defs>
-              <circle cx="50" cy="50" r="47" fill="url(#authLogoGradient)"/>
-              <line x1="22" y1="34" x2="78" y2="34" stroke="white" stroke-width="6" stroke-linecap="round"/>
-              <line x1="30" y1="50" x2="70" y2="50" stroke="white" stroke-width="6" stroke-linecap="round"/>
-              <line x1="38" y1="66" x2="62" y2="66" stroke="white" stroke-width="6" stroke-linecap="round"/>
-              <path d="M70 58 L76 66 L88 50" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
-            </svg>
+            <img class="auth-logo-dark" src="icons/logo-main-dark.png" alt="JobFiltr" width="40" height="40" />
+            <img class="auth-logo-light" src="icons/logo-main-light.png" alt="JobFiltr" width="40" height="40" />
           </div>
           <h2 class="auth-title">Welcome to JobFiltr</h2>
           <p class="auth-subtitle">Sign in to get started</p>
@@ -1177,19 +1191,10 @@
     <div class="auth-success-overlay hidden" id="authSuccessOverlay">
       <div class="success-animation-container">
         <div class="success-logo-wrapper">
-          <svg class="success-logo" width="80" height="80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="successLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style="stop-color:var(--accent);stop-opacity:1" />
-                <stop offset="100%" style="stop-color:var(--accent-hover);stop-opacity:1" />
-              </linearGradient>
-            </defs>
-            <circle cx="50" cy="50" r="47" fill="url(#successLogoGradient)"/>
-            <line x1="22" y1="34" x2="78" y2="34" stroke="white" stroke-width="6" stroke-linecap="round"/>
-            <line x1="30" y1="50" x2="70" y2="50" stroke="white" stroke-width="6" stroke-linecap="round"/>
-            <line x1="38" y1="66" x2="62" y2="66" stroke="white" stroke-width="6" stroke-linecap="round"/>
-            <path d="M70 58 L76 66 L88 50" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
-          </svg>
+          <div class="success-logo-circle">
+            <img class="success-logo success-logo-dark" src="icons/logo-main-dark.png" alt="JobFiltr" />
+            <img class="success-logo success-logo-light" src="icons/logo-main-light.png" alt="JobFiltr" />
+          </div>
           <div class="success-checkmark">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="12" r="10" fill="var(--success)"/>
@@ -1208,6 +1213,18 @@
           <circle cx="12" cy="12" r="3" fill="currentColor"/>
         </svg>
         Settings
+      </button>
+      <button class="footer-link" id="openContact">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Contact
+      </button>
+      <button class="footer-link" id="openPrivacy">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Privacy
       </button>
       <button class="footer-link" id="openWebApp">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

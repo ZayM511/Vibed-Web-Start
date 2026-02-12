@@ -418,12 +418,213 @@ body.size-expanded .header-actions {
   width: 28px;
   height: 28px;
   color: var(--accent);
-  transition: color var(--transition-slow) var(--ease-out);
+  transition: color var(--transition-slow) var(--ease-out), background-color 250ms ease-in-out;
+  position: relative;
+  overflow: hidden;
+  border-radius: 50%;
+  background-color: transparent;
 }
 
+/* Match container background to each icon's circle color to prevent white bleed */
+.logo-icon[data-state="scanner"] { background-color: #7c3aed; }
+.logo-icon[data-state="verified"] { background-color: #7c3aed; }
+.logo-icon[data-state="warning"] { background-color: #d97706; }
+.logo-icon[data-state="danger"] { background-color: #dc2626; }
+
 .logo-icon svg {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
+}
+
+/* ============================================
+   LOGO STATE ANIMATIONS (Static Images)
+   ============================================ */
+
+/* All logo images - scale to fill container with colored circle visible */
+.logo-img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0;
+  transition: opacity 250ms ease-in-out;
+  pointer-events: none;
+  /* Container handles circular clipping via overflow:hidden + border-radius:50% */
+  /* Scale up so the colored circle in JPEG images fully covers the container */
+  transform: translate(-50%, -50%) scale(1.25);
+}
+
+/* Show active state based on data-state attribute */
+
+/* DEFAULT STATE: Theme-aware main logo (no idle animation) */
+/* Hide both theme logos by default */
+.logo-default.logo-dark,
+.logo-default.logo-light {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Dark mode (default when no theme set, or explicit dark) - show dark logo */
+.logo-icon[data-state="default"] .logo-default.logo-dark {
+  opacity: 1;
+}
+
+/* Light mode - show light logo, hide dark */
+[data-theme="light"] .logo-icon[data-state="default"] .logo-default.logo-dark {
+  opacity: 0;
+}
+[data-theme="light"] .logo-icon[data-state="default"] .logo-default.logo-light {
+  opacity: 1;
+}
+
+/* State icons */
+.logo-icon[data-state="verified"] .logo-verified {
+  opacity: 1;
+}
+.logo-icon[data-state="warning"] .logo-warning {
+  opacity: 1;
+}
+.logo-icon[data-state="danger"] .logo-danger {
+  opacity: 1;
+}
+.logo-icon[data-state="scanner"] .logo-scanner {
+  opacity: 1;
+}
+
+/* Explicitly hide default logos when in non-default states to prevent overlap */
+.logo-icon[data-state="verified"] .logo-default,
+.logo-icon[data-state="warning"] .logo-default,
+.logo-icon[data-state="danger"] .logo-default,
+.logo-icon[data-state="scanner"] .logo-default {
+  opacity: 0 !important;
+}
+
+/* VERIFIED STATE - Subtle idle glow (4s, gentle purple glow) */
+@keyframes verifiedGlow {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1.45);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.47);
+  }
+}
+
+.logo-icon[data-state="verified"] .logo-verified {
+  animation: verifiedGlow 4s ease-in-out infinite;
+}
+.logo-icon[data-state="verified"] {
+  animation: containerGlowVerified 4s ease-in-out infinite;
+}
+
+@keyframes containerGlowVerified {
+  0%, 100% { box-shadow: 0 0 4px 1px rgba(139, 92, 246, 0.3); }
+  50% { box-shadow: 0 0 8px 2px rgba(139, 92, 246, 0.5); }
+}
+
+/* WARNING STATE - Amber/gold pulse (3s) */
+@keyframes warningPulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1.45);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.47);
+  }
+}
+
+.logo-icon[data-state="warning"] .logo-warning {
+  animation: warningPulse 3s ease-in-out infinite;
+}
+.logo-icon[data-state="warning"] {
+  animation: containerGlowWarning 3s ease-in-out infinite;
+}
+
+@keyframes containerGlowWarning {
+  0%, 100% { box-shadow: 0 0 4px 1px rgba(245, 158, 11, 0.35); }
+  50% { box-shadow: 0 0 10px 3px rgba(245, 158, 11, 0.55); }
+}
+
+/* DANGER STATE - Red alert pulse (2s) */
+@keyframes dangerAlert {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1.45);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.48);
+  }
+}
+
+.logo-icon[data-state="danger"] .logo-danger {
+  animation: dangerAlert 2s ease-in-out infinite;
+}
+.logo-icon[data-state="danger"] {
+  animation: containerGlowDanger 2s ease-in-out infinite;
+}
+
+@keyframes containerGlowDanger {
+  0%, 100% { box-shadow: 0 0 5px 2px rgba(220, 38, 38, 0.4); }
+  50% { box-shadow: 0 0 12px 4px rgba(220, 38, 38, 0.6); }
+}
+
+/* SCANNER STATE - Purple scanning pulse (1s) */
+@keyframes scannerPulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1.45);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.48);
+  }
+}
+
+.logo-icon[data-state="scanner"] .logo-scanner {
+  animation: scannerPulse 1s ease-in-out infinite;
+}
+.logo-icon[data-state="scanner"] {
+  animation: containerGlowScanner 1s ease-in-out infinite;
+}
+
+@keyframes containerGlowScanner {
+  0%, 100% { box-shadow: 0 0 4px 1px rgba(139, 92, 246, 0.4); }
+  50% { box-shadow: 0 0 14px 4px rgba(139, 92, 246, 0.7); }
+}
+
+/* Dark mode adjustments - brighter glows on container */
+[data-theme="dark"] .logo-icon[data-state="verified"] {
+  animation-name: containerGlowVerifiedDark;
+}
+
+@keyframes containerGlowVerifiedDark {
+  0%, 100% { box-shadow: 0 0 5px 2px rgba(167, 139, 250, 0.4); }
+  50% { box-shadow: 0 0 12px 4px rgba(167, 139, 250, 0.6); }
+}
+
+[data-theme="dark"] .logo-icon[data-state="warning"] {
+  animation-name: containerGlowWarningDark;
+}
+
+@keyframes containerGlowWarningDark {
+  0%, 100% { box-shadow: 0 0 5px 2px rgba(251, 191, 36, 0.45); }
+  50% { box-shadow: 0 0 14px 4px rgba(251, 191, 36, 0.65); }
+}
+
+[data-theme="dark"] .logo-icon[data-state="danger"] {
+  animation-name: containerGlowDangerDark;
+}
+
+@keyframes containerGlowDangerDark {
+  0%, 100% { box-shadow: 0 0 6px 2px rgba(248, 113, 113, 0.5); }
+  50% { box-shadow: 0 0 16px 5px rgba(248, 113, 113, 0.7); }
+}
+
+/* Accessibility: Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .logo-img {
+    animation: none !important;
+    box-shadow: none !important;
+    transform: translate(-50%, -50%) scale(1.25) !important;
+  }
 }
 
 .logo-text {
@@ -1713,6 +1914,7 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 }
 
 .btn-load-template,
+.btn-update-template,
 .btn-delete-template {
   display: flex;
   align-items: center;
@@ -1735,6 +1937,17 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   transform: scale(1.1);
 }
 
+.btn-update-template {
+  background: transparent;
+  color: var(--text-tertiary);
+}
+
+.btn-update-template:hover {
+  background: var(--accent-bg);
+  color: var(--accent);
+  transform: scale(1.1);
+}
+
 .btn-delete-template {
   background: transparent;
   color: var(--text-tertiary);
@@ -1746,6 +1959,7 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 }
 
 .btn-load-template svg,
+.btn-update-template svg,
 .btn-delete-template svg {
   width: 10px;
   height: 10px;
@@ -3793,9 +4007,51 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   width: 56px;
   height: 56px;
   margin-bottom: var(--spacing-md);
-  background: var(--accent-subtle);
-  border-radius: 16px;
-  box-shadow: var(--shadow-md);
+  border-radius: 50%;
+  overflow: hidden;
+  background-color: #5B6ABF;
+}
+
+[data-theme="light"] .auth-logo {
+  background-color: #0D1B3E;
+}
+
+.auth-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.3);
+}
+
+/* Dark mode (default): show dark logo, hide light */
+.auth-logo-light {
+  display: none;
+}
+.auth-logo-dark {
+  display: block;
+}
+
+/* Light mode: show light logo, hide dark */
+[data-theme="light"] .auth-logo-dark {
+  display: none;
+}
+[data-theme="light"] .auth-logo-light {
+  display: block;
+}
+
+/* Success animation logos - theme aware */
+.success-logo-light {
+  display: none;
+}
+.success-logo-dark {
+  display: block;
+}
+
+[data-theme="light"] .success-logo-dark {
+  display: none;
+}
+[data-theme="light"] .success-logo-light {
+  display: block;
 }
 
 .auth-title {
@@ -4120,6 +4376,134 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 }
 
 /* ============================================
+   SUBSCRIPTION BADGE
+   ============================================ */
+
+.subscription-badge-container {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.subscription-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  width: fit-content;
+  transition: all var(--transition-fast);
+}
+
+/* Free Plan - Green */
+.subscription-badge.free {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.15));
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+[data-theme="dark"] .subscription-badge.free {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.15), rgba(16, 185, 129, 0.15));
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+/* Pro Plan - Gold */
+.subscription-badge.pro {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.15));
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+[data-theme="dark"] .subscription-badge.pro {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.15));
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.subscription-badge .badge-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* Header Plan Badge (small badge next to title) */
+.header-plan-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.header-plan-badge.free {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.2));
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+[data-theme="dark"] .header-plan-badge.free {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(16, 185, 129, 0.2));
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.4);
+}
+
+.header-plan-badge.pro {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.2));
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+[data-theme="dark"] .header-plan-badge.pro {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.2));
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+}
+
+/* Upgrade Button */
+.upgrade-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  width: fit-content;
+}
+
+.upgrade-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+}
+
+.upgrade-btn svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+/* Hide upgrade button for Pro users */
+.subscription-badge-container.pro .upgrade-btn {
+  display: none;
+}
+
+/* ============================================
    SAVED JOBS SECTION
    ============================================ */
 
@@ -4345,18 +4729,35 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   justify-content: center;
 }
 
-.success-logo {
+/* Inner circle container: clips the image and prevents white bleed */
+.success-logo-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  background-color: #5B6ABF;
   animation: success-logo-pulse 1.5s ease-in-out infinite;
   filter: drop-shadow(0 8px 24px var(--accent-glow));
 }
 
+[data-theme="light"] .success-logo-circle {
+  background-color: #0D1B3E;
+}
+
+.success-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.3);
+}
+
 @keyframes success-logo-pulse {
   0%, 100% {
-    transform: scale(1);
+    transform: scale(1.15);
     filter: drop-shadow(0 8px 24px var(--accent-glow));
   }
   50% {
-    transform: scale(1.05);
+    transform: scale(1.21);
     filter: drop-shadow(0 12px 32px var(--accent-glow));
   }
 }
@@ -4406,7 +4807,7 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 }
 
 /* Dark mode adjustments for success animation */
-[data-theme="dark"] .success-logo {
+[data-theme="dark"] .success-logo-circle {
   filter: drop-shadow(0 8px 24px rgba(74, 123, 183, 0.4));
 }
 
@@ -4416,16 +4817,16 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 
 @keyframes success-logo-pulse-dark {
   0%, 100% {
-    transform: scale(1);
+    transform: scale(1.15);
     filter: drop-shadow(0 8px 24px rgba(74, 123, 183, 0.4));
   }
   50% {
-    transform: scale(1.05);
+    transform: scale(1.21);
     filter: drop-shadow(0 12px 32px rgba(74, 123, 183, 0.5));
   }
 }
 
-[data-theme="dark"] .success-logo {
+[data-theme="dark"] .success-logo-circle {
   animation: success-logo-pulse-dark 1.5s ease-in-out infinite;
 }
 

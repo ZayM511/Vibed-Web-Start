@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { JobFiltrLogo } from "./JobFiltrLogo";
+
 import { HeroStatement } from "./HeroStatement";
 
 export function JobFiltrHero() {
@@ -27,10 +27,10 @@ export function JobFiltrHero() {
           variants={fadeUpVariants}
           initial="hidden"
           animate="visible"
-          className="inline-flex items-center gap-3 mb-6"
+          className="inline-flex items-center gap-1 mb-6"
         >
-          <JobFiltrLogo className="h-8 w-8 md:h-10 md:w-10" />
-          <span className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-white to-rose-300">
+          <img src="/jobfiltr-logo.png" alt="JobFiltr" className="h-8 w-8 md:h-10 md:w-10 object-contain" />
+          <span className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white from-40% to-[#93c5fd]">
             JobFiltr
           </span>
         </motion.div>
@@ -43,7 +43,7 @@ export function JobFiltrHero() {
           animate="visible"
         >
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold mb-3 tracking-tight">
-            <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/80">
+            <span className="text-white">
               Filtr Your Job Search
             </span>
           </h1>
@@ -59,7 +59,7 @@ export function JobFiltrHero() {
         >
           <p className="text-lg md:text-xl lg:text-2xl font-semibold tracking-wide inline-flex items-center gap-3 flex-wrap justify-center">
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-white to-rose-300">
-              See Through The Scams & Fakes
+              Take back control of your job search
             </span>
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-white to-rose-300">
               •

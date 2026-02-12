@@ -9,7 +9,7 @@ export const submitFeedback = mutation({
     type: v.union(
       v.literal("feedback"),
       v.literal("improvement"),
-      v.literal("feature"),
+      v.literal("report"),
       v.literal("bug"),
       v.literal("other")
     ),
@@ -17,6 +17,11 @@ export const submitFeedback = mutation({
     email: v.optional(v.string()),
     userId: v.optional(v.string()),
     userName: v.optional(v.string()),
+    reportCategories: v.optional(v.object({
+      scamJob: v.boolean(),
+      spamJob: v.boolean(),
+      ghostJob: v.boolean(),
+    })),
   },
   handler: async (ctx, args) => {
     const feedbackId = await ctx.db.insert("feedback", {
@@ -25,6 +30,7 @@ export const submitFeedback = mutation({
       email: args.email,
       userId: args.userId,
       userName: args.userName,
+      reportCategories: args.reportCategories,
       status: "new",
       createdAt: Date.now(),
     });
@@ -50,7 +56,7 @@ export const getAllFeedback = query({
       v.union(
         v.literal("feedback"),
         v.literal("improvement"),
-        v.literal("feature"),
+        v.literal("report"),
         v.literal("bug"),
         v.literal("other")
       )
@@ -132,6 +138,19 @@ export const updateFeedbackStatus = mutation({
 });
 
 /**
+ * Admin: Remove a feedback/report entry by ID
+ */
+export const adminRemoveEntry = mutation({
+  args: {
+    id: v.id("feedback"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id);
+    return { success: true };
+  },
+});
+
+/**
  * Get feedback statistics
  */
 export const getFeedbackStats = query({
@@ -143,7 +162,7 @@ export const getFeedbackStats = query({
       byType: {
         feedback: 0,
         improvement: 0,
-        feature: 0,
+        report: 0,
         bug: 0,
         other: 0,
       },

@@ -323,4 +323,10 @@
   window.badgeStateManager = badgeStateManager;
 
   console.log(LOG_PREFIX, 'Badge state manager loaded');
+
+  // Auto-initialize when script loads
+  (async () => {
+    await window.badgeStateManager.init();
+    console.log(LOG_PREFIX, 'Badge state manager initialized');
+  })();
 })();

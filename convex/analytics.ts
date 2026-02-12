@@ -288,7 +288,7 @@ export const getFounderDashboard = query({
     const newFeedback = feedback.filter(f => f.status === "new").length;
     const feedbackByType = {
       feedback: feedback.filter(f => f.type === "feedback").length,
-      feature: feedback.filter(f => f.type === "feature").length,
+      report: feedback.filter(f => f.type === "report").length,
       bug: feedback.filter(f => f.type === "bug").length,
       improvement: feedback.filter(f => f.type === "improvement").length,
     };

@@ -5,8 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Blue-indigo theme with deep gradient background */
-  --background: #0f0f23;
+  /* Blue-indigo theme with deep gradient background - slightly brighter navy blue */
+  --background: #0c0c1a;
   --foreground: #ffffff;
   --card: #1a1a3a;
   --card-foreground: #fafafa;
@@ -93,6 +93,10 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+
+html {
+  scrollbar-gutter: stable;
+}
 
 body {
   font-family: 'Mona Sans', system-ui, -apple-system, sans-serif;
@@ -193,4 +197,194 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Clerk UserButton Popover Styling */
+.cl-userButtonPopoverCard {
+  background-color: #1a1a2e !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.cl-userButtonPopoverActionButton {
+  color: white !important;
+}
+
+.cl-userButtonPopoverActionButton:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.cl-userButtonPopoverActionButtonText {
+  color: white !important;
+}
+
+.cl-userButtonPopoverActionButtonIcon {
+  color: white !important;
+}
+
+.cl-userButtonPopoverActionButtonIcon svg {
+  color: white !important;
+}
+
+/* Sign out button in popover - red color */
+.cl-userButtonPopoverActionButton[data-localization-key="signOut"],
+.cl-userButtonPopoverActionButton:last-child {
+  color: #ef4444 !important;
+}
+
+.cl-userButtonPopoverActionButton[data-localization-key="signOut"] .cl-userButtonPopoverActionButtonText,
+.cl-userButtonPopoverActionButton:last-child .cl-userButtonPopoverActionButtonText {
+  color: #ef4444 !important;
+}
+
+.cl-userButtonPopoverActionButton[data-localization-key="signOut"] .cl-userButtonPopoverActionButtonIcon,
+.cl-userButtonPopoverActionButton:last-child .cl-userButtonPopoverActionButtonIcon,
+.cl-userButtonPopoverActionButton[data-localization-key="signOut"] .cl-userButtonPopoverActionButtonIcon svg,
+.cl-userButtonPopoverActionButton:last-child .cl-userButtonPopoverActionButtonIcon svg {
+  color: #ef4444 !important;
+}
+
+.cl-userButtonPopoverFooter {
+  display: none !important;
+}
+
+/* Clerk UserProfile Modal Styling */
+.cl-modalContent,
+.cl-userProfile-root,
+.cl-profilePage-root {
+  background-color: #1a1a2e !important;
+}
+
+.cl-card {
+  background-color: #1a1a2e !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.cl-navbar {
+  background-color: #1a1a2e !important;
+}
+
+.cl-navbarButton {
+  color: white !important;
+}
+
+.cl-navbarButton:hover,
+.cl-navbarButton[data-active="true"] {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.cl-pageScrollBox {
+  background-color: #1a1a2e !important;
+}
+
+.cl-profileSection {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.cl-profileSectionTitle,
+.cl-profileSectionTitleText {
+  color: white !important;
+}
+
+.cl-profileSectionContent {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.cl-profileSectionPrimaryButton {
+  color: white !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.cl-profileSectionPrimaryButton:hover {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.cl-formButtonPrimary {
+  background-color: white !important;
+  color: black !important;
+}
+
+.cl-formButtonPrimary:hover {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Hide "Add email address" section */
+.cl-profileSection__emailAddresses .cl-profileSectionPrimaryButton,
+[data-localization-key="userProfile.start.emailAddressesSection.primaryButton__add"] {
+  display: none !important;
+}
+
+/* Hide the avatar/logo in profile details header */
+.cl-profileSection__profile .cl-avatarBox,
+.cl-userPreview__userProfile .cl-avatarBox {
+  display: none !important;
+}
+
+/* Hide footer in UserProfile modal */
+.cl-footer,
+.cl-internal-b5v8xu,
+.cl-footerAction,
+.cl-internal-1dauvpw,
+[class*="cl-internal"] > div:has(> a[href*="clerk.com"]) {
+  display: none !important;
+}
+
+/* Hide "Secured by Clerk" and "Development mode" */
+.cl-badge,
+.cl-footerPagesLink,
+[class*="powered"],
+.cl-userProfile-root [class*="footer"],
+.cl-modalContent [class*="footer"],
+div:has(> span:contains("Secured by")),
+div:has(> span:contains("Development mode")) {
+  display: none !important;
+}
+
+/* Style the modal close button */
+.cl-modalCloseButton {
+  color: white !important;
+}
+
+/* Additional text styling */
+.cl-headerTitle,
+.cl-headerSubtitle,
+.cl-formFieldLabel,
+.cl-formFieldHintText {
+  color: white !important;
+}
+
+.cl-formFieldInput {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+
+/* Tab styling */
+.cl-navbarButton__account,
+.cl-navbarButton__security {
+  color: white !important;
+}
+
+/* Active tab styling */
+.cl-navbarButton[data-active="true"] {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: white !important;
+}
+
+/* Social login button text styling (Continue with Google, etc.) */
+.cl-socialButtonsBlockButton,
+.cl-socialButtonsBlockButton__google,
+.cl-socialButtonsBlockButton__apple,
+.cl-socialButtonsBlockButton__facebook {
+  color: white !important;
+}
+
+.cl-socialButtonsBlockButtonText {
+  color: white !important;
+}
+
+.cl-socialButtonsBlockButtonText__google,
+.cl-socialButtonsBlockButtonText__apple,
+.cl-socialButtonsBlockButtonText__facebook {
+  color: white !important;
 }

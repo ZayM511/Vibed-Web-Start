@@ -4,6 +4,9 @@
 // Default Convex URL
 const DEFAULT_CONVEX_URL = 'https://reminiscent-goldfish-690.convex.cloud';
 
+// Default Web App Base URL (for Visit Website and Contact Us links)
+const DEFAULT_WEB_APP_URL = 'http://localhost:3000';
+
 // Founder emails that can see analytics dashboard
 const FOUNDER_EMAILS = [
   'isaiah.e.malone@gmail.com',
@@ -21,7 +24,7 @@ let conversionChart = null;
 
 // DOM Elements
 const convexUrlInput = document.getElementById('convexUrl');
-const autoScanToggle = document.getElementById('autoScanToggle');
+const webAppUrlInput = document.getElementById('webAppUrl');
 const notificationsToggle = document.getElementById('notificationsToggle');
 const saveButton = document.getElementById('saveButton');
 const resetButton = document.getElementById('resetButton');
@@ -44,6 +47,10 @@ const saveNameBtn = document.getElementById('saveNameBtn');
 const cancelNameBtn = document.getElementById('cancelNameBtn');
 const notSignedInMessage = document.getElementById('notSignedInMessage');
 const openExtensionLink = document.getElementById('openExtensionLink');
+
+// About section links
+const visitWebsiteLink = document.getElementById('visitWebsiteLink');
+const contactUsLink = document.getElementById('contactUsLink');
 
 // Greeting Elements
 const greetingMessage = document.getElementById('greetingMessage');
@@ -1340,7 +1347,6 @@ function closeSettingsPage() {
 // ===== EVENT LISTENERS =====
 saveButton.addEventListener('click', saveSettings);
 resetButton.addEventListener('click', resetToDefaults);
-autoScanToggle.addEventListener('click', toggleAutoScan);
 notificationsToggle.addEventListener('click', toggleNotifications);
 themeToggle.addEventListener('click', toggleTheme);
 closeSettingsBtn.addEventListener('click', closeSettingsPage);
@@ -1485,29 +1491,45 @@ async function loadSettings() {
   try {
     const settings = await chrome.storage.sync.get({
       convexUrl: DEFAULT_CONVEX_URL,
-      autoScan: false,
+      webAppUrl: DEFAULT_WEB_APP_URL,
       notifications: true
     });
 
     convexUrlInput.value = settings.convexUrl || DEFAULT_CONVEX_URL;
-
-    if (settings.autoScan) {
-      autoScanToggle.classList.add('active');
+    if (webAppUrlInput) {
+      webAppUrlInput.value = settings.webAppUrl || DEFAULT_WEB_APP_URL;
     }
 
     if (settings.notifications) {
       notificationsToggle.classList.add('active');
     }
+
+    // Update About section links with stored or default web app URL
+    updateAboutLinks(settings.webAppUrl || DEFAULT_WEB_APP_URL);
   } catch (error) {
     console.error('Error loading settings:', error);
   }
 }
 
+// Update Visit Website and Contact Us links with the correct base URL
+function updateAboutLinks(baseUrl) {
+  // Remove trailing slash if present
+  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+
+  if (visitWebsiteLink) {
+    visitWebsiteLink.href = cleanBaseUrl;
+  }
+  if (contactUsLink) {
+    contactUsLink.href = `${cleanBaseUrl}/contact`;
+  }
+}
+
 async function saveSettings() {
   try {
+    const webAppUrl = webAppUrlInput?.value.trim() || DEFAULT_WEB_APP_URL;
     const settings = {
       convexUrl: convexUrlInput.value.trim() || DEFAULT_CONVEX_URL,
-      autoScan: autoScanToggle.classList.contains('active'),
+      webAppUrl: webAppUrl,
       notifications: notificationsToggle.classList.contains('active')
     };
 
@@ -1518,6 +1540,10 @@ async function saveSettings() {
     }
 
     await chrome.storage.sync.set(settings);
+
+    // Update About section links with the new web app URL
+    updateAboutLinks(webAppUrl);
+
     showSuccessMessage();
     showSaveButtonAnimation();
     console.log('Settings saved:', settings);
@@ -1550,7 +1576,7 @@ async function resetToDefaults() {
   try {
     const defaultSettings = {
       convexUrl: DEFAULT_CONVEX_URL,
-      autoScan: false,
+      webAppUrl: DEFAULT_WEB_APP_URL,
       notifications: true
     };
 
@@ -1560,10 +1586,6 @@ async function resetToDefaults() {
     console.error('Error resetting settings:', error);
     alert('Failed to reset settings. Please try again.');
   }
-}
-
-function toggleAutoScan() {
-  autoScanToggle.classList.toggle('active');
 }
 
 function toggleNotifications() {

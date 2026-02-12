@@ -193,7 +193,7 @@ export default function ScanPage() {
           <Link href="/pricing">
             <Button size="lg" className="gap-2">
               <Crown className="h-5 w-5" />
-              Upgrade to Pro - $3.99/month
+              Upgrade to Pro - $7.99/month
             </Button>
           </Link>
         </div>

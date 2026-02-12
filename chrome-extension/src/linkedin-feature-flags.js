@@ -52,6 +52,22 @@ class LinkedInFeatureFlags {
         this.failureCounts = stored.linkedinFeatureFailures;
       }
 
+      // CRITICAL: Always ensure core features are enabled and reset their failure counts
+      // Job age badges should NEVER be auto-disabled - it's a core feature
+      const coreFeatures = ['enableJobAgeBadges'];
+      for (const feature of coreFeatures) {
+        if (!this.flags[feature] || this.failureCounts[feature] >= this.failureThreshold) {
+          console.log(`[LinkedIn Feature Flags] Resetting core feature: ${feature}`);
+          this.flags[feature] = true;
+          this.failureCounts[feature] = 0;
+        }
+      }
+      // Save the reset state
+      await chrome.storage.local.set({
+        linkedinFeatureFlags: this.flags,
+        linkedinFeatureFailures: this.failureCounts
+      });
+
       console.log('[LinkedIn Feature Flags] Initialized:', this.flags);
     } catch (error) {
       console.error('[LinkedIn Feature Flags] Initialization error:', error);

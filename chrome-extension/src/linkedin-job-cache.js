@@ -291,4 +291,10 @@
   window.linkedInJobCache = linkedInJobCache;
 
   console.log(LOG_PREFIX, 'LinkedIn job cache module loaded');
+
+  // Auto-initialize when script loads
+  (async () => {
+    await window.linkedInJobCache.init();
+    console.log(LOG_PREFIX, 'LinkedIn job cache initialized');
+  })();
 })();

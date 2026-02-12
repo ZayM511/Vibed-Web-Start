@@ -21,6 +21,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { JobFilterLogo } from "@/components/JobFilterLogo";
 import { useUser, SignInButton, SignUpButton } from "@clerk/nextjs";
+import { WAITLIST_MODE } from "@/lib/feature-flags";
 
 // Custom alert diamond icon component
 const AlertDiamondIcon = ({ className }: { className?: string }) => (
@@ -63,37 +64,36 @@ export function SolutionShowcase() {
 
   const valueProp = [
     {
+      icon: Shield,
+      title: "Your Time Protected",
+      description:
+        "Spend your energy on opportunities that matter. JobFiltr helps filter out fake and unwanted postings so you focus only on real jobs.",
+      color: "from-pink-500 to-rose-500",
+      benefit: "Save hours every week",
+    },
+    {
       icon: Zap,
       title: "Instant Scam Detection",
       description:
         "JobFiltr analyzes job postings in seconds -- flagging fake listings, unrealistic requirements, and suspicious patterns before you waste your time or compromise your personal information.",
       color: "from-indigo-500 to-purple-500",
-      benefit: "Save hours every week",
-    },
-    {
-      icon: Users,
-      title: "Community-Powered Intelligence",
-      description:
-        "Learn from thousands of job seekers' experiences. Real reviews, real warnings, real protection from those who've been there.",
-      color: "from-purple-500 to-pink-500",
-      benefit: "Collective wisdom at your fingertips",
-      comingSoon: true,
-    },
-    {
-      icon: Shield,
-      title: "Your Time Protected",
-      description:
-        "Spend your energy on opportunities that matter. JobFiltr helps filter out the fake postings so you focus only on real jobs.",
-      color: "from-pink-500 to-rose-500",
       benefit: "Apply with confidence",
     },
     {
-      icon: Lock,
-      title: "Zero Privacy Invasion",
+      icon: Users,
+      title: "Community Reported Insight",
       description:
-        "No tracking. No data selling. No invasive monitoring. We analyze job postings, not you. Your job search stays completely private and secure.",
-      color: "from-emerald-500 to-teal-500",
-      benefit: "100% privacy guaranteed",
+        "Learn from other job seekers' experiences. Real reports, real warnings, real protection from those who've been there.",
+      color: "from-purple-500 to-pink-500",
+      benefit: "Collective wisdom at a glance",
+    },
+    {
+      icon: AlertDiamondIcon,
+      title: "Ghost Job Detection",
+      description:
+        "Identify deceptive postings designed to collect your data. JobFiltr flags suspicious patterns, unrealistic promises, and data harvesting schemes before you apply.",
+      color: "from-amber-500 to-yellow-500",
+      benefit: "Protect your personal data",
     },
     {
       icon: Brain,
@@ -104,38 +104,17 @@ export function SolutionShowcase() {
       benefit: "Smarter than human review",
     },
     {
-      icon: AlertDiamondIcon,
-      title: "Spam Job Detection",
+      icon: Lock,
+      title: "Zero Privacy Invasion",
       description:
-        "Identify deceptive postings designed to collect your data. JobFiltr flags suspicious patterns, unrealistic promises, and data harvesting schemes before you apply.",
-      color: "from-amber-500 to-yellow-500",
-      benefit: "Protect your personal data",
-    },
-  ];
-
-  const howItWorks = [
-    {
-      step: "1",
-      title: "Paste Job URL or Description",
-      description: "Copy and paste any job posting link or text",
-      icon: Search,
-    },
-    {
-      step: "2",
-      title: "AI Analyzes in Seconds",
-      description: "Our AI scans 50+ scam indicators instantly",
-      icon: Zap,
-    },
-    {
-      step: "3",
-      title: "Get Clear Risk Assessment",
-      description: "See red flags, confidence scores, and recommendations",
-      icon: CheckCircle2,
+        "No tracking. No data selling. No invasive monitoring. We analyze job postings, not you. Your job search stays completely private and secure.",
+      color: "from-emerald-500 to-teal-500",
+      benefit: "100% privacy guaranteed",
     },
   ];
 
   return (
-    <div className="relative pt-8 pb-24">
+    <div className="relative pt-8 pb-10">
       {/* Background accent */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-indigo-500/5 to-transparent" />
 
@@ -151,22 +130,19 @@ export function SolutionShowcase() {
             className="text-center mb-16"
           >
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 leading-tight">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-white/80">
+              <span className="text-white">
                 What if you could{" "}
               </span>
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">
-                filter out the noise
-              </span>
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-white/80">
-                ?
+                filter out the noise?
               </span>
             </h2>
 
             <p className="text-lg md:text-xl text-white/70 leading-relaxed max-w-4xl mx-auto mb-8">
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-white to-rose-300 font-semibold">JobFiltr</span> is your
-              AI-powered companion for the modern job search. We detect scams,
-              identify fake postings with no intent to hire, and flag red flags—
-              <span className="text-indigo-400 font-semibold">
+              companion for the modern job search. We provide optimal filters,
+              spot red flags, and identify fake postings with no intent to hire —{" "}
+              <span className="text-white font-bold">
                 before you waste your time
               </span>
               .
@@ -248,8 +224,8 @@ export function SolutionShowcase() {
             viewport={{ once: true }}
             className="mb-8 text-center"
           >
-            <p className="text-lg md:text-xl text-white/70 leading-relaxed max-w-3xl mx-auto">
-              We built JobFiltr to cut through the noise—so you can focus on{" "}
+            <p className="text-xl md:text-2xl text-white/70 leading-relaxed max-w-4xl mx-auto">
+              We built JobFiltr to cut through the noise so you can focus on{" "}
               <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent font-medium">
                 real opportunities
               </span>{" "}
@@ -264,196 +240,15 @@ export function SolutionShowcase() {
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
-            className="text-center mb-20"
+            className="text-center"
           >
-            <p className="text-lg md:text-xl text-white/50 leading-relaxed max-w-2xl mx-auto">
+            <p className="text-lg md:text-xl text-white/50 leading-relaxed max-w-3xl mx-auto">
+              Stop wasting countless hours job searching.{" "}
               Stop second-guessing every application.{" "}
-              <span className="text-white/70 font-medium">
+              <span className="text-white/70 font-medium underline">
                 Start applying with confidence.
               </span>
             </p>
-          </motion.div>
-
-          {/* Animated CTA Section */}
-          <motion.div
-            custom={4}
-            variants={fadeUpVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="mt-12 mb-20 relative overflow-hidden"
-          >
-            {/* Animated background gradient */}
-            <div className="absolute inset-0">
-              <motion.div
-                animate={{
-                  background: [
-                    "radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 50%)",
-                    "radial-gradient(circle at 80% 50%, rgba(236, 72, 153, 0.15) 0%, transparent 50%)",
-                    "radial-gradient(circle at 50% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%)",
-                    "radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 50%)",
-                  ],
-                }}
-                transition={{
-                  duration: 10,
-                  repeat: Number.POSITIVE_INFINITY,
-                  ease: "linear",
-                }}
-                className="absolute inset-0"
-              />
-            </div>
-
-            <Card className="relative z-10 bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-rose-500/10 border-white/20 backdrop-blur-xl overflow-hidden">
-              {/* Animated border glow */}
-              <motion.div
-                animate={{
-                  opacity: [0.3, 0.6, 0.3],
-                }}
-                transition={{
-                  duration: 3,
-                  repeat: Number.POSITIVE_INFINITY,
-                  ease: "easeInOut",
-                }}
-                className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-rose-500 opacity-30 blur-2xl"
-              />
-
-              <CardContent className="relative z-10 p-10 md:p-16">
-                {/* Sparkle icon */}
-                <motion.div
-                  animate={{
-                    rotate: [0, 360],
-                    scale: [1, 1.2, 1],
-                  }}
-                  transition={{
-                    duration: 4,
-                    repeat: Number.POSITIVE_INFINITY,
-                    ease: "easeInOut",
-                  }}
-                  className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 mb-8"
-                >
-                  <JobFilterLogo className="h-8 w-8" />
-                </motion.div>
-
-                {/* Typing Animation */}
-                <div className="mb-8 pb-4 overflow-visible">
-                  <TypingAnimation
-                    key={currentPhrase}
-                    text={phrases[currentPhrase]}
-                    duration={60}
-                    className="text-3xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-200 to-purple-200 pb-2"
-                  />
-                </div>
-
-                <p className="text-white/70 text-lg md:text-xl mb-10 max-w-3xl mx-auto text-center">
-                  JobFiltr uses advanced AI to analyze job postings in real-time.
-                  Detect scams, identify fake postings with no intent to hire, and save hours every week.{" "}
-                  <span className="text-white font-semibold">
-                    Start protecting your job search now — for free.
-                  </span>
-                </p>
-
-                {/* CTA Button */}
-                <div className="flex justify-center mb-12">
-                  <Button
-                    size="lg"
-                    onClick={() => setShowModal(true)}
-                    className="group relative overflow-hidden bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 hover:from-indigo-600 hover:via-purple-600 hover:to-indigo-600 text-white px-12 py-8 text-xl font-bold shadow-2xl shadow-purple-500/50 rounded-full transition-all duration-300 hover:scale-105 hover:shadow-purple-500/70 cursor-pointer"
-                  >
-                    <span className="relative z-10 flex items-center gap-3">
-                      Get Started Today
-                      <motion.div
-                        animate={{ x: [0, 5, 0] }}
-                        transition={{
-                          duration: 1.5,
-                          repeat: Number.POSITIVE_INFINITY,
-                          ease: "easeInOut",
-                        }}
-                      >
-                        <ArrowRight className="h-6 w-6" />
-                      </motion.div>
-                    </span>
-                    {/* Shine effect */}
-                    <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                      animate={{
-                        x: ['-200%', '200%'],
-                      }}
-                      transition={{
-                        duration: 3,
-                        repeat: Number.POSITIVE_INFINITY,
-                        ease: "linear",
-                      }}
-                    />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* How It Works Section */}
-          <motion.div
-            custom={3}
-            variants={fadeUpVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="mb-16"
-          >
-            <h3 className="text-2xl md:text-3xl font-bold text-center mb-12">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-white/80">
-                How It Works
-              </span>
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {howItWorks.map((item, index) => {
-                const Icon = item.icon;
-                return (
-                  <motion.div
-                    key={item.step}
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    transition={{
-                      duration: 0.6,
-                      delay: 0.3 + index * 0.15,
-                    }}
-                    className="relative"
-                  >
-                    <Card className="bg-white/5 border-white/10 backdrop-blur-sm h-full hover:bg-white/10 transition-colors">
-                      <CardContent className="p-6 text-center">
-                        {/* Step Number */}
-                        <div className="text-6xl font-bold text-white/10 mb-4">
-                          {item.step}
-                        </div>
-
-                        {/* Icon */}
-                        <div className="mb-4">
-                          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500">
-                            <Icon className="h-8 w-8 text-white" />
-                          </div>
-                        </div>
-
-                        {/* Title */}
-                        <h4 className="text-lg font-semibold text-white mb-2">
-                          {item.title}
-                        </h4>
-
-                        {/* Description */}
-                        <p className="text-sm text-white/60">
-                          {item.description}
-                        </p>
-                      </CardContent>
-                    </Card>
-
-                    {/* Connecting Line (except for last item) */}
-                    {index < howItWorks.length - 1 && (
-                      <div className="hidden md:block absolute top-1/2 -right-3 w-6 h-0.5 bg-gradient-to-r from-indigo-500 to-transparent" />
-                    )}
-                  </motion.div>
-                );
-              })}
-            </div>
           </motion.div>
         </div>
       </div>
@@ -491,7 +286,7 @@ export function SolutionShowcase() {
 
                   {/* Content based on auth status */}
                   {!isSignedIn ? (
-                    // Not signed in - show auth options
+                    // Not signed in
                     <div className="text-center">
                       <motion.div
                         animate={{
@@ -508,37 +303,55 @@ export function SolutionShowcase() {
                         <JobFilterLogo className="h-8 w-8" />
                       </motion.div>
 
-                      <h3 className="text-2xl font-bold text-white mb-3">
-                        Get Started with JobFiltr
-                      </h3>
-                      <p className="text-white/70 mb-8">
-                        Sign up or sign in to start protecting your job search
-                      </p>
-
-                      <div className="space-y-3">
-                        <SignUpButton mode="modal">
-                          <Button
-                            size="lg"
-                            className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-semibold"
-                          >
-                            Create Account
-                          </Button>
-                        </SignUpButton>
-
-                        <SignInButton mode="modal">
-                          <Button
-                            size="lg"
-                            variant="outline"
-                            className="w-full border-white/20 hover:bg-white/5 text-white"
-                          >
-                            Sign In
-                          </Button>
-                        </SignInButton>
-                      </div>
-
-                      <p className="text-xs text-white/40 mt-6">
-                        Free to use • No credit card required
-                      </p>
+                      {WAITLIST_MODE ? (
+                        <>
+                          <h3 className="text-2xl font-bold text-white mb-3">
+                            Coming Soon
+                          </h3>
+                          <p className="text-white/70 mb-8">
+                            Join our waitlist to be the first to know when JobFiltr launches
+                          </p>
+                          <Link href="/waitlist" onClick={() => setShowModal(false)}>
+                            <Button
+                              size="lg"
+                              className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-semibold"
+                            >
+                              Join The Waitlist
+                            </Button>
+                          </Link>
+                        </>
+                      ) : (
+                        <>
+                          <h3 className="text-2xl font-bold text-white mb-3">
+                            Get Started with JobFiltr
+                          </h3>
+                          <p className="text-white/70 mb-8">
+                            Sign up or sign in to start protecting your job search
+                          </p>
+                          <div className="space-y-3">
+                            <SignUpButton mode="modal">
+                              <Button
+                                size="lg"
+                                className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-semibold"
+                              >
+                                Create Account
+                              </Button>
+                            </SignUpButton>
+                            <SignInButton mode="modal">
+                              <Button
+                                size="lg"
+                                variant="outline"
+                                className="w-full border-white/20 hover:bg-white/5 text-white"
+                              >
+                                Sign In
+                              </Button>
+                            </SignInButton>
+                          </div>
+                          <p className="text-xs text-white/40 mt-6">
+                            Free to use • No credit card required
+                          </p>
+                        </>
+                      )}
                     </div>
                   ) : (
                     // Signed in - show options

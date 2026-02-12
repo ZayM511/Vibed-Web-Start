@@ -4,28 +4,32 @@ import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, Crown, Zap } from "lucide-react";
+import { Check, Crown, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useState } from "react";
 
 const features = {
   free: [
-    "3 scan trial",
-    "Browser extension access",
-    "Quick scan access",
-    "Community reviews access",
+    "Full Indeed Support",
+    "Access to primary filters",
+    "Ghost Job Analysis Badges",
+    "10 Scam/Spam Job Scans per month",
+    "Max of 3 Excluded Keywords",
+    "Max of 1 Excluded Companies",
+    "Community Reported Companies",
     "Email support",
   ],
   pro: [
-    "Unlimited scans",
-    "Chrome extension access",
-    "Advanced AI analysis",
-    "Detailed scam reports",
-    "Export scan results",
-    "Email alerts",
-    "Priority support",
-    "Scan history tracking",
+    "Everything in Free tier plus:",
+    "Unlimited saved templates",
+    "Unlimited Scam/Spam Job Scans",
+    "Ghost Job Analysis full breakdown",
+    "Unlimited Include/Exclude Keywords",
+    "Unlimited Excluded Companies",
+    "Save Jobs in app",
+    "Resume/Cover Letter/Portfolio Storage in app",
+    "Beta LinkedIn Support",
   ],
 };
 
@@ -83,13 +87,13 @@ export function SubscriptionManagement() {
             transition={{ duration: 0.4 }}
             className={`relative rounded-lg border-2 p-6 ${
               !isPro
-                ? "border-indigo-500/50 bg-indigo-500/10"
+                ? "border-emerald-500/50 bg-emerald-500/10"
                 : "border-white/10 bg-white/5"
             }`}
           >
             {!isPro && (
               <div className="absolute top-4 right-4">
-                <span className="px-3 py-1 bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-xs font-bold rounded-full">
+                <span className="px-3 py-1 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs font-bold rounded-full">
                   CURRENT
                 </span>
               </div>
@@ -97,7 +101,7 @@ export function SubscriptionManagement() {
 
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-2">
-                <Zap className="h-6 w-6 text-indigo-400" />
+                <Sparkles className="h-6 w-6 text-emerald-400" />
                 <h3 className="text-2xl font-bold text-white">Free</h3>
               </div>
               <p className="text-3xl font-bold text-white mb-1">
@@ -109,7 +113,7 @@ export function SubscriptionManagement() {
             <ul className="space-y-3 mb-6">
               {features.free.map((feature) => (
                 <li key={feature} className="flex items-start gap-2 text-white/80 text-sm">
-                  <Check className="h-5 w-5 text-indigo-400 flex-shrink-0 mt-0.5" />
+                  <Check className="h-5 w-5 text-emerald-400 flex-shrink-0 mt-0.5" />
                   <span>{feature}</span>
                 </li>
               ))}
@@ -141,7 +145,7 @@ export function SubscriptionManagement() {
                 <h3 className="text-2xl font-bold text-white">Pro</h3>
               </div>
               <p className="text-3xl font-bold text-white mb-1">
-                $3.99<span className="text-lg text-white/50">/month</span>
+                $7.99<span className="text-lg text-white/50">/month</span>
               </p>
               <p className="text-white/60 text-sm">Unlock all premium features</p>
             </div>

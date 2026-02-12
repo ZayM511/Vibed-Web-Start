@@ -19,7 +19,6 @@ console.log('[JobFiltr] LinkedIn content script V3 loading...');
 // =============================================================================
 
 let filterSettings = {};
-let hiddenJobsCount = 0;
 let currentPage = 1;
 let lastPageUrl = '';
 let isFilteringInProgress = false;
@@ -696,7 +695,7 @@ function extractJobInfo() {
 
     let title = null, company = null, location = null, description = '', postedDate = null;
 
-    // Title
+    // Title (class-based selectors for old UI)
     for (const selector of SELECTORS.detailTitle) {
       const elem = document.querySelector(selector);
       if (elem?.textContent?.trim()) {
@@ -705,7 +704,7 @@ function extractJobInfo() {
       }
     }
 
-    // Company
+    // Company (class-based selectors for old UI)
     for (const selector of SELECTORS.detailCompany) {
       const elem = document.querySelector(selector);
       if (elem?.textContent?.trim()) {
@@ -714,7 +713,7 @@ function extractJobInfo() {
       }
     }
 
-    // Description
+    // Description (class-based selectors for old UI)
     for (const selector of SELECTORS.description) {
       const elem = document.querySelector(selector);
       if (elem?.textContent?.trim()) {
@@ -723,12 +722,95 @@ function extractJobInfo() {
       }
     }
 
-    // Posted date
+    // Posted date (class-based selectors for old UI)
     for (const selector of SELECTORS.detailAge) {
       const elem = document.querySelector(selector);
       if (elem?.textContent?.trim()) {
         postedDate = elem.textContent.trim();
         break;
+      }
+    }
+
+    // ===== NEW AI SEARCH UI FALLBACKS =====
+    // Company fallback: company link
+    if (!company) {
+      const companyLink = document.querySelector('a[href*="/company/"]');
+      if (companyLink?.textContent?.trim()) {
+        company = companyLink.textContent.trim();
+      }
+    }
+
+    // Title + Location + PostedDate fallback: use detail panel structure
+    // On new UI: company link's grandparent contains sibling DIVs for title, and a P for metadata
+    if (!title || !location) {
+      const companyLink = document.querySelector('a[href*="/company/"]');
+      if (companyLink) {
+        const container = companyLink.closest('div')?.parentElement;
+        if (container) {
+          const children = Array.from(container.children);
+          for (const child of children) {
+            const text = child.textContent?.trim();
+            if (!text) continue;
+            // The metadata P tag: "City, ST · X ago · N applicants"
+            if (child.tagName === 'P' && /·/.test(text)) {
+              const parts = text.split(/\s*·\s*/);
+              if (!location && parts[0]) {
+                location = parts[0].trim();
+              }
+              if (!postedDate) {
+                for (const part of parts) {
+                  if (/\b(ago|hour|day|week|month|year|minute|second|today|just|Reposted)\b/i.test(part)) {
+                    postedDate = part.trim();
+                    break;
+                  }
+                }
+              }
+            }
+            // Title: a DIV sibling that's not the company, not empty, and looks like a job title
+            if (!title && child.tagName === 'DIV' && text.length > 3 && text.length < 200) {
+              // Skip if it's the company name or badge container
+              if (text === company) continue;
+              // Skip any JobFiltr-injected element (badges, containers, etc.)
+              if (child.className && /jobfiltr-/i.test(child.className)) continue;
+              if (child.querySelector('[class*="jobfiltr-"]')) continue;
+              // Skip known badge text patterns
+              if (/Ghost Job|Low Risk|High Risk|Community Reported|Responses managed/i.test(text)) continue;
+              if (/^\d+\s*(second|minute|hour|day|week|month|year)s?\s*ago$/i.test(text)) continue;
+              if (/^(Active|Stale|Moderate|Early Applicant|Verified|Staffing Agency)$/i.test(text)) continue;
+              if (child.querySelector('a[href*="/company/"]')) continue;
+              title = text.replace(/\s+/g, ' ');
+            }
+          }
+        }
+      }
+    }
+
+    // Description fallback: "About the job" heading -> parent's next sibling
+    if (!description || description.length < 50) {
+      const headings = document.querySelectorAll('h2');
+      for (const h of headings) {
+        if (h.textContent?.trim() === 'About the job') {
+          const descEl = h.parentElement?.nextElementSibling;
+          if (descEl?.textContent?.trim()) {
+            description = descEl.textContent.trim();
+          }
+          break;
+        }
+      }
+    }
+
+    // Location fallback: check metadata spans in right panel (x > 500)
+    if (!location) {
+      const spans = document.querySelectorAll('span');
+      for (const span of spans) {
+        const text = span.textContent?.trim();
+        if (text && /^[A-Z][a-z]+,\s*[A-Z]{2}$/.test(text)) {
+          const rect = span.getBoundingClientRect();
+          if (rect.x > 500) { // Right panel
+            location = text;
+            break;
+          }
+        }
       }
     }
 
@@ -795,29 +877,28 @@ function addStaffingBadge(jobCard) {
   const badge = document.createElement('div');
   badge.className = 'jobfiltr-staffing-badge';
 
-  badge.innerHTML = `
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0;">
+  badge.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0;">
       <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
-    <span>Staffing Agency</span>
-  `;
+    <span class="jobfiltr-staffing-tooltip">Community Reported</span>`;
 
   badge.style.cssText = `
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    z-index: 1000;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    position: absolute !important;
+    top: 32px !important;
+    right: 8px !important;
+    background: #f97316 !important;
+    color: white !important;
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 10000 !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
   `;
 
   // Make job card position relative for absolute badge positioning
@@ -883,6 +964,184 @@ function isSponsored(jobCard) {
   return false;
 }
 
+// ===== ACTIVELY RECRUITING DETECTION =====
+function isActivelyRecruiting(jobCard) {
+  try {
+    // Use job age data - LinkedIn doesn't show "Employer Active" like Indeed
+    const jobId = extractJobId(jobCard);
+    const cachedAge = jobCard.dataset.jobfiltrAge ? parseInt(jobCard.dataset.jobfiltrAge, 10) : null;
+    const jobAge = cachedAge !== null ? cachedAge : parseJobAge(jobCard.textContent || '');
+
+    if (jobAge !== null) {
+      if (jobAge <= 7) return { active: true, days: jobAge, source: 'job_age' };
+      if (jobAge >= 30) return { active: false, days: jobAge, source: 'job_age' };
+      return { active: null, days: jobAge, source: 'job_age' };
+    }
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
+
+// Shared top-right badges wrapper for age + recruiting badges on job cards
+function getOrCreateCardBadgesWrapper(jobCard) {
+  let wrapper = jobCard.querySelector('.jobfiltr-card-badges-wrapper');
+  if (!wrapper) {
+    wrapper = document.createElement('div');
+    wrapper.className = 'jobfiltr-card-badges-wrapper';
+    wrapper.style.cssText = `
+      position: absolute !important; top: 8px !important; right: 8px !important;
+      display: flex !important; gap: 6px !important; align-items: center !important;
+      z-index: 10000 !important; pointer-events: none !important;
+    `;
+    if (window.getComputedStyle(jobCard).position === 'static') {
+      jobCard.style.position = 'relative';
+    }
+    jobCard.appendChild(wrapper);
+  }
+  return wrapper;
+}
+
+function addActiveRecruitingBadge(jobCard, recruitingInfo) {
+  if (jobCard.querySelector('.jobfiltr-recruiting-badge')) return;
+  const isActive = recruitingInfo.active;
+  const days = recruitingInfo.days;
+  let bgColor, textColor, icon;
+  if (isActive) {
+    bgColor = '#dcfce7'; textColor = '#166534'; icon = '\u2705';
+  } else if (isActive === false) {
+    bgColor = '#fecaca'; textColor = '#991b1b'; icon = '\u{1F534}';
+  } else {
+    bgColor = '#fef3c7'; textColor = '#92400e'; icon = '\u{1F7E1}';
+  }
+  const badge = document.createElement('div');
+  badge.className = 'jobfiltr-recruiting-badge';
+  const label = isActive ? 'Active' : isActive === false ? 'Stale' : 'Moderate';
+  badge.innerHTML = `<span style="margin-right:3px;">${icon}</span>${label}`;
+  badge.style.cssText = `
+    background: ${bgColor} !important; color: ${textColor} !important;
+    padding: 4px 10px !important; border-radius: 12px !important;
+    font-size: 11px !important; font-weight: 600 !important;
+    display: flex !important; align-items: center !important; pointer-events: none !important;
+    white-space: nowrap !important; line-height: 1 !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    border: 1px solid ${textColor}30 !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15) !important;
+  `;
+  const wrapper = getOrCreateCardBadgesWrapper(jobCard);
+  // Prepend so recruiting badge is to the left of age badge
+  wrapper.insertBefore(badge, wrapper.firstChild);
+}
+
+function removeActiveRecruitingBadge(jobCard) {
+  const badge = jobCard.querySelector('.jobfiltr-recruiting-badge');
+  if (badge) {
+    badge.remove();
+    // Clean up empty wrapper
+    const wrapper = jobCard.querySelector('.jobfiltr-card-badges-wrapper');
+    if (wrapper && wrapper.children.length === 0) wrapper.remove();
+  }
+}
+
+// ===== VISA SPONSORSHIP DETECTION =====
+const VISA_NEGATIVE_PATTERNS = [
+  /\b(not|no|cannot|can't|won't|will\s+not|unable\s+to|do\s+not|does\s+not)\s+(provide\s+)?(sponsor|sponsorship)/i,
+  /sponsor(ship)?\s+(is\s+)?(not|unavailable)/i,
+  /without\s+sponsor/i,
+  /\bno\s+visa\s+(support|sponsorship|assistance)/i,
+  /\bnot\s+eligible\s+for\s+(visa\s+)?sponsorship/i,
+  /must\s+have\s+(valid\s+)?(work\s+)?(authorization|permit|visa)/i,
+  /must\s+be\s+(legally\s+)?authorized\s+to\s+work/i,
+  /sponsorship\s+(is\s+)?not\s+(available|offered|provided)/i,
+  /unable\s+to\s+sponsor/i,
+  /we\s+are\s+not\s+able\s+to\s+sponsor/i
+];
+
+const VISA_POSITIVE_PATTERNS = [
+  /\bwill\s+sponsor/i,
+  /visa\s+sponsor(ship)?(\s+available|\s+provided|\s+offered)?/i,
+  /sponsor(s|ing|ed)?\s+(visa|work\s+authorization)/i,
+  /\bsponsorship\s+available\b/i,
+  /sponsorship\s+(is\s+)?(available|provided|offered)/i,
+  /\bopen\s+to\s+sponsor/i,
+  /\bh-?1b\b/i, /\bh1-?b\b/i, /\bh-?2b\b/i,
+  /\btn\s+visa\b/i, /\be-?3\s+visa\b/i, /\bl-?1\s+visa\b/i,
+  /\bperm\s+(sponsorship|process|filing)/i,
+  /\bgreen\s+card\s+sponsor/i,
+  /sponsor.*work\s+(permit|authorization|visa)/i,
+  /immigration\s+sponsor/i,
+  /visa\s*([\+&,]|\s+and)\s*relocation/i,
+  /visa\s+(support|supported|assistance|provided|available)/i,
+  /\bwork\s+visa\b/i,
+  /\bvisa\s+transfer\b/i
+];
+
+function hasVisaSponsorshipText(text) {
+  if (!text || text.length < 50) return false;
+  const normalized = text.toLowerCase();
+  for (const pattern of VISA_NEGATIVE_PATTERNS) {
+    if (pattern.test(normalized)) return false;
+  }
+  for (const pattern of VISA_POSITIVE_PATTERNS) {
+    if (pattern.test(normalized)) return true;
+  }
+  return false;
+}
+
+function hasVisaSponsorship(jobCard) {
+  try {
+    const cardText = getJobCardText(jobCard);
+    if (hasVisaSponsorshipText(cardText)) return true;
+    // Check LinkedIn detail panel (class-based for old UI)
+    const detailPanel = document.querySelector('.jobs-description, .job-details-about-the-job-card, [class*="jobs-description"]');
+    if (detailPanel) {
+      const detailText = detailPanel.innerText || detailPanel.textContent || '';
+      if (hasVisaSponsorshipText(detailText)) return true;
+    }
+    // Fallback for new AI search UI: find "About the job" heading and check its parent
+    const headings = document.querySelectorAll('h2, h3, h4, span, div');
+    for (const h of headings) {
+      if (h.textContent?.trim() === 'About the job') {
+        const container = h.parentElement;
+        if (container) {
+          const descText = container.innerText || container.textContent || '';
+          if (hasVisaSponsorshipText(descText)) return true;
+        }
+        break;
+      }
+    }
+    return false;
+  } catch (error) {
+    return false;
+  }
+}
+
+function countVisaSponsorshipJobs() {
+  const jobCards = getAllJobCards();
+  let visaCount = 0;
+  for (const card of jobCards) {
+    if (hasVisaSponsorship(card)) visaCount++;
+  }
+  return {
+    total: jobCards.length,
+    visa: visaCount,
+    percentage: jobCards.length > 0 ? Math.round((visaCount / jobCards.length) * 100) : 0
+  };
+}
+
+function countSponsoredJobs() {
+  const jobCards = getAllJobCards();
+  let sponsoredCount = 0;
+  for (const card of jobCards) {
+    if (isSponsored(card)) sponsoredCount++;
+  }
+  return {
+    total: jobCards.length,
+    sponsored: sponsoredCount,
+    percentage: jobCards.length > 0 ? Math.round((sponsoredCount / jobCards.length) * 100) : 0
+  };
+}
+
 // Keyword matching
 function matchesIncludeKeywords(jobCard, keywords) {
   if (!keywords || keywords.length === 0) return true;
@@ -913,6 +1172,7 @@ function matchesExcludeKeywords(jobCard, keywords) {
 
 // ===== EXCLUDE COMPANIES =====
 function getCompanyNameForFilter(jobCard) {
+  // Strategy 1: Class-based selectors (old LinkedIn UI)
   const selectors = [
     '.job-card-container__company-name',
     '.artdeco-entity-lockup__subtitle',
@@ -923,6 +1183,28 @@ function getCompanyNameForFilter(jobCard) {
     const el = jobCard.querySelector(selector);
     if (el) return el.textContent.trim().toLowerCase();
   }
+
+  // Strategy 2: Content-based (new LinkedIn AI search with obfuscated classes)
+  // Card <p> structure: [title_concat] [company] [location] [salary] ...
+  const pElements = Array.from(jobCard.querySelectorAll('p'))
+    .filter(p => {
+      const text = p.textContent?.trim();
+      return text && text.length > 1;
+    });
+
+  // Company name is typically the 2nd <p> (skip 1st which is concatenated title)
+  for (let i = 1; i < Math.min(4, pElements.length); i++) {
+    const text = pElements[i].textContent.trim();
+    // Skip location patterns (city, STATE (On-site/Remote/Hybrid))
+    if (/\(on-?site\)|\(remote\)|\(hybrid\)/i.test(text)) continue;
+    // Skip salary patterns
+    if (/^\$\d|\/hr|\/yr/i.test(text)) continue;
+    // Skip benefit/metadata patterns
+    if (/\d+\s*benefits?|401\(k\)|medical|vision|dental/i.test(text)) continue;
+    // This is likely the company name
+    return text.toLowerCase();
+  }
+
   return '';
 }
 
@@ -1195,11 +1477,29 @@ function getReportedCategoryMessage(category) {
 // Check if company on job card is in reported list
 function checkReportedCompanyFromCard(jobCard) {
   try {
-    // Try company selectors
+    // Try company selectors (old LinkedIn UI)
     let companyName = '';
     const companyEl = queryWithFallbacks(jobCard, SELECTORS.cardCompany);
     if (companyEl) {
       companyName = companyEl.textContent.trim();
+    }
+
+    // Content-based fallback (new LinkedIn AI search with obfuscated classes)
+    // Card <p> structure: [title_concat] [company] [location] [salary] [benefits]
+    if (!companyName) {
+      const pElements = Array.from(jobCard.querySelectorAll('p'))
+        .filter(p => {
+          const text = p.textContent?.trim();
+          return text && text.length > 1;
+        });
+      for (let i = 1; i < Math.min(4, pElements.length); i++) {
+        const text = pElements[i].textContent.trim();
+        if (/\(on-?site\)|\(remote\)|\(hybrid\)/i.test(text)) continue;
+        if (/^\$\d|\/hr|\/yr/i.test(text)) continue;
+        if (/\d+\s*benefits?|401\(k\)|medical|vision|dental/i.test(text)) continue;
+        companyName = text;
+        break;
+      }
     }
 
     if (!companyName) return null;
@@ -1282,32 +1582,39 @@ function addReportedCompanyBadgeToCard(jobCard, reportResult) {
   const badge = document.createElement('div');
   badge.className = 'jobfiltr-card-reported-badge';
   badge.style.cssText = `
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 8px;
-    background: linear-gradient(135deg, #fef3c7, #fde68a);
-    border: 1px solid #f97316;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #9a3412;
-    margin-top: 6px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    cursor: help;
-    z-index: 10;
+    position: absolute !important;
+    bottom: 8px !important;
+    right: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 3px 8px !important;
+    background: linear-gradient(135deg, #fef3c7, #fde68a) !important;
+    border: 1px solid #f97316 !important;
+    border-radius: 12px !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    color: #9a3412 !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    cursor: pointer !important;
+    z-index: 10000 !important;
+    white-space: nowrap !important;
+    pointer-events: none !important;
+    box-shadow: 0 1px 3px rgba(249, 115, 22, 0.2) !important;
   `;
-  badge.innerHTML = `<span>⚠️</span><span>Community Reported</span>`;
-  badge.title = reportResult.message;
+  badge.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0;">
+      <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+        stroke="#9a3412" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg><span>Community Reported</span>`;
 
-  // Find a good place to insert the badge (after company name or at end of card)
-  const companyEl = queryWithFallbacks(jobCard, SELECTORS.cardCompany);
-  if (companyEl && companyEl.parentElement) {
-    companyEl.parentElement.appendChild(badge);
-  } else {
-    // Fallback: append to job card
-    jobCard.appendChild(badge);
+  // Ensure parent has relative positioning for absolute placement
+  const computedPos = window.getComputedStyle(jobCard).position;
+  if (computedPos === 'static') {
+    jobCard.style.position = 'relative';
   }
+
+  // Append to the job card (bottom-right, below the age badge at top-right)
+  jobCard.appendChild(badge);
 }
 
 // Remove reported company styling from job card
@@ -1841,11 +2148,19 @@ function findJobCardsByContent() {
     // Check for location pattern
     const hasLocationPattern = locationPatterns.some(p => p.test(text));
 
-    // A job card should have a time pattern AND either location pattern or job-related text
-    // Also check for company indicators (common patterns in job cards)
+    // A job card should have a time pattern AND additional job-related indicators
     const hasCompanyIndicator = /\b(inc|llc|corp|company|technologies|solutions|services|group)\b/i.test(text);
 
-    if (hasTimePattern && (hasLocationPattern || hasCompanyIndicator)) {
+    // Additional job card indicators for cards without explicit location/company patterns
+    // Many LinkedIn cards show "City, ST" without "(On-site)"/"(Remote)" and company names
+    // like "Accenture" that don't match generic company suffixes
+    const hasJobIndicator = /\$\d+/.test(text) ||                           // Salary
+                            /\b\d+\s*(school\s*)?alumni\b/i.test(text) ||   // Alumni count
+                            /\bapplicant/i.test(text) ||                    // Applicant text
+                            /\bviewed\b/i.test(text) ||                     // Viewed status
+                            /\b[A-Z][a-z]+,\s*[A-Z]{2}\b/.test(text);      // City, State format
+
+    if (hasTimePattern && (hasLocationPattern || hasCompanyIndicator || hasJobIndicator)) {
       // Verify this is likely a card container and not a child element
       // Job cards are usually direct children of the list container or have specific dimensions
       const isCardSized = rect.width >= 300 && rect.height >= 80;
@@ -2058,7 +2373,6 @@ async function applyFilters(settings) {
 
   isFilteringInProgress = true;
   filterSettings = settings;
-  hiddenJobsCount = 0;
 
   try {
     // DIAGNOSTIC: Color-coded log to track filter applications
@@ -2093,21 +2407,17 @@ async function applyFilters(settings) {
       const jobId = extractJobId(jobCard);
 
       // Filter 1: Staffing Firms (with display mode support)
+      // Only show badge/styling when the filter is enabled
       const isStaffing = isStaffingFirm(jobCard);
-      if (isStaffing) {
-        // Always add the badge to identify staffing companies
-        addStaffingBadge(jobCard);
-
-        // Apply filter action based on settings (only if hideStaffing is enabled)
-        if (settings.hideStaffing) {
-          const displayMode = settings.staffingDisplayMode || 'hide';
-          if (displayMode === 'hide') {
-            shouldHide = true;
-            reasons.push('Staffing Firm');
-          } else if (displayMode === 'dim') {
-            applyStaffingDimEffect(jobCard);
-          }
-          // 'flag' mode - badge is already added above, no additional action needed
+      if (isStaffing && settings.hideStaffing) {
+        const displayMode = settings.staffingDisplayMode || 'hide';
+        if (displayMode === 'hide') {
+          shouldHide = true;
+          reasons.push('Staffing Firm');
+        } else if (displayMode === 'dim') {
+          applyStaffingDimEffect(jobCard);
+        } else if (displayMode === 'flag') {
+          addStaffingBadge(jobCard);
         }
       } else {
         removeStaffingStyling(jobCard);
@@ -2252,10 +2562,35 @@ async function applyFilters(settings) {
         removeReportedCompanyStyling(jobCard);
       }
 
+      // Filter 11: Actively Recruiting Badge
+      removeActiveRecruitingBadge(jobCard);
+      if (settings.showActiveRecruiting) {
+        const recruitingInfo = isActivelyRecruiting(jobCard);
+        if (recruitingInfo) {
+          if (settings.hideStalePostings && recruitingInfo.active === false && recruitingInfo.days >= 30) {
+            shouldHide = true;
+            reasons.push(`Stale posting: ${recruitingInfo.days} days old`);
+          }
+          if (!shouldHide) {
+            addActiveRecruitingBadge(jobCard, recruitingInfo);
+          }
+        }
+      }
+
+      // Filter 12: Visa Sponsorship Only
+      if (settings.visaOnly && !shouldHide) {
+        const hasVisa = hasVisaSponsorship(jobCard);
+        if (hasVisa) {
+          jobCard.dataset.jobfiltrVisaSponsorship = 'true';
+        } else if (jobCard.dataset.jobfiltrVisaSponsorship !== 'true') {
+          shouldHide = true;
+          reasons.push('No visa sponsorship mentioned');
+        }
+      }
+
       // Apply visibility
       if (shouldHide) {
         hideJobCard(jobCard, reasons);
-        hiddenJobsCount++;
         removeBenefitsBadge(jobCard);
       } else {
         showJobCard(jobCard);
@@ -2282,7 +2617,7 @@ async function applyFilters(settings) {
       addJobAgeToDetailPanel();
     }
 
-    log(`Filtered ${hiddenJobsCount} jobs out of ${jobCards.length}`);
+    log(`Filtered ${getHiddenJobsCount()} jobs out of ${jobCards.length}`);
 
   } finally {
     isFilteringInProgress = false;
@@ -2293,7 +2628,6 @@ async function applyFilters(settings) {
 function resetFilters() {
   stopPeriodicScan();
   filterSettings = {};
-  hiddenJobsCount = 0;
 
   const jobCards = getAllJobCards();
   for (const jobCard of jobCards) {
@@ -2365,21 +2699,17 @@ async function performPeriodicScan() {
     const reasons = [];
 
     // Filter 1: Staffing Firms (with display mode support)
+    // Only show badge/styling when the filter is enabled
     const isStaffing = isStaffingFirm(jobCard);
-    if (isStaffing) {
-      // Always add the badge to identify staffing companies
-      addStaffingBadge(jobCard);
-
-      // Apply filter action based on settings (only if hideStaffing is enabled)
-      if (filterSettings.hideStaffing) {
-        const displayMode = filterSettings.staffingDisplayMode || 'hide';
-        if (displayMode === 'hide') {
-          shouldHide = true;
-          reasons.push('Staffing Firm');
-        } else if (displayMode === 'dim') {
-          applyStaffingDimEffect(jobCard);
-        }
-        // 'flag' mode - badge is already added above, no additional action needed
+    if (isStaffing && filterSettings.hideStaffing) {
+      const displayMode = filterSettings.staffingDisplayMode || 'hide';
+      if (displayMode === 'hide') {
+        shouldHide = true;
+        reasons.push('Staffing Firm');
+      } else if (displayMode === 'dim') {
+        applyStaffingDimEffect(jobCard);
+      } else if (displayMode === 'flag') {
+        addStaffingBadge(jobCard);
       }
     } else {
       removeStaffingStyling(jobCard);
@@ -2431,9 +2761,34 @@ async function performPeriodicScan() {
       }
     }
 
+    // Actively Recruiting Badge
+    removeActiveRecruitingBadge(jobCard);
+    if (filterSettings.showActiveRecruiting) {
+      const recruitingInfo = isActivelyRecruiting(jobCard);
+      if (recruitingInfo) {
+        if (filterSettings.hideStalePostings && recruitingInfo.active === false && recruitingInfo.days >= 30) {
+          shouldHide = true;
+          reasons.push(`Stale posting: ${recruitingInfo.days} days old`);
+        }
+        if (!shouldHide) {
+          addActiveRecruitingBadge(jobCard, recruitingInfo);
+        }
+      }
+    }
+
+    // Visa Sponsorship Only
+    if (filterSettings.visaOnly && !shouldHide) {
+      const hasVisa = hasVisaSponsorship(jobCard);
+      if (hasVisa) {
+        jobCard.dataset.jobfiltrVisaSponsorship = 'true';
+      } else if (jobCard.dataset.jobfiltrVisaSponsorship !== 'true') {
+        shouldHide = true;
+        reasons.push('No visa sponsorship mentioned');
+      }
+    }
+
     if (shouldHide) {
       hideJobCard(jobCard, reasons);
-      hiddenJobsCount++;
     } else {
       showJobCard(jobCard);
     }
@@ -2593,16 +2948,12 @@ async function renderJobAgeBadge(jobCard, jobId) {
   badge.innerHTML = `<span style="margin-right:4px;">${colors.icon}</span>${ageText}`;
 
   badge.style.cssText = `
-    position: absolute !important;
-    top: 8px !important;
-    right: 8px !important;
     background: ${colors.bg} !important;
     color: ${colors.text} !important;
     padding: 4px 10px !important;
     border-radius: 12px !important;
     font-size: 11px !important;
     font-weight: 600 !important;
-    z-index: 10000 !important;
     box-shadow: 0 2px 4px rgba(0,0,0,0.15) !important;
     border: 1px solid ${colors.text}30 !important;
     display: flex !important;
@@ -2613,12 +2964,10 @@ async function renderJobAgeBadge(jobCard, jobId) {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
   `;
 
-  // Ensure job card has relative positioning
-  if (window.getComputedStyle(jobCard).position === 'static') {
-    jobCard.style.position = 'relative';
-  }
-
-  jobCard.appendChild(badge);
+  // Use shared wrapper so age badge sits next to recruiting badge
+  const wrapper = getOrCreateCardBadgesWrapper(jobCard);
+  // Append age badge (rightmost position)
+  wrapper.appendChild(badge);
 
   // CRITICAL FIX: Mark card as processed so periodic scan handles it correctly
   // Without this, React re-renders can clear badges and they won't be re-added
@@ -2639,7 +2988,97 @@ async function waitForElement(selectorArray, maxWaitMs = 3000) {
 
 // Lock to prevent concurrent detail panel badge updates
 let detailPanelBadgeLock = false;
+let detailPanelBadgeLockTime = 0;
 let detailPanelBadgeCallId = 0;
+
+// Cache for fast badge re-injection when LinkedIn re-renders
+let lastAgeBadgeCache = { jobId: null, days: null };
+
+/**
+ * Get or create a shared badges container inside the LinkedIn detail panel top card.
+ * Both age badge and ghost badge use this container for consistent positioning.
+ * Placed after the primary description (location/time/applicants line).
+ */
+function getOrCreateLinkedInBadgesContainer() {
+  // Return existing container if present
+  let container = document.querySelector('.jobfiltr-linkedin-badges-container');
+  if (container) return container;
+
+  // Find the primary description container in the detail panel top card
+  // This is the line showing "Location · X days ago · Y applicants"
+  const insertionTargets = [
+    '.job-details-jobs-unified-top-card__primary-description-container',
+    '.jobs-unified-top-card__primary-description',
+    '.jobs-details-top-card__content-container',
+  ];
+
+  let anchor = null;
+  for (const sel of insertionTargets) {
+    anchor = document.querySelector(sel);
+    if (anchor) break;
+  }
+
+  // Fallback: content-based detection for both classic and new obfuscated UI
+  // Search all spans for metadata text with "ago" pattern, filtering to right panel
+  if (!anchor) {
+    const allSpans = document.querySelectorAll('span');
+    for (const span of allSpans) {
+      const text = span.textContent?.trim() || '';
+      if (/\d+\s*(second|minute|hour|day|week|month)s?\s*ago/i.test(text) || text.toLowerCase() === 'today') {
+        // Filter to right panel (detail panel) to avoid matching left panel job cards
+        const rect = span.getBoundingClientRect();
+        if (rect.x < 500 || rect.width === 0) continue;
+
+        // Walk up to find the metadata container (typically a <p> or div)
+        let parent = span.parentElement;
+        for (let i = 0; i < 5 && parent; i++) {
+          if (parent.childElementCount >= 1 && parent.getBoundingClientRect().height > 15) {
+            anchor = parent;
+            break;
+          }
+          parent = parent.parentElement;
+        }
+        if (anchor) break;
+      }
+    }
+  }
+
+  if (!anchor) {
+    log('Could not find insertion anchor for LinkedIn badges container');
+    return null;
+  }
+
+  // Create the badges container
+  container = document.createElement('div');
+  container.className = 'jobfiltr-linkedin-badges-container';
+  container.style.cssText = `
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin: 8px 0 4px 0;
+    padding: 0;
+  `;
+
+  // Insert after the anchor element
+  anchor.insertAdjacentElement('afterend', container);
+  log('Created LinkedIn badges container after primary description');
+
+  // Adopt any orphaned badges that were inserted before this container existed
+  // Order: ghost badge first, then age badge, then community reported badge last
+  const orphanedGhost = document.querySelector('.jobfiltr-ghost-score:not(.jobfiltr-linkedin-badges-container .jobfiltr-ghost-score)');
+  if (orphanedGhost) {
+    container.appendChild(orphanedGhost);
+    log('Adopted orphaned ghost badge into badges container');
+  }
+  const orphanedReported = document.querySelector('.jobfiltr-reported-company-badge:not(.jobfiltr-linkedin-badges-container .jobfiltr-reported-company-badge)');
+  if (orphanedReported) {
+    container.appendChild(orphanedReported);
+    log('Adopted orphaned community reported badge into badges container');
+  }
+
+  return container;
+}
 
 // Add job age badge to detail panel
 // Works with or without infrastructure - DOM extraction always available
@@ -2647,41 +3086,70 @@ let detailPanelBadgeCallId = 0;
 async function addJobAgeToDetailPanel() {
   if (!filterSettings.showJobAge) return;
 
-  // CRITICAL FIX: Use a lock and call ID to prevent race conditions
-  // Multiple triggers can call this function simultaneously
-  const thisCallId = ++detailPanelBadgeCallId;
-
-  // If already processing, skip this call
+  // Lock with timeout safety - force-release if stuck for more than 10 seconds
   if (detailPanelBadgeLock) {
-    log('Detail panel badge update already in progress, skipping');
-    return;
+    if (Date.now() - detailPanelBadgeLockTime > 10000) {
+      log('Force-releasing stuck detail panel badge lock');
+      detailPanelBadgeLock = false;
+    } else {
+      log('Detail panel badge update already in progress, skipping');
+      return;
+    }
   }
 
   detailPanelBadgeLock = true;
+  detailPanelBadgeLockTime = Date.now();
+  const thisCallId = ++detailPanelBadgeCallId;
 
   try {
-    // Remove ALL existing badges (there might be duplicates from race conditions)
-    document.querySelectorAll('.jobfiltr-detail-age-badge').forEach(b => b.remove());
-
-    // Extra delay to ensure LinkedIn finishes rendering
-    await new Promise(r => setTimeout(r, 500));
-
     // Try to get job ID from URL
     const urlMatch = window.location.href.match(/currentJobId=(\d+)|\/jobs\/view\/(\d+)/);
     const jobId = urlMatch?.[1] || urlMatch?.[2];
 
+    // If a CURRENT badge already exists for this job, don't flash by removing/re-adding
+    const existingBadge = document.querySelector('.jobfiltr-detail-age-badge');
+    if (existingBadge && existingBadge.dataset.jobfiltrJobId === jobId) {
+      return; // Badge is current and correct, no action needed
+    }
+
+    // Remove stale badges (from different job or without jobId)
+    document.querySelectorAll('.jobfiltr-detail-age-badge').forEach(b => b.remove());
+
+    // Short delay to let LinkedIn finish rendering
+    await new Promise(r => setTimeout(r, 150));
+
     let days = null;
     let ageTextElement = null;
 
-    // Try badge cache first (only if initialized)
-    if (jobId && window.badgeStateManager?.initialized) {
+    // CONTENT-BASED DETECTION FIRST: Right-panel span is the most accurate source
+    // for the detail badge. Caches may contain stale/wrong values from card processing.
+    {
+      const allSpans = document.querySelectorAll('span');
+      for (const span of allSpans) {
+        const text = span.textContent?.trim();
+        if (text && /^(Reposted\s+)?\d+\s*(second|minute|hour|day|week|month)s?\s*ago$/i.test(text)) {
+          const rect = span.getBoundingClientRect();
+          if (rect.width === 0) continue;
+          if (rect.x > 500) {
+            const parsed = parseJobAge(text);
+            if (parsed !== null) {
+              days = parsed;
+              ageTextElement = span;
+              log(`Found age text in detail panel: "${text}" = ${days} days`);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // Try caches only if no right-panel span found
+    if (days === null && jobId && window.badgeStateManager?.initialized) {
       const cached = window.badgeStateManager.getBadgeData(jobId);
       if (cached?.age !== undefined) {
         days = cached.age;
       }
     }
-
-    // Try job cache (only if initialized)
     if (days === null && jobId && window.linkedInJobCache?.initialized) {
       const cacheAge = window.linkedInJobCache.getJobAgeFromCache(jobId);
       if (cacheAge !== null) {
@@ -2689,19 +3157,19 @@ async function addJobAgeToDetailPanel() {
       }
     }
 
-    // CONTENT-BASED DETECTION: Find the age text element by pattern matching
-    // This works regardless of LinkedIn's obfuscated CSS classes
+    // Left-panel fallback as last resort for content detection
     if (days === null) {
       const allSpans = document.querySelectorAll('span');
       for (const span of allSpans) {
         const text = span.textContent?.trim();
-        // Match patterns like "4 days ago", "2 weeks ago", "1 month ago"
-        if (text && /^\d+\s*(hour|day|week|month)s?\s*ago$/i.test(text)) {
+        if (text && /^(Reposted\s+)?\d+\s*(second|minute|hour|day|week|month)s?\s*ago$/i.test(text)) {
+          const rect = span.getBoundingClientRect();
+          if (rect.width === 0) continue;
           const parsed = parseJobAge(text);
           if (parsed !== null) {
             days = parsed;
             ageTextElement = span;
-            log(`Found age text via content detection: "${text}" = ${days} days`);
+            log(`Using left panel age fallback: ${days} days`);
             break;
           }
         }
@@ -2750,6 +3218,7 @@ async function addJobAgeToDetailPanel() {
 
     const badge = document.createElement('div');
     badge.className = 'jobfiltr-detail-age-badge';
+    badge.dataset.jobfiltrJobId = jobId;
     badge.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:18px;">${colors.icon}</span>
@@ -2763,16 +3232,19 @@ async function addJobAgeToDetailPanel() {
     badge.style.cssText = `
       background: linear-gradient(135deg, ${colors.bg} 0%, ${colors.bg}ee 100%);
       color: ${colors.text};
-      padding: 16px 20px;
-      border-radius: 12px;
-      font-size: 14px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
       font-weight: 700;
-      margin: 16px 0;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-      border: 2px solid ${colors.text};
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      border: 1.5px solid ${colors.text}40;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       max-width: fit-content;
-      z-index: 1000;
+      cursor: default;
+      display: flex;
+      align-items: center;
+      min-height: 67px;
+      box-sizing: border-box;
     `;
 
     // CRITICAL FIX: Final check before inserting - another call may have added a badge
@@ -2782,55 +3254,29 @@ async function addJobAgeToDetailPanel() {
       return;
     }
 
-    // FIXED POSITIONING STRATEGY: Always use fixed positioning for reliable visibility
-    // Previous strategies (inserting into DOM) caused issues with scrolling and React re-renders
+    // INLINE DOM INSERTION: Insert badge inside the detail panel top card area
+    // Uses a shared badges container that both age badge and ghost badge can share
+    const badgesContainer = getOrCreateLinkedInBadgesContainer();
+    if (badgesContainer) {
+      // Insert age badge before any community reported badge (which should always be last)
+      const reportedBadge = badgesContainer.querySelector('.jobfiltr-reported-company-badge');
+      if (reportedBadge) {
+        badgesContainer.insertBefore(badge, reportedBadge);
+      } else {
+        badgesContainer.appendChild(badge);
+      }
+      log('Inserted detail age badge inline in badges container');
 
-    // Find the detail panel to position the badge correctly
-    const detailPanel = document.querySelector('.jobs-search__job-details, .job-details, [class*="jobs-details"]');
-    if (detailPanel && !document.querySelector('.jobfiltr-detail-age-badge')) {
-      const rect = detailPanel.getBoundingClientRect();
+      // Ensure community reported badge stays last (re-append if present)
+      if (reportedBadge) {
+        badgesContainer.appendChild(reportedBadge);
+        log('Moved community reported badge to end of badges container');
+      }
 
-      // Position badge at top-left of detail panel with some padding
-      badge.style.cssText = `
-        position: fixed !important;
-        top: ${Math.max(rect.top + 10, 80)}px !important;
-        left: ${rect.left + 16}px !important;
-        background: linear-gradient(135deg, ${colors.bg} 0%, ${colors.bg}ee 100%) !important;
-        color: ${colors.text} !important;
-        padding: 12px 16px !important;
-        border-radius: 12px !important;
-        font-size: 14px !important;
-        font-weight: 700 !important;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.2) !important;
-        border: 2px solid ${colors.text} !important;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-        z-index: 99999 !important;
-        max-width: ${Math.min(rect.width - 32, 300)}px !important;
-        pointer-events: auto !important;
-      `;
-      document.body.appendChild(badge);
-      log('Inserted detail badge with fixed positioning');
-    }
-
-    // Fallback: If detail panel not found, use reasonable fixed position
-    if (!document.querySelector('.jobfiltr-detail-age-badge')) {
-      badge.style.cssText = `
-        position: fixed !important;
-        top: 180px !important;
-        right: 40px !important;
-        background: linear-gradient(135deg, ${colors.bg} 0%, ${colors.bg}ee 100%) !important;
-        color: ${colors.text} !important;
-        padding: 12px 16px !important;
-        border-radius: 12px !important;
-        font-size: 14px !important;
-        font-weight: 700 !important;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.2) !important;
-        border: 2px solid ${colors.text} !important;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-        z-index: 99999 !important;
-      `;
-      document.body.appendChild(badge);
-      log('Inserted detail badge with fixed position fallback');
+      // Cache badge data for fast re-injection after LinkedIn re-renders
+      lastAgeBadgeCache = { jobId, days };
+    } else {
+      log('Could not find insertion point for detail age badge');
     }
 
     // NEW: Propagate age to job card badge
@@ -2845,6 +3291,8 @@ async function addJobAgeToDetailPanel() {
       updateJobCardBadge(jobId, days);
       log(`Propagated age ${days} days from detail panel to card for job ${jobId}`);
     }
+  } catch (err) {
+    console.error('[JobFiltr] addJobAgeToDetailPanel error:', err);
   } finally {
     // Always release the lock
     detailPanelBadgeLock = false;
@@ -2936,7 +3384,10 @@ function initializeDetailPanelObserver() {
     }
   }
 
-  if (!panel) return false;
+  if (!panel) {
+    panel = document.body;
+    log('Using document.body as detail panel observer target (fallback)');
+  }
 
   let lastJobUrl = '';
 
@@ -2992,13 +3443,18 @@ function handleScroll() {
 // =============================================================================
 
 // Send stats update to popup
+// Count actually-hidden job cards from the DOM (always accurate)
+function getHiddenJobsCount() {
+  return document.querySelectorAll('[data-jobfiltr-hidden="true"]').length;
+}
+
 function sendStatsUpdate() {
   if (!isExtensionContextValid()) return;
 
   try {
     chrome.runtime.sendMessage({
       type: 'FILTER_STATS_UPDATE',
-      hiddenCount: hiddenJobsCount,
+      hiddenCount: getHiddenJobsCount(),
       page: currentPage,
       site: 'linkedin'
     });
@@ -3015,7 +3471,7 @@ function sendPageUpdate() {
     chrome.runtime.sendMessage({
       type: 'PAGE_UPDATE',
       page: currentPage,
-      hiddenCount: hiddenJobsCount,
+      hiddenCount: getHiddenJobsCount(),
       site: 'linkedin'
     });
   } catch (error) {
@@ -3051,7 +3507,6 @@ function checkForPageChange() {
   if (currentUrl !== lastPageUrl || newPage !== currentPage) {
     lastPageUrl = currentUrl;
     currentPage = newPage;
-    hiddenJobsCount = 0;
     sendPageUpdate();
     return true;
   }
@@ -3109,9 +3564,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'GET_PAGE_INFO') {
     sendResponse({
       page: currentPage,
-      hiddenCount: hiddenJobsCount,
+      hiddenCount: getHiddenJobsCount(),
       site: 'linkedin'
     });
+    return true;
+  }
+
+  if (message.type === 'COUNT_VISA_SPONSORSHIP') {
+    const counts = countVisaSponsorshipJobs();
+    sendResponse({ success: true, data: counts });
+    return true;
+  }
+
+  if (message.type === 'COUNT_SPONSORED_JOBS') {
+    const counts = countSponsoredJobs();
+    sendResponse({ success: true, data: counts });
     return true;
   }
 
@@ -3287,13 +3754,12 @@ async function loadAndApplyFilters() {
     console.log('  excludeKeywords:', JSON.stringify(result.filterSettings?.excludeKeywords));
 
     if (result.filterSettings && Object.keys(result.filterSettings).length > 0) {
-      // Merge with defaults - core display features should ALWAYS be enabled
-      // Apply stored settings first, then force core features on
+      // Merge with defaults - use user's settings, with defaults for undefined values
       filterSettings = {
         ...result.filterSettings,
-        showJobAge: true,  // Always enable age badges
-        enableGhostAnalysis: true,
-        showCommunityReportedWarnings: true
+        showJobAge: result.filterSettings.showJobAge !== false,  // Default true
+        enableGhostAnalysis: result.filterSettings.enableGhostAnalysis !== false,  // Default true
+        showCommunityReportedWarnings: result.filterSettings.showCommunityReportedWarnings !== false  // Default true
       };
       log('Loaded saved filter settings');
 
@@ -3306,6 +3772,22 @@ async function loadAndApplyFilters() {
       setTimeout(() => {
         applyFilters(filterSettings);
       }, 1000);
+
+      // Fallback: Ensure detail panel age badge appears even if mutation observer misses it
+      // Use interval check that retries until badge appears or max attempts reached
+      let detailBadgeRetries = 0;
+      const detailBadgeInterval = setInterval(() => {
+        detailBadgeRetries++;
+        if (detailBadgeRetries > 10) {
+          clearInterval(detailBadgeInterval);
+          return;
+        }
+        if (filterSettings.showJobAge && !document.querySelector('.jobfiltr-detail-age-badge')) {
+          addJobAgeToDetailPanel();
+        } else {
+          clearInterval(detailBadgeInterval);
+        }
+      }, 2000);
     } else {
       console.log('%c[loadAndApplyFilters] No saved settings found in storage', 'background: #f44336; color: white; padding: 2px 6px;');
     }
@@ -3394,8 +3876,8 @@ async function init() {
   // Load and apply saved filters (works for all users now - auth check removed)
   await loadAndApplyFilters();
 
-  // Core features defaults that should ALWAYS be enabled
-  const CORE_FEATURE_DEFAULTS = {
+  // Default feature values (used only when settings are undefined)
+  const FEATURE_DEFAULTS = {
     showJobAge: true,
     enableGhostAnalysis: true,
     showCommunityReportedWarnings: true
@@ -3408,20 +3890,25 @@ async function init() {
       const result = await chrome.storage.local.get('filterSettings');
       if (result.filterSettings && Object.keys(result.filterSettings).length > 0) {
         log('Fallback: Loading filters from storage');
-        // Merge with core feature defaults - core features AFTER stored to force them on
-        filterSettings = { ...result.filterSettings, ...CORE_FEATURE_DEFAULTS };
+        // Use user settings with defaults for undefined values only
+        filterSettings = {
+          ...result.filterSettings,
+          showJobAge: result.filterSettings.showJobAge !== false,  // Default true
+          enableGhostAnalysis: result.filterSettings.enableGhostAnalysis !== false,  // Default true
+          showCommunityReportedWarnings: result.filterSettings.showCommunityReportedWarnings !== false  // Default true
+        };
       } else {
-        // Apply core feature defaults when no saved settings exist
-        log('No saved settings found - applying core feature defaults');
-        filterSettings = { ...CORE_FEATURE_DEFAULTS };
+        // Apply feature defaults when no saved settings exist
+        log('No saved settings found - applying feature defaults');
+        filterSettings = { ...FEATURE_DEFAULTS };
       }
       setTimeout(() => {
         applyFilters(filterSettings);
       }, 500);
     } catch (e) {
-      // On error, still apply core feature defaults
-      log('Storage error, applying core feature defaults');
-      filterSettings = { ...CORE_FEATURE_DEFAULTS };
+      // On error, still apply feature defaults
+      log('Storage error, applying feature defaults');
+      filterSettings = { ...FEATURE_DEFAULTS };
       setTimeout(() => {
         applyFilters(filterSettings);
       }, 500);
@@ -3440,6 +3927,111 @@ async function init() {
       // Silently ignore
     }
   }, 1500);
+
+  // Badge persistence: periodic check to re-inject detail panel age badge
+  // LinkedIn's new reactive UI removes injected elements on re-render.
+  // Self-sufficient: detects age inline without relying on async addJobAgeToDetailPanel()
+  setInterval(() => {
+    if (!filterSettings.showJobAge) return;
+    const urlMatch = window.location.href.match(/currentJobId=(\d+)|\/jobs\/view\/(\d+)/);
+    const currentJobId = urlMatch?.[1] || urlMatch?.[2];
+    if (!currentJobId) return;
+
+    // Remove stale badge from a DIFFERENT job (critical for client-side navigation)
+    const existingBadge = document.querySelector('.jobfiltr-detail-age-badge');
+    if (existingBadge) {
+      if (existingBadge.dataset.jobfiltrJobId === currentJobId) return; // Badge is current, skip
+      existingBadge.remove(); // Stale badge from previous job, remove it
+      log('Removed stale age badge from previous job');
+    }
+
+    let days = null;
+
+    // RIGHT-PANEL DETECTION FIRST: Most accurate source for the detail badge
+    // Caches may have stale/wrong values from card processing
+    {
+      const allSpans = document.querySelectorAll('span');
+      for (const span of allSpans) {
+        const text = span.textContent?.trim();
+        if (!text) continue;
+        if (/^(Reposted\s+)?\d+\s*(second|minute|hour|day|week|month)s?\s*ago$/i.test(text)) {
+          const rect = span.getBoundingClientRect();
+          if (rect.width === 0 || rect.x <= 500) continue;
+          const parsed = parseJobAge(text);
+          if (parsed !== null) { days = parsed; break; }
+        }
+        const lower = text.toLowerCase();
+        if (lower === 'today' || lower === 'just now' || lower === 'just posted') {
+          const rect = span.getBoundingClientRect();
+          if (rect.x > 500) { days = 0; break; }
+        }
+      }
+    }
+
+    // Cache fallback: only if no right-panel span found
+    if (days === null && lastAgeBadgeCache.jobId === currentJobId && lastAgeBadgeCache.days !== null) {
+      days = lastAgeBadgeCache.days;
+    }
+    if (days === null && window.badgeStateManager?.initialized) {
+      const cached = window.badgeStateManager.getBadgeData(currentJobId);
+      if (cached?.age !== undefined) days = cached.age;
+    }
+    if (days === null && window.linkedInJobCache?.initialized) {
+      const cacheAge = window.linkedInJobCache.getJobAgeFromCache(currentJobId);
+      if (cacheAge !== null) days = Math.floor(cacheAge);
+    }
+
+    if (days === null || isNaN(days) || days < 0 || days > 365) return;
+
+    // Create and insert badge
+    const colors = getAgeBadgeColors(days);
+    const ageText = formatJobAge(days);
+    const badge = document.createElement('div');
+    badge.className = 'jobfiltr-detail-age-badge';
+    badge.dataset.jobfiltrJobId = currentJobId;
+    badge.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:18px;">${colors.icon}</span>
+        <div>
+          <div style="font-weight:700;font-size:14px;">Posted ${ageText}${days > 30 ? ' ago' : ''}</div>
+          <div style="font-size:11px;opacity:0.8;">${days <= 3 ? 'Fresh posting!' : days <= 7 ? 'Recent posting' : days <= 14 ? 'Moderately recent' : days <= 30 ? 'Getting older' : 'May be stale'}</div>
+        </div>
+      </div>
+    `;
+    badge.style.cssText = `
+      background: linear-gradient(135deg, ${colors.bg} 0%, ${colors.bg}ee 100%);
+      color: ${colors.text};
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      border: 1.5px solid ${colors.text}40;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: fit-content;
+      cursor: default;
+      display: flex;
+      align-items: center;
+      min-height: 67px;
+      box-sizing: border-box;
+    `;
+
+    // Double-check badge wasn't added by another path while we were building
+    if (document.querySelector('.jobfiltr-detail-age-badge')) return;
+
+    const container = getOrCreateLinkedInBadgesContainer();
+    if (container) {
+      const reported = container.querySelector('.jobfiltr-reported-company-badge');
+      if (reported) {
+        container.insertBefore(badge, reported);
+      } else {
+        container.appendChild(badge);
+      }
+      // Update cache for fast re-injection
+      lastAgeBadgeCache = { jobId: currentJobId, days };
+      log(`Periodic interval inserted age badge: ${days} days for job ${currentJobId}`);
+    }
+  }, 500);
 
   // === DIAGNOSTIC LOGGING ===
   // These logs help debug initialization issues

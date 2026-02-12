@@ -407,6 +407,39 @@ async function extractJobInfo() {
       }
     }
 
+    // SCANNER FIX: If still no postedDate, try the jobAgeCache (used by badges)
+    // This cache is populated from Indeed's mosaic data and is more reliable
+    if (!postedDate) {
+      const jobKey = urlParams.get('vjk') || urlParams.get('jk');
+      if (jobKey) {
+        // Ensure the cache is populated by extracting from page data first
+        try {
+          if (typeof extractJobAgesFromPageData === 'function') {
+            extractJobAgesFromPageData();
+          }
+        } catch (e) {
+          log('POSTED DATE DEBUG: Error calling extractJobAgesFromPageData:', e);
+        }
+
+        // Now check the cache
+        if (typeof jobAgeCache !== 'undefined' && jobAgeCache[jobKey] !== undefined) {
+          const ageDays = jobAgeCache[jobKey];
+          log('POSTED DATE DEBUG: Found age in jobAgeCache for', jobKey, '->', ageDays, 'days');
+          if (ageDays === 0) {
+            postedDate = 'Posted today';
+          } else if (ageDays === 1) {
+            postedDate = 'Posted 1 day ago';
+          } else {
+            // Use exact day count for scanner precision (parsePostingAge handles "X days ago" format)
+            postedDate = `Posted ${Math.round(ageDays)} days ago`;
+          }
+          log('POSTED DATE DEBUG: Set postedDate from jobAgeCache:', postedDate);
+        } else {
+          log('POSTED DATE DEBUG: jobAgeCache miss for jobKey:', jobKey, 'cache keys:', typeof jobAgeCache !== 'undefined' ? Object.keys(jobAgeCache).length : 'undefined');
+        }
+      }
+    }
+
     // Build the job URL - use current URL or construct from job key
     let jobUrl = url;
     if (hasJobKey && !isViewJobPage) {
@@ -3125,9 +3158,22 @@ function addJobAgeToDetailPanel() {
 // ===== JOB AGE DETECTION =====
 
 // Cache for job ages extracted from page JSON data
+// Exposed to window for cross-script access (e.g., ghost-detection-bundle)
 let jobAgeCache = {};
 let lastJobAgeCacheUpdate = 0;
 let mosaicDataRequested = false;
+
+// Expose cache access function to window for ghost detection bundle
+// Using a function instead of direct reference ensures ghost detection always gets current data
+window.getIndeedJobAge = (jobKey) => {
+  if (jobAgeCache[jobKey] !== undefined) {
+    console.log('[JobFiltr] getIndeedJobAge called for', jobKey, '->', jobAgeCache[jobKey]);
+    return jobAgeCache[jobKey];
+  }
+  return null;
+};
+// Also expose the cache object directly for debugging
+window.indeedJobAgeCache = jobAgeCache;
 
 // ===== SALARY DATA CACHE =====
 // Cache for extractedSalary and jobTypes from mosaic data
@@ -3630,6 +3676,64 @@ function addJobAgeBadge(jobCard, days) {
   topRow.appendChild(badge);
 }
 
+// Add "No Date" badge when job age data is unavailable (e.g., sponsored/ad jobs)
+function addUnknownAgeBadge(jobCard) {
+  const existingBadge = jobCard.querySelector('.jobfiltr-age-badge');
+  if (existingBadge) existingBadge.remove();
+
+  const badge = document.createElement('div');
+  badge.className = 'jobfiltr-age-badge';
+  badge.innerHTML = `<span style="margin-right: 4px;">⚪</span>No Date`;
+  badge.title = 'Indeed did not provide posting date data for this job (typically sponsored/ad listings)';
+
+  badge.style.cssText = `
+    background: #f3f4f6;
+    color: #6b7280;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 1px solid #6b728030;
+    display: inline-flex;
+    align-items: center;
+    pointer-events: auto;
+    white-space: nowrap;
+  `;
+
+  const topRow = getTopBadgesRow(jobCard);
+  topRow.appendChild(badge);
+}
+
+// Add "No Data" recruiting badge when recruiting status can't be determined
+function addUnknownRecruitingBadge(jobCard) {
+  if (jobCard.querySelector('.jobfiltr-recruiting-badge')) return;
+
+  const badge = document.createElement('div');
+  badge.className = 'jobfiltr-recruiting-badge';
+  badge.innerHTML = `<span style="margin-right: 4px;">❓</span>No Data`;
+  badge.title = 'Recruiting status unknown - no posting date data available for this job';
+
+  badge.style.cssText = `
+    background: #f3f4f6;
+    color: #6b7280;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 1px solid #6b728030;
+    display: inline-flex;
+    align-items: center;
+    cursor: help;
+    pointer-events: auto;
+    white-space: nowrap;
+  `;
+
+  const topRow = getTopBadgesRow(jobCard);
+  topRow.insertBefore(badge, topRow.firstChild);
+}
+
 // ===== MAIN FILTER APPLICATION =====
 function applyFilters(settings) {
   // ULTRATHINK: Prevent concurrent filter runs to avoid flashing
@@ -3672,27 +3776,22 @@ function applyFilters(settings) {
     let shouldHide = false;
     const reasons = [];
 
-    // Remove existing badges first (but NOT staffing badges - those persist based on mode)
+    // Remove generic badges first (specific badge types are managed by their own filter logic)
     const existingBadges = jobCard.querySelectorAll('.jobfiltr-badge');
     existingBadges.forEach(b => b.remove());
 
     // Filter 1: Staffing Firms (with display mode support)
-    // ALWAYS show the staffing badge if it's a staffing firm, regardless of filter settings
+    // Only show badge/styling when the filter is enabled
     const isStaffing = isStaffingFirm(jobCard);
-    if (isStaffing) {
-      // Always add the badge to identify staffing companies
-      addStaffingBadge(jobCard);
-
-      // Apply filter action based on settings (only if hideStaffing is enabled)
-      if (settings.hideStaffing) {
-        const displayMode = settings.staffingDisplayMode || 'hide';
-        if (displayMode === 'hide') {
-          shouldHide = true;
-          reasons.push('Staffing Firm');
-        } else if (displayMode === 'dim') {
-          applyStaffingDimEffect(jobCard);
-        }
-        // 'flag' mode - badge is already added above, no additional action needed
+    if (isStaffing && settings.hideStaffing) {
+      const displayMode = settings.staffingDisplayMode || 'hide';
+      if (displayMode === 'hide') {
+        shouldHide = true;
+        reasons.push('Staffing Firm');
+      } else if (displayMode === 'dim') {
+        applyStaffingDimEffect(jobCard);
+      } else if (displayMode === 'flag') {
+        addStaffingBadge(jobCard);
       }
     } else {
       removeStaffingStyling(jobCard);
@@ -3813,7 +3912,14 @@ function applyFilters(settings) {
         // Cache the job age for future reference
         jobCard.dataset.jobfiltrAge = jobAge.toString();
         addJobAgeBadge(jobCard, jobAge);
+      } else {
+        // Show "No Date" badge when age data is unavailable (sponsored/ad jobs)
+        addUnknownAgeBadge(jobCard);
       }
+    } else {
+      // Remove job age badge when filter is disabled
+      const ageBadge = jobCard.querySelector('.jobfiltr-age-badge');
+      if (ageBadge) ageBadge.remove();
     }
 
     // Filter 4.5: Work Type Unclear Badge (ULTRATHINK)
@@ -3897,7 +4003,14 @@ function applyFilters(settings) {
         if (!shouldHide) {
           addActiveRecruitingBadge(jobCard, recruitingInfo);
         }
+      } else if (!shouldHide) {
+        // Show "No Data" badge when recruiting status can't be determined
+        addUnknownRecruitingBadge(jobCard);
       }
+    } else {
+      // Remove recruiting badge when filter is disabled
+      const recruitBadge = jobCard.querySelector('.jobfiltr-recruiting-badge');
+      if (recruitBadge) recruitBadge.remove();
     }
 
     // Filter 9: Visa Sponsorship Only
@@ -3957,7 +4070,7 @@ function applyFilters(settings) {
 
     // Filter 10: Community-Reported Companies (highlight with orange)
     // Shows orange outline and badge for companies reported for spam/ghost jobs
-    if (settings.ghostAnalysis?.showCommunityReportedWarnings !== false) {
+    if (settings.showCommunityReportedWarnings !== false) {
       const reportResult = checkReportedCompanyFromCard(jobCard);
       if (reportResult) {
         applyReportedCompanyHighlight(jobCard, reportResult);
@@ -4138,6 +4251,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'APPLY_FILTERS') {
+    // Save settings to storage so they persist across page refreshes and navigation
+    chrome.storage.local.set({ filterSettings: message.settings }).then(() => {
+      log('APPLY_FILTERS: Saved settings to storage');
+    }).catch(err => {
+      log('APPLY_FILTERS: Failed to save to storage:', err);
+    });
+
     applyFilters(message.settings);
     sendResponse({ success: true });
     return true;
@@ -4507,11 +4627,17 @@ function performFullScan() {
   // Update job age badge in detail panel for selected job
   if (filterSettings.showJobAge) {
     addJobAgeToDetailPanel();
+  } else {
+    const detailAgeBadge = document.querySelector('.jobfiltr-detail-age-badge');
+    if (detailAgeBadge) detailAgeBadge.remove();
   }
 
   // Update early applicant badge in detail panel for selected job (flag mode)
   if (filterSettings.filterEarlyApplicant && filterSettings.earlyApplicantDisplayMode === 'flag') {
     addEarlyApplicantBadgeToDetailPanel();
+  } else {
+    const detailEarlyBadge = document.querySelector('.jobfiltr-detail-early-applicant-badge');
+    if (detailEarlyBadge) detailEarlyBadge.remove();
   }
 
   const jobCardSelectors = [
@@ -4538,22 +4664,17 @@ function performFullScan() {
     const reasons = [];
 
     // Filter 1: Staffing Firms (with display mode support)
-    // ALWAYS show the staffing badge if it's a staffing firm, regardless of filter settings
+    // Only show badge/styling when the filter is enabled
     const isStaffing = isStaffingFirm(jobCard);
-    if (isStaffing) {
-      // Always add the badge to identify staffing companies
-      addStaffingBadge(jobCard);
-
-      // Apply filter action based on settings (only if hideStaffing is enabled)
-      if (filterSettings.hideStaffing) {
-        const displayMode = filterSettings.staffingDisplayMode || 'hide';
-        if (displayMode === 'hide') {
-          shouldHide = true;
-          reasons.push('Staffing Firm');
-        } else if (displayMode === 'dim') {
-          applyStaffingDimEffect(jobCard);
-        }
-        // 'flag' mode - badge is already added above, no additional action needed
+    if (isStaffing && filterSettings.hideStaffing) {
+      const displayMode = filterSettings.staffingDisplayMode || 'hide';
+      if (displayMode === 'hide') {
+        shouldHide = true;
+        reasons.push('Staffing Firm');
+      } else if (displayMode === 'dim') {
+        applyStaffingDimEffect(jobCard);
+      } else if (displayMode === 'flag') {
+        addStaffingBadge(jobCard);
       }
     } else {
       removeStaffingStyling(jobCard);
@@ -4662,8 +4783,15 @@ function performFullScan() {
           // Cache the job age for future reference
           jobCard.dataset.jobfiltrAge = jobAge.toString();
           addJobAgeBadge(jobCard, jobAge);
+        } else {
+          // Show "No Date" badge when age data is unavailable (sponsored/ad jobs)
+          addUnknownAgeBadge(jobCard);
         }
       }
+    } else {
+      // Remove job age badge when filter is disabled
+      const ageBadge = jobCard.querySelector('.jobfiltr-age-badge');
+      if (ageBadge) ageBadge.remove();
     }
 
     // Filter 4.5: Work Type Unclear Badge (ULTRATHINK)
@@ -4744,7 +4872,14 @@ function performFullScan() {
         if (!shouldHide && !jobCard.querySelector('.jobfiltr-recruiting-badge')) {
           addActiveRecruitingBadge(jobCard, recruitingInfo);
         }
+      } else if (!shouldHide && !jobCard.querySelector('.jobfiltr-recruiting-badge')) {
+        // Show "No Data" badge when recruiting status can't be determined
+        addUnknownRecruitingBadge(jobCard);
       }
+    } else {
+      // Remove recruiting badge when filter is disabled
+      const recruitBadge = jobCard.querySelector('.jobfiltr-recruiting-badge');
+      if (recruitBadge) recruitBadge.remove();
     }
 
     // Apply hiding

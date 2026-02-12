@@ -41,6 +41,44 @@ body.jobfiltr-visa-filter-active .scaffold-layout__list-item[data-jobfiltr-proce
 
 /* ===== End Flash Prevention ===== */
 
+/* ===== Custom Orange Tooltip for Staffing/Community Reported Badge ===== */
+.jobfiltr-staffing-badge {
+  position: relative;
+}
+
+.jobfiltr-staffing-badge .jobfiltr-staffing-tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #f97316;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  padding: 5px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  z-index: 10001;
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
+  pointer-events: none;
+}
+
+.jobfiltr-staffing-badge .jobfiltr-staffing-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  right: 6px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: transparent transparent #f97316 transparent;
+}
+
+.jobfiltr-staffing-badge:hover .jobfiltr-staffing-tooltip {
+  display: block;
+}
+/* ===== End Custom Tooltip ===== */
+
 .jobfiltr-indicator {
   position: fixed;
   top: 20px;

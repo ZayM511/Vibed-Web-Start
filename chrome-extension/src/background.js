@@ -45,9 +45,74 @@ chrome.runtime.onInstalled.addListener((details) => {
 });
 
 // Listen for tab updates to detect job pages
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  console.log(`Tab ${tabId} updated:`, changeInfo.status, tab?.url?.substring(0, 50));
+
   if (changeInfo.status === 'complete' && tab.url) {
     checkIfJobPage(tab.url, tabId);
+
+    // Programmatically inject content scripts for LinkedIn as fallback
+    // This helps when manifest-defined content_scripts don't inject (e.g., Puppeteer)
+    if (tab.url.includes('linkedin.com')) {
+      console.log(`LinkedIn page detected: ${tab.url}`);
+
+      try {
+        // Check if content script already injected
+        let alreadyInjected = false;
+        try {
+          const results = await chrome.scripting.executeScript({
+            target: { tabId },
+            func: () => window.__jobfiltrInjected === true
+          });
+          alreadyInjected = results?.[0]?.result === true;
+          console.log('Injection check result:', alreadyInjected);
+        } catch (checkError) {
+          console.log('Injection check failed (will inject):', checkError.message);
+        }
+
+        if (!alreadyInjected) {
+          console.log('Starting programmatic injection for tab', tabId);
+
+          // Inject CSS first
+          try {
+            await chrome.scripting.insertCSS({
+              target: { tabId },
+              files: ['styles/content.css']
+            });
+            console.log('CSS injected');
+          } catch (cssError) {
+            console.log('CSS injection error:', cssError.message);
+          }
+
+          // Inject scripts in order
+          const scripts = [
+            'src/linkedin-feature-flags.js',
+            'src/linkedin-job-cache.js',
+            'src/linkedin-badge-manager.js',
+            'src/content-linkedin-v3.js',
+            'src/ghost-detection-bundle.js'
+          ];
+
+          for (const script of scripts) {
+            try {
+              await chrome.scripting.executeScript({
+                target: { tabId },
+                files: [script]
+              });
+              console.log(`Injected: ${script}`);
+            } catch (scriptError) {
+              console.log(`Error injecting ${script}:`, scriptError.message);
+            }
+          }
+
+          console.log('Programmatic injection complete for tab', tabId);
+        } else {
+          console.log('Content script already injected, skipping');
+        }
+      } catch (e) {
+        console.log('Programmatic injection error:', e.message, e.stack);
+      }
+    }
   }
 });
 
@@ -83,8 +148,56 @@ function checkIfJobPage(url, tabId) {
   }
 }
 
+// Force inject content scripts (for debugging/Puppeteer testing)
+async function forceInjectContentScripts(tabId) {
+  console.log('Force injecting content scripts into tab', tabId);
+
+  // Inject CSS first
+  try {
+    await chrome.scripting.insertCSS({
+      target: { tabId },
+      files: ['styles/content.css']
+    });
+    console.log('Force inject: CSS done');
+  } catch (e) {
+    console.log('Force inject CSS error:', e.message);
+  }
+
+  // Inject scripts in order
+  const scripts = [
+    'src/linkedin-feature-flags.js',
+    'src/linkedin-job-cache.js',
+    'src/linkedin-badge-manager.js',
+    'src/content-linkedin-v3.js',
+    'src/ghost-detection-bundle.js'
+  ];
+
+  for (const script of scripts) {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: [script]
+      });
+      console.log('Force inject:', script, 'done');
+    } catch (e) {
+      console.log('Force inject error for', script, ':', e.message);
+    }
+  }
+
+  console.log('Force injection complete');
+}
+
 // Handle messages from content scripts and popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  // Manual injection trigger (for debugging/Puppeteer)
+  if (request.action === 'forceInjectContentScripts') {
+    console.log('Force injection requested for tab', request.tabId);
+    forceInjectContentScripts(request.tabId)
+      .then(() => sendResponse({ success: true }))
+      .catch(e => sendResponse({ success: false, error: e.message }));
+    return true;
+  }
+
   // ===== PANEL WINDOW MANAGEMENT =====
   if (request.action === 'openPanel') {
     openPanelWindow(request.dock)
@@ -302,6 +415,13 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // Get the active tab from the main browser window (not the panel) for site detection
 async function getActiveJobTab() {
+  // Helper to check if URL is a supported job site
+  const isJobSiteUrl = (url) => {
+    if (!url) return false;
+    return url.includes('linkedin.com') || url.includes('indeed.com') ||
+           (url.includes('google.com') && url.includes('search'));
+  };
+
   try {
     // First, try to use the tracked mainBrowserWindowId if available
     if (mainBrowserWindowId) {
@@ -310,22 +430,25 @@ async function getActiveJobTab() {
         if (win) {
           const tabs = await chrome.tabs.query({ active: true, windowId: mainBrowserWindowId });
           if (tabs.length > 0 && tabs[0].url) {
-            console.log('Found active job tab from tracked main window:', tabs[0].url);
+            console.log('Found active tab from tracked main window:', tabs[0].url);
             return tabs[0];
           }
         }
       } catch (e) {
         // Window no longer exists, clear the reference
-        mainBrowserWindowId = null;
+        console.log('Tracked main window no longer exists, clearing reference');
+        setMainBrowserWindowId(null);
       }
     }
 
     // Fallback: Get all normal windows and find the best candidate
     const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+    console.log(`Found ${windows.length} normal windows`);
 
     // Filter out the panel window and find the last focused normal window
     let targetWindow = null;
     let focusedWindow = null;
+    let jobSiteTab = null;
 
     for (const win of windows) {
       // Skip the panel window (check by ID)
@@ -340,6 +463,16 @@ async function getActiveJobTab() {
       if (!targetWindow) {
         targetWindow = win;
       }
+
+      // Also check if this window has a job site tab active
+      const tabs = await chrome.tabs.query({ active: true, windowId: win.id });
+      if (tabs.length > 0 && tabs[0].url && isJobSiteUrl(tabs[0].url)) {
+        jobSiteTab = tabs[0];
+        console.log('Found job site tab in window:', tabs[0].url);
+        // Prefer this window as the main browser window
+        setMainBrowserWindowId(win.id);
+        return jobSiteTab;
+      }
     }
 
     // Prefer focused window, fall back to any normal window
@@ -351,7 +484,7 @@ async function getActiveJobTab() {
     }
 
     // Update mainBrowserWindowId for future reference
-    mainBrowserWindowId = targetWindow.id;
+    setMainBrowserWindowId(targetWindow.id);
 
     // Get the active tab in this window
     const tabs = await chrome.tabs.query({ active: true, windowId: targetWindow.id });
@@ -362,7 +495,7 @@ async function getActiveJobTab() {
     }
 
     const tab = tabs[0];
-    console.log('Found active job tab:', tab.url);
+    console.log('Found active tab:', tab.url);
 
     return tab;
   } catch (error) {
@@ -532,7 +665,7 @@ async function openPanelWindow(dock = 'left') {
     const browserWindow = allWindows.find(w => w.id !== panelWindowId);
 
     if (browserWindow) {
-      mainBrowserWindowId = browserWindow.id;
+      setMainBrowserWindowId(browserWindow.id);
 
       // Arrange side-by-side if enabled - force=true to ensure it happens
       if (sideBySideEnabled) {
@@ -749,6 +882,16 @@ let sideBySideEnabled = true; // Enable side-by-side arrangement by default
 let isArrangingWindows = false; // Prevent re-entry during arrangement
 let lastArrangementTime = 0; // Debounce arrangement calls
 
+// Helper to set mainBrowserWindowId with persistence
+function setMainBrowserWindowId(windowId) {
+  mainBrowserWindowId = windowId;
+  if (windowId) {
+    chrome.storage.local.set({ mainBrowserWindowId: windowId });
+  } else {
+    chrome.storage.local.remove('mainBrowserWindowId');
+  }
+}
+
 // Keep panel visible when user focuses on main browser window
 // Uses side-by-side arrangement so windows don't overlap
 chrome.windows.onFocusChanged.addListener(async (windowId) => {
@@ -773,7 +916,7 @@ chrome.windows.onFocusChanged.addListener(async (windowId) => {
     if (focusedWindow.type !== 'normal') return;
 
     // Store this as our main browser window
-    mainBrowserWindowId = windowId;
+    setMainBrowserWindowId(windowId);
     lastArrangementTime = now;
 
     // Ensure side-by-side arrangement if enabled
@@ -886,14 +1029,27 @@ async function restoreMainWindowSize() {
     console.log('Error restoring main window size:', error);
   }
 
-  mainBrowserWindowId = null;
+  setMainBrowserWindowId(null);
 }
 
 // Restore panel state and preferences on service worker startup
-chrome.storage.local.get(['panelState', 'sideBySideEnabled'], async (result) => {
+chrome.storage.local.get(['panelState', 'sideBySideEnabled', 'mainBrowserWindowId'], async (result) => {
   // Restore side-by-side preference (default to true)
   if (result.sideBySideEnabled !== undefined) {
     sideBySideEnabled = result.sideBySideEnabled;
+  }
+
+  // Restore mainBrowserWindowId if panel is open
+  if (result.mainBrowserWindowId) {
+    try {
+      await chrome.windows.get(result.mainBrowserWindowId);
+      mainBrowserWindowId = result.mainBrowserWindowId;
+      console.log('Restored mainBrowserWindowId:', mainBrowserWindowId);
+    } catch (e) {
+      // Window no longer exists
+      console.log('Stored mainBrowserWindowId no longer exists');
+      await chrome.storage.local.remove('mainBrowserWindowId');
+    }
   }
 
   if (result.panelState && result.panelState.isOpen && result.panelState.windowId) {
@@ -901,6 +1057,7 @@ chrome.storage.local.get(['panelState', 'sideBySideEnabled'], async (result) => 
     try {
       await chrome.windows.get(result.panelState.windowId);
       panelWindowId = result.panelState.windowId;
+      console.log('Restored panelWindowId:', panelWindowId);
     } catch (e) {
       // Window no longer exists, clear state
       await chrome.storage.local.set({

@@ -130,3 +130,78 @@ When implementing features that require API keys:
 2. **Match existing design** - New designs should closely match the existing UI screens, pages, and components, unless otherwise stated by the user
 3. **Then add functionality** - After the UI is in place, implement the business logic, state management, and backend integration
 4. This approach ensures a clear separation of concerns and makes it easier to iterate on both design and functionality independently
+
+## Browser Testing for JobFiltr Extension
+
+### Critical: Use Existing Debug Browser
+
+**DO NOT launch new browser instances for testing.**
+
+Connect to the existing Chrome debug session at `http://localhost:9222`
+
+The debug browser is pre-configured with:
+- JobFiltr extension loaded (unpacked from C:\Users\isaia\OneDrive\Documents\2025 Docs\Claude Copy\Vibed-Web-Start-1\chrome-extension)
+- LinkedIn authenticated (for beta testing)
+- Indeed authenticated (primary platform)
+- No automation detection flags
+
+### How to Connect
+
+Use Chrome DevTools MCP to connect to the running debug browser:
+- Browser URL: `http://localhost:9222`
+- Use `browser.disconnect()` when done, **never** `browser.close()`
+
+### If Debug Browser Isn't Running
+
+Tell me to wait, then instruct the user to launch it manually:
+```bash
+# macOS
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --remote-debugging-port=9222 \
+  --user-data-dir="$HOME/.chrome-debug-profile"
+```
+
+**Do not attempt to launch Chrome yourself.** The user must launch it manually to preserve:
+- Extension installation
+- Login sessions  
+- Clean automation fingerprint
+
+### Testing Workflow
+
+1. Connect to debug browser on port 9222
+2. Navigate to Indeed or LinkedIn job listings
+3. Verify JobFiltr UI elements are injected
+4. Test filter functionality
+5. Take screenshots to verify state
+6. Disconnect (don't close) when done
+
+### Platform-Specific Notes
+
+- **Indeed (Primary)**: Full testing support. Indeed's DOM is stable.
+- **LinkedIn (Beta Only)**: Limited testing. LinkedIn aggressively detects automation and changes DOM structure frequently. If LinkedIn blocks access or behaves unexpectedly, note it and move on - this is expected behavior.
+
+### Common Mistakes to Avoid
+
+- ❌ Launching a new browser instance
+- ❌ Using `puppeteer.launch()` or `playwright.launch()`
+- ❌ Attempting to log into LinkedIn programmatically
+- ❌ Calling `browser.close()` (kills the debug session)
+- ✅ Using `puppeteer.connect()` or CDP connection
+- ✅ Using existing authenticated sessions
+- ✅ Calling `browser.disconnect()` to detach cleanly
+
+## Browser Automation Rules
+
+**ALWAYS use the Chrome DevTools MCP tools for browser interactions.**
+
+DO NOT:
+- Write Puppeteer scripts via Bash
+- Write Playwright scripts via Bash
+- Use `node -e` with browser automation code
+- Install or require puppeteer/puppeteer-core
+
+DO:
+- Use the Chrome DevTools MCP tools directly (they're already connected to port 9222)
+- Use MCP tools like `devtools_screenshot`, `devtools_navigate`, `devtools_click`, etc.
+
+The Chrome DevTools MCP is already connected to the debug browser. Use its native tools instead of writing scripts.

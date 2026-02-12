@@ -13,7 +13,7 @@
 
   const SIGNAL_WEIGHTS = {
     temporal: {
-      categoryWeight: 40, // INCREASED: Posting age is the strongest ghost indicator
+      categoryWeight: 35, // Posting age is a strong ghost indicator
       signals: { postingAge: 45, seasonalPattern: 10 },
     },
     content: {
@@ -21,31 +21,31 @@
       signals: { descriptionVagueness: 25, salaryTransparency: 20, buzzwordDensity: 15 },
     },
     company: {
-      categoryWeight: 20,
+      categoryWeight: 15, // Reduced to make room for community
       signals: { blacklistMatch: 40, companySize: 20, industryRisk: 20 },
     },
     behavioral: {
       categoryWeight: 15,
       signals: { applicationMethod: 30, sponsoredPost: 20, applicantCount: 30 },
     },
-    community: { categoryWeight: 5, signals: { userReports: 50 } },
-    structural: { categoryWeight: 0, signals: {} }, // Reduced - less important
+    community: { categoryWeight: 15, signals: { userReports: 100 } }, // INCREASED: Community reports matter
+    structural: { categoryWeight: 0, signals: {} },
   };
 
   const SCORE_COLORS = {
     safe: '#10b981',
-    low_risk: '#3b82f6',
+    low_risk: '#10b981',
     medium_risk: '#f59e0b',
     high_risk: '#ef4444',
-    likely_ghost: '#dc2626',
+    likely_ghost: '#ef4444',
   };
 
   const SCORE_LABELS = {
-    safe: 'Likely Legitimate',
+    safe: 'Low Risk',
     low_risk: 'Low Risk',
     medium_risk: 'Medium Risk',
     high_risk: 'High Risk',
-    likely_ghost: 'Likely Ghost Job',
+    likely_ghost: 'High Risk',
   };
 
   const KNOWN_STAFFING_AGENCIES = [
@@ -399,6 +399,7 @@
       case 'spam': return 'posting spam job listings';
       case 'ghost': return 'posting ghost jobs (jobs that may not actually exist)';
       case 'scam': return 'potentially scam job postings';
+      case 'staffing': return 'being a known staffing/recruiting agency';
       default: return 'questionable hiring practices';
     }
   }
@@ -476,6 +477,20 @@
       }
     }
 
+    // 3. Check known staffing agencies
+    const lowerName = companyName.toLowerCase().trim();
+    for (const agency of KNOWN_STAFFING_AGENCIES) {
+      if (lowerName.includes(agency) || agency.includes(lowerName) && lowerName.length >= 3) {
+        return {
+          detected: true,
+          confidence: 0.8,
+          matchType: 'staffing',
+          company: { name: companyName, category: 'staffing', normalized: normalized },
+          message: `${companyName} is a known staffing agency`
+        };
+      }
+    }
+
     return { detected: false, confidence: 0, company: null, message: '' };
   }
 
@@ -492,33 +507,75 @@
     if (existing) existing.remove();
 
     // Find or create badge container
-    let container = document.querySelector('.jobfiltr-badges-container');
-    if (!container) {
-      // Platform-specific title selectors
-      const titleSelectors = isLinkedIn() ? [
-        '.job-details-jobs-unified-top-card__job-title',
-        '.jobs-unified-top-card__job-title',
-        'h1.t-24',
-        '.t-24.t-bold'
-      ] : [
-        'h1.jobsearch-JobInfoHeader-title',
-        '[data-testid="jobsearch-JobInfoHeader-title"]',
-        '.jobsearch-JobInfoHeader-title',
-        '.jobsearch-JobInfoHeader-title-container'
-      ];
+    let container = null;
 
-      let titleEl = null;
-      for (const sel of titleSelectors) {
-        titleEl = document.querySelector(sel);
-        if (titleEl) break;
+    if (isLinkedIn()) {
+      // LinkedIn: Use the shared badges container for consistent positioning with age/ghost badges
+      container = document.querySelector('.jobfiltr-linkedin-badges-container');
+      if (!container) {
+        // Create the container using the same approach as content-linkedin-v3.js
+        const insertionTargets = [
+          '.job-details-jobs-unified-top-card__primary-description-container',
+          '.jobs-unified-top-card__primary-description',
+          '.jobs-details-top-card__content-container',
+        ];
+        let anchor = null;
+        for (const sel of insertionTargets) {
+          anchor = document.querySelector(sel);
+          if (anchor) break;
+        }
+        // Fallback: content-based detection for both classic and new obfuscated UI
+        if (!anchor) {
+          const allSpans = document.querySelectorAll('span');
+          for (const span of allSpans) {
+            const text = span.textContent?.trim() || '';
+            if (/\d+\s*(second|minute|hour|day|week|month)s?\s*ago/i.test(text) || text.toLowerCase() === 'today') {
+              // Filter to right panel (detail panel) to avoid matching left panel job cards
+              const rect = span.getBoundingClientRect();
+              if (rect.x < 500 || rect.width === 0) continue;
+
+              let parent = span.parentElement;
+              for (let i = 0; i < 5 && parent; i++) {
+                if (parent.childElementCount >= 1 && parent.getBoundingClientRect().height > 15) {
+                  anchor = parent;
+                  break;
+                }
+                parent = parent.parentElement;
+              }
+              if (anchor) break;
+            }
+          }
+        }
+        if (anchor) {
+          container = document.createElement('div');
+          container.className = 'jobfiltr-linkedin-badges-container';
+          container.style.cssText = 'display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 4px 0; padding: 0;';
+          anchor.insertAdjacentElement('afterend', container);
+          console.log('[GhostDetection] Created LinkedIn badges container for reported company badge');
+        }
       }
-
-      if (titleEl) {
-        container = document.createElement('div');
-        container.className = 'jobfiltr-badges-container';
-        container.style.cssText = 'display: flex; gap: 10px; margin: 10px 0; flex-wrap: wrap; align-items: flex-start;';
-        titleEl.insertAdjacentElement('afterend', container);
-        console.log('[GhostDetection] Created badges container for reported company badge');
+    } else {
+      // Indeed/other: Use title-based container
+      container = document.querySelector('.jobfiltr-badges-container');
+      if (!container) {
+        const titleSelectors = [
+          'h1.jobsearch-JobInfoHeader-title',
+          '[data-testid="jobsearch-JobInfoHeader-title"]',
+          '.jobsearch-JobInfoHeader-title',
+          '.jobsearch-JobInfoHeader-title-container'
+        ];
+        let titleEl = null;
+        for (const sel of titleSelectors) {
+          titleEl = document.querySelector(sel);
+          if (titleEl) break;
+        }
+        if (titleEl) {
+          container = document.createElement('div');
+          container.className = 'jobfiltr-badges-container';
+          container.style.cssText = 'display: flex; gap: 10px; margin: 10px 0; flex-wrap: wrap; align-items: flex-start;';
+          titleEl.insertAdjacentElement('afterend', container);
+          console.log('[GhostDetection] Created badges container for reported company badge');
+        }
       }
     }
 
@@ -562,15 +619,17 @@
         transition: transform 0.2s ease;
       `;
     } else {
-      // LinkedIn/default styling
+      // LinkedIn/default styling - matches ghost and age badge height (min-height: 67px)
       badge.style.cssText = `
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        padding: 6px 12px;
+        gap: 8px;
+        padding: 9px 13px;
+        min-height: 67px;
+        box-sizing: border-box;
         background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
         border: 2px solid #f97316;
-        border-radius: 8px;
+        border-radius: 10px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 12px;
         font-weight: 600;
@@ -578,10 +637,17 @@
         cursor: pointer;
         box-shadow: 0 2px 4px rgba(249, 115, 22, 0.2);
         transition: all 0.2s ease;
+        max-width: fit-content;
       `;
       badge.innerHTML = `
-        <span style="font-size: 14px;">⚠️</span>
-        <span>Community Reported</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0;">
+          <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div style="display: flex; flex-direction: column; gap: 3px;">
+          <span style="font-size: 11px; font-weight: 600;">Community Reported</span>
+          <span style="font-size: 9px; opacity: 0.7;">Spam/Ghost Reports • Click for details</span>
+        </div>
       `;
     }
 
@@ -604,15 +670,9 @@
       }
     });
 
-    // ULTRATHINK: Position at END of container (right side, after job age badge) for Indeed
-    // For LinkedIn, keep at beginning for visibility
-    if (isIndeed()) {
-      container.appendChild(badge);
-      console.log('[GhostDetection] Injected community-reported badge to RIGHT of other badges (Indeed)');
-    } else {
-      container.insertBefore(badge, container.firstChild);
-      console.log('[GhostDetection] Injected community-reported badge to LEFT (LinkedIn)');
-    }
+    // Position Community Reported badge at END of container (last badge) for both platforms
+    container.appendChild(badge);
+    console.log('[GhostDetection] Injected community-reported badge at END of badges container');
     console.log('[GhostDetection] Injected community-reported warning badge for:', reportResult.company?.name);
   }
 
@@ -626,65 +686,82 @@
 
     const modal = document.createElement('div');
     modal.className = 'jobfiltr-reported-modal';
-    modal.innerHTML = `
-      <div style="
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0,0,0,0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 99999;
-      " onclick="this.parentElement.remove()">
-        <div style="
-          background: white;
-          border-radius: 12px;
-          padding: 24px;
-          max-width: 450px;
-          width: 90%;
-          box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
-        " onclick="event.stopPropagation()">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h2 style="margin: 0; font-size: 20px; color: #9a3412; display: flex; align-items: center; gap: 8px;">
-              <span>⚠️</span> Community Reported
-            </h2>
-            <button onclick="this.closest('.jobfiltr-reported-modal').remove()" style="
-              background: none;
-              border: none;
-              font-size: 24px;
-              cursor: pointer;
-              color: #94a3b8;
-            ">&times;</button>
-          </div>
 
-          <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-            <div style="font-weight: 600; color: #92400e; font-size: 16px; margin-bottom: 8px;">
-              ${reportResult.company?.name || 'Unknown Company'}
-            </div>
-            <div style="color: #78350f; font-size: 14px;">
-              ${reportResult.message}
-            </div>
-          </div>
+    // Build overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+    `;
+    overlay.addEventListener('click', () => modal.remove());
 
-          <div style="color: #64748b; font-size: 13px; line-height: 1.5;">
-            <p style="margin: 0 0 12px 0;">
-              <strong>What this means:</strong> Users have reported that this company frequently posts jobs that may not represent genuine hiring opportunities.
-            </p>
-            <p style="margin: 0;">
-              <strong>Recommendation:</strong> Research the company thoroughly before applying. Look for recent employee reviews and verify the role through the company's official website.
-            </p>
-          </div>
+    // Build content card
+    const card = document.createElement('div');
+    card.style.cssText = `
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 450px;
+      width: 90%;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    `;
+    card.addEventListener('click', (e) => e.stopPropagation());
 
-          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 11px;">
-            Community reports as of January 2026 • Powered by JobFiltr
-          </div>
+    const cautionSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0;">
+      <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+        stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+
+    card.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h2 style="margin: 0; font-size: 20px; color: #9a3412; display: flex; align-items: center; gap: 8px;">
+          ${cautionSvg} Community Reported
+        </h2>
+        <button class="jobfiltr-modal-close-btn" style="
+          background: none;
+          border: none;
+          font-size: 24px;
+          cursor: pointer;
+          color: #94a3b8;
+          padding: 4px 8px;
+          line-height: 1;
+        ">&times;</button>
+      </div>
+
+      <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+        <div style="font-weight: 600; color: #92400e; font-size: 16px; margin-bottom: 8px;">
+          ${reportResult.company?.name || 'Unknown Company'}
         </div>
+        <div style="color: #78350f; font-size: 14px;">
+          ${reportResult.message}
+        </div>
+      </div>
+
+      <div style="color: #64748b; font-size: 13px; line-height: 1.5;">
+        <p style="margin: 0 0 12px 0;">
+          <strong>What this means:</strong> Users have reported that this company frequently posts jobs that may not represent genuine hiring opportunities.
+        </p>
+        <p style="margin: 0;">
+          <strong>Recommendation:</strong> Research the company thoroughly before applying. Look for recent employee reviews and verify the role through the company's official website.
+        </p>
+      </div>
+
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 11px;">
+        Community reports as of January 2026 • Powered by JobFiltr
       </div>
     `;
 
+    // Attach close button handler via addEventListener (CSP-safe)
+    const closeBtn = card.querySelector('.jobfiltr-modal-close-btn');
+    closeBtn.addEventListener('click', () => modal.remove());
+
+    overlay.appendChild(card);
+    modal.appendChild(overlay);
     document.body.appendChild(modal);
   }
 
@@ -870,16 +947,29 @@
     }
 
     // Strategy 3: Search for "X days/weeks/months ago" pattern in the detail area
-    const detailArea = document.querySelector('.jobs-details, .scaffold-layout__detail');
+    let detailArea = document.querySelector('.jobs-details, .scaffold-layout__detail');
+
+    // Fallback for new LinkedIn UI: search the right panel metadata
+    if (!detailArea) {
+      const allPs = [...document.querySelectorAll('p')];
+      for (const p of allPs) {
+        const rect = p.getBoundingClientRect();
+        if (rect.x > 500 && rect.width > 0 && /\bago\b/i.test(p.textContent) && p.textContent.includes('·')) {
+          detailArea = p;
+          break;
+        }
+      }
+    }
+
     if (detailArea) {
       const allText = detailArea.textContent || '';
       const patterns = [
+        /reposted\s+(\d+)\s*(d|w|mo|months?|weeks?|days?)\s*ago/i,
+        /posted\s+(\d+)\s*(d|w|mo|months?|weeks?|days?)\s*ago/i,
         /(\d+)\s*months?\s*ago/i,
         /(\d+)\s*weeks?\s*ago/i,
         /(\d+)\s*days?\s*ago/i,
         /(\d+)\s*hours?\s*ago/i,
-        /posted\s+(\d+)\s*(d|w|mo|months?|weeks?|days?)/i,
-        /reposted\s+(\d+)\s*(d|w|mo|months?|weeks?|days?)/i,
       ];
       for (const pattern of patterns) {
         const match = allText.match(pattern);
@@ -1173,7 +1263,25 @@
     const signals = [];
     const weights = SIGNAL_WEIGHTS.temporal.signals;
 
-    const days = parsePostingDays(job.postedDate);
+    // Try cached age from badge system first, then fall back to parsing
+    let days = null;
+    let ageSource = 'unknown';
+
+    if (job.id) {
+      days = getJobAgeFromCaches(job.id);
+      if (days !== null) {
+        ageSource = 'cached';
+      }
+    }
+
+    // Fall back to parsing posted date string
+    if (days === null) {
+      days = parsePostingDays(job.postedDate);
+      if (days !== null) {
+        ageSource = 'parsed';
+      }
+    }
+
     const ageRisk = calculateTemporalRisk(days);
 
     signals.push({
@@ -1314,6 +1422,346 @@
     return signals;
   }
 
+  // ============================================
+  // COMMUNITY SIGNALS - Check reported companies
+  // ============================================
+
+  // Reported companies database (embedded for bundle isolation)
+  const COMMUNITY_REPORTED_DB = {
+    // Scam companies - highest risk
+    'hiremefastllc': { category: 'scam', risk: 1.0 },
+    'hiremefasthiring': { category: 'scam', risk: 1.0 },
+    'swooped': { category: 'scam', risk: 1.0 },
+    'techietalent': { category: 'scam', risk: 1.0 },
+    'jobot': { category: 'scam', risk: 0.95 },
+    'crossover': { category: 'scam', risk: 0.95 },
+    // Spam aggregators
+    'dice': { category: 'spam', risk: 0.9 },
+    'talentify': { category: 'spam', risk: 0.9 },
+    'aboroithinkbig': { category: 'spam', risk: 0.9 },
+    'ziprecruiter': { category: 'spam', risk: 0.85 },
+    // Ghost posting companies (large companies known for ghost jobs)
+    'accenture': { category: 'ghost', risk: 0.8 },
+    'bankofamerica': { category: 'ghost', risk: 0.8 },
+    'bofa': { category: 'ghost', risk: 0.8 },
+    'cvs': { category: 'ghost', risk: 0.8 },
+    'cvshealth': { category: 'ghost', risk: 0.8 },
+    'deloitte': { category: 'ghost', risk: 0.8 },
+    'ey': { category: 'ghost', risk: 0.8 },
+    'ernstandyoung': { category: 'ghost', risk: 0.8 },
+    'kpmg': { category: 'ghost', risk: 0.8 },
+    'pwc': { category: 'ghost', risk: 0.8 },
+    'pricewaterhousecoopers': { category: 'ghost', risk: 0.8 },
+    'amazon': { category: 'ghost', risk: 0.75 },
+    'meta': { category: 'ghost', risk: 0.75 },
+    'google': { category: 'ghost', risk: 0.7 },
+    'microsoft': { category: 'ghost', risk: 0.7 },
+    'apple': { category: 'ghost', risk: 0.7 },
+    'netflix': { category: 'ghost', risk: 0.7 },
+    'salesforce': { category: 'ghost', risk: 0.7 },
+    'oracle': { category: 'ghost', risk: 0.7 },
+    'ibm': { category: 'ghost', risk: 0.7 },
+    'cisco': { category: 'ghost', risk: 0.7 },
+    'intel': { category: 'ghost', risk: 0.7 },
+    'walmart': { category: 'ghost', risk: 0.75 },
+    'target': { category: 'ghost', risk: 0.75 },
+    'ups': { category: 'ghost', risk: 0.75 },
+    'fedex': { category: 'ghost', risk: 0.75 },
+    'jpmorgan': { category: 'ghost', risk: 0.75 },
+    'jpmorganchase': { category: 'ghost', risk: 0.75 },
+    'chase': { category: 'ghost', risk: 0.75 },
+    'wellsfargo': { category: 'ghost', risk: 0.75 },
+    'citibank': { category: 'ghost', risk: 0.75 },
+    'citi': { category: 'ghost', risk: 0.75 },
+    'capitalone': { category: 'ghost', risk: 0.75 },
+    'americanexpress': { category: 'ghost', risk: 0.75 },
+    'amex': { category: 'ghost', risk: 0.75 },
+  };
+
+  function normalizeCompanyForLookup(name) {
+    if (!name) return '';
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, '')
+      .replace(/\b(inc|llc|ltd|corp|corporation|company|co|incorporated|limited)\b/gi, '')
+      .trim();
+  }
+
+  function getCommunityReportCategoryMessage(category) {
+    switch (category) {
+      case 'scam': return 'potential scam postings';
+      case 'spam': return 'spam job listings';
+      case 'ghost': return 'ghost job postings';
+      default: return 'suspicious activity';
+    }
+  }
+
+  function checkCommunityReportedCompany(companyName) {
+    if (!companyName) return { isReported: false };
+
+    const normalized = normalizeCompanyForLookup(companyName);
+    if (!normalized) return { isReported: false };
+
+    // Check exact match first
+    if (COMMUNITY_REPORTED_DB[normalized]) {
+      const data = COMMUNITY_REPORTED_DB[normalized];
+      return {
+        isReported: true,
+        category: data.category,
+        riskValue: data.risk,
+        confidence: 1.0,
+        categoryMessage: getCommunityReportCategoryMessage(data.category)
+      };
+    }
+
+    // Check partial matches (company name contains or is contained by reported name)
+    for (const [key, data] of Object.entries(COMMUNITY_REPORTED_DB)) {
+      if (normalized.includes(key) || key.includes(normalized)) {
+        // Only match if at least 4 characters to avoid false positives
+        if (key.length >= 4 && normalized.length >= 4) {
+          return {
+            isReported: true,
+            category: data.category,
+            riskValue: data.risk * 0.9, // Slightly lower for partial match
+            confidence: 0.85,
+            categoryMessage: getCommunityReportCategoryMessage(data.category)
+          };
+        }
+      }
+    }
+
+    return { isReported: false };
+  }
+
+  function analyzeCommunitySignals(job) {
+    const signals = [];
+    const weights = SIGNAL_WEIGHTS.community.signals;
+
+    const reportResult = checkCommunityReportedCompany(job.company);
+
+    if (reportResult.isReported) {
+      signals.push({
+        id: 'community_reported',
+        category: 'community',
+        name: 'Community Reported',
+        weight: weights.userReports,
+        value: reportResult.category,
+        normalizedValue: reportResult.riskValue,
+        confidence: reportResult.confidence,
+        description: `Company reported for ${reportResult.categoryMessage}`,
+      });
+    }
+
+    return signals;
+  }
+
+  // ============================================
+  // CACHED AGE DATA ACCESS
+  // ============================================
+
+  // Cache for job ages received from the web accessible resource script
+  // This data comes from window.mosaic in the page's main world
+  const mosaicAgeCache = {};
+  let mosaicExtractorInjected = false;
+
+  // Listen for mosaic age data from the injected web accessible resource
+  window.addEventListener('jobfiltr-mosaic-ages', (event) => {
+    try {
+      const jobs = event.detail;
+      if (jobs && Array.isArray(jobs)) {
+        const now = Date.now();
+        jobs.forEach(job => {
+          if (!job.jobkey) return;
+
+          let ageDays = null;
+
+          // Calculate age from pubDate (most accurate)
+          if (job.pubDate && job.pubDate > 1000000000000) {
+            const ageMs = now - job.pubDate;
+            ageDays = ageMs / (1000 * 60 * 60 * 24);
+            if (ageDays < 0) ageDays = 0;
+            ageDays = Math.round(ageDays * 100) / 100;
+          }
+          // Fallback to createDate
+          else if (job.createDate && job.createDate > 1000000000000) {
+            const ageMs = now - job.createDate;
+            ageDays = ageMs / (1000 * 60 * 60 * 24);
+            if (ageDays < 0) ageDays = 0;
+            ageDays = Math.round(ageDays * 100) / 100;
+          }
+          // Fallback to formattedRelativeTime
+          else if (job.formattedRelativeTime) {
+            const relTime = job.formattedRelativeTime.toLowerCase();
+            if (relTime.includes('just') || relTime.includes('today')) {
+              ageDays = 0;
+            } else if (relTime.includes('hour')) {
+              const numMatch = relTime.match(/(\d+)/);
+              const hours = numMatch ? parseInt(numMatch[1]) : 1;
+              ageDays = Math.round((hours / 24) * 100) / 100;
+            } else if (relTime.includes('30+')) {
+              ageDays = 30;
+            } else {
+              const numMatch = relTime.match(/(\d+)/);
+              if (numMatch) {
+                const num = parseInt(numMatch[1]);
+                if (relTime.includes('day')) ageDays = num;
+                else if (relTime.includes('week')) ageDays = num * 7;
+                else if (relTime.includes('month')) ageDays = num * 30;
+              }
+            }
+          }
+
+          if (ageDays !== null) {
+            mosaicAgeCache[job.jobkey] = ageDays;
+          }
+        });
+        console.log('[GhostDetection] Received mosaic age data for', Object.keys(mosaicAgeCache).length, 'jobs');
+      }
+    } catch (e) {
+      console.log('[GhostDetection] Error processing mosaic age data:', e);
+    }
+  });
+
+  // Inject the web accessible resource script to extract mosaic data
+  function injectMosaicExtractor() {
+    if (mosaicExtractorInjected) return;
+    if (!isIndeed()) return;
+
+    try {
+      const script = document.createElement('script');
+      script.src = chrome.runtime.getURL('src/indeed-mosaic-extractor.js');
+      script.id = 'jobfiltr-mosaic-extractor';
+      (document.head || document.documentElement).appendChild(script);
+      mosaicExtractorInjected = true;
+      console.log('[GhostDetection] Injected mosaic extractor script');
+    } catch (e) {
+      console.log('[GhostDetection] Error injecting mosaic extractor:', e);
+    }
+  }
+
+  // Request fresh mosaic age data from the injected script
+  function requestMosaicAges() {
+    window.dispatchEvent(new CustomEvent('jobfiltr-request-mosaic-ages'));
+  }
+
+  // Get job age from the mosaic cache (populated by web accessible resource)
+  function getAgeFromMosaicCache(jobKey) {
+    if (mosaicAgeCache[jobKey] !== undefined) {
+      console.log('[GhostDetection] Got age from mosaic cache:', jobKey, '->', mosaicAgeCache[jobKey], 'days');
+      return mosaicAgeCache[jobKey];
+    }
+    return null;
+  }
+
+  function getJobAgeFromCaches(jobId) {
+    if (!jobId) return null;
+
+    // Remove platform prefix if present
+    const cleanId = jobId.replace(/^(linkedin_|indeed_)/, '');
+    const isIndeedJob = jobId.startsWith('indeed_');
+
+    // For Indeed jobs, try multiple sources
+    if (isIndeedJob) {
+      // Source 1: Try the getter function exposed by content-indeed-v3.js
+      try {
+        if (typeof window.getIndeedJobAge === 'function') {
+          const age = window.getIndeedJobAge(cleanId);
+          if (age !== null) {
+            console.log('[GhostDetection] Got age from Indeed getter:', cleanId, '->', age, 'days');
+            return Math.floor(age);
+          }
+        }
+      } catch (e) {
+        console.log('[GhostDetection] Error calling Indeed getter:', e);
+      }
+
+      // Source 2: Try direct cache access
+      try {
+        if (window.indeedJobAgeCache && window.indeedJobAgeCache[cleanId] !== undefined) {
+          const age = window.indeedJobAgeCache[cleanId];
+          console.log('[GhostDetection] Got age from Indeed cache:', cleanId, '->', age, 'days');
+          return Math.floor(age);
+        }
+      } catch (e) {
+        console.log('[GhostDetection] Error accessing Indeed cache:', e);
+      }
+
+      // Source 3: Parse from JobFiltr age badge in DOM (created by content-indeed-v3.js)
+      try {
+        const ageBadge = document.querySelector('.jobfiltr-detail-age-badge');
+        if (ageBadge) {
+          const badgeText = ageBadge.textContent || '';
+          console.log('[GhostDetection] Found age badge text:', badgeText);
+          // Parse "Posted X days" or "Posted X hours" etc.
+          const dayMatch = badgeText.match(/(\d+)\s*days?/i);
+          const weekMatch = badgeText.match(/(\d+)\s*weeks?/i);
+          const hourMatch = badgeText.match(/(\d+)\s*hours?/i);
+          const monthMatch = badgeText.match(/(\d+)\s*months?/i);
+
+          if (dayMatch) {
+            const days = parseInt(dayMatch[1]);
+            console.log('[GhostDetection] Got age from badge DOM:', days, 'days');
+            return days;
+          } else if (weekMatch) {
+            const days = parseInt(weekMatch[1]) * 7;
+            console.log('[GhostDetection] Got age from badge DOM:', days, 'days (from weeks)');
+            return days;
+          } else if (hourMatch) {
+            console.log('[GhostDetection] Got age from badge DOM: 0 days (hours old)');
+            return 0;
+          } else if (monthMatch) {
+            const days = parseInt(monthMatch[1]) * 30;
+            console.log('[GhostDetection] Got age from badge DOM:', days, 'days (from months)');
+            return days;
+          }
+        }
+      } catch (e) {
+        console.log('[GhostDetection] Error parsing age badge:', e);
+      }
+
+      // Source 4: Get age from mosaic cache (populated by web accessible resource script)
+      // This script runs in the page's main world and can access window.mosaic
+      try {
+        const mosaicAge = getAgeFromMosaicCache(cleanId);
+        if (mosaicAge !== null) {
+          return Math.floor(mosaicAge);
+        }
+      } catch (e) {
+        console.log('[GhostDetection] Error getting age from mosaic cache:', e);
+      }
+    }
+
+    // Try badge state manager (LinkedIn)
+    try {
+      if (window.badgeStateManager?.initialized) {
+        const cachedBadge = window.badgeStateManager.getBadgeData(cleanId);
+        if (cachedBadge?.age !== undefined && cachedBadge.age !== null) {
+          console.log('[GhostDetection] Got age from badge manager:', cleanId, '->', cachedBadge.age, 'days');
+          return cachedBadge.age;
+        }
+      }
+    } catch (e) {
+      // Silently ignore - badge manager may not be available
+    }
+
+    // Try LinkedIn job cache (from API interceptor)
+    try {
+      if (window.linkedInJobCache?.initialized) {
+        const ageFromCache = window.linkedInJobCache.getJobAgeFromCache(cleanId);
+        if (ageFromCache !== null) {
+          console.log('[GhostDetection] Got age from LinkedIn job cache:', cleanId, '->', ageFromCache, 'days');
+          return Math.floor(ageFromCache);
+        }
+      }
+    } catch (e) {
+      // Silently ignore - job cache may not be available
+    }
+
+    return null;
+  }
+
   function calculateBreakdown(signals) {
     const categories = ['temporal', 'content', 'company', 'behavioral', 'community', 'structural'];
     const breakdown = {};
@@ -1356,7 +1804,7 @@
   // ============================================
 
   // Cache version - increment when algorithm changes to invalidate old cached scores
-  const CACHE_VERSION = 2;
+  const CACHE_VERSION = 15; // v15: Use web accessible resource to extract mosaic age data (bypasses CSP)
 
   async function analyzeJob(job) {
     const cached = await getCachedScore(job.id);
@@ -1371,12 +1819,20 @@
     signals.push(...analyzeContentSignals(job));
     signals.push(...(await analyzeCompanySignals(job)));
     signals.push(...analyzeBehavioralSignals(job));
+    signals.push(...analyzeCommunitySignals(job)); // Community-reported companies
 
     const breakdown = calculateBreakdown(signals);
     let overall = calculateOverall(breakdown);
 
     // Apply floor scores for obvious ghost job indicators
-    const days = parsePostingDays(job.postedDate);
+    // First try cached age from badge system, then fall back to parsing
+    let days = null;
+    if (job.id) {
+      days = getJobAgeFromCaches(job.id);
+    }
+    if (days === null) {
+      days = parsePostingDays(job.postedDate);
+    }
 
     // Very old postings should have minimum scores regardless of other factors
     if (days !== null) {
@@ -1413,6 +1869,22 @@
     const isReposted = /reposted/i.test(job.description || '') || /reposted/i.test(job.title || '');
     if (isReposted) {
       overall = Math.max(overall, 50); // Reposted jobs are suspicious
+    }
+
+    // Floor scores for community-reported companies
+    const communitySignal = signals.find(s => s.id === 'community_reported');
+    if (communitySignal) {
+      const reportCategory = communitySignal.value;
+      if (reportCategory === 'scam') {
+        overall = Math.max(overall, 80); // Minimum HIGH_RISK for scams
+        console.log('[GhostDetection] Floor applied: Scam company reported');
+      } else if (reportCategory === 'spam') {
+        overall = Math.max(overall, 65); // Minimum MEDIUM-HIGH for spam
+        console.log('[GhostDetection] Floor applied: Spam company reported');
+      } else if (reportCategory === 'ghost') {
+        overall = Math.max(overall, 50); // Minimum MEDIUM for ghost reporters
+        console.log('[GhostDetection] Floor applied: Ghost company reported');
+      }
     }
 
     overall = Math.min(100, Math.max(0, overall));
@@ -1673,17 +2145,16 @@
     const color = SCORE_COLORS[category] || SCORE_COLORS.medium_risk;
     const label = SCORE_LABELS[category] || 'Unknown';
 
-    // Calculate display percentage: for "safe" category, show legitimacy % (100 - ghostScore)
-    // For risk categories, show the ghost/risk score directly
-    const displayPercent = (category === 'safe') ? (100 - score) : score;
+    // Always show the risk score directly for uniform display
+    const displayPercent = score;
 
-    // Get risk level emoji
+    // Uniform risk level emoji: 3 tiers
     const riskEmoji = {
-      safe: '✅',
-      low_risk: '🔵',
+      safe: '🟢',
+      low_risk: '🟢',
       medium_risk: '🟡',
-      high_risk: '🟠',
-      likely_ghost: '👻'
+      high_risk: '🔴',
+      likely_ghost: '🔴'
     }[category] || '❓';
 
     const badge = document.createElement('div');
@@ -1763,7 +2234,8 @@
       // Fallback: If no title found, use standard insertion
       console.warn('[GhostDetection] Could not find job title, using fallback insertion');
     } else {
-      // LinkedIn/default styling - ULTRATHINK: Sized to ~80% of original for detail panel
+      // LinkedIn/default styling - Sized to ~80% of original for detail panel
+      badge.style.cssText = 'display: flex; align-items: center; min-height: 67px; box-sizing: border-box; max-width: fit-content;';
       badge.innerHTML = `
         <div style="
           display: inline-flex;
@@ -1774,10 +2246,10 @@
           border: 2px solid ${color};
           border-radius: 10px;
           cursor: pointer;
-          margin: 10px 0;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           transition: all 0.3s ease;
           box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+          flex: 1;
         ">
           ${createCircularProgress(displayPercent, color, 45)}
           <div style="display: flex; flex-direction: column; gap: 3px;">
@@ -1792,8 +2264,80 @@
       badge.addEventListener('click', onClick);
     }
 
-    // Standard insertion for LinkedIn and fallback
-    // Handle both single selector (string) and array of selectors
+    // LinkedIn: Use the shared badges container for consistent positioning
+    if (isLinkedIn()) {
+      // Try to find or create the shared badges container
+      let badgesContainer = document.querySelector('.jobfiltr-linkedin-badges-container');
+
+      if (!badgesContainer) {
+        // Create the container using the same approach as content-linkedin-v3.js
+        const insertionTargets = [
+          '.job-details-jobs-unified-top-card__primary-description-container',
+          '.jobs-unified-top-card__primary-description',
+          '.jobs-details-top-card__content-container',
+        ];
+
+        let anchor = null;
+        for (const sel of insertionTargets) {
+          anchor = document.querySelector(sel);
+          if (anchor) break;
+        }
+
+        // Fallback: content-based detection for both classic and new obfuscated UI
+        if (!anchor) {
+          const allSpans = document.querySelectorAll('span');
+          for (const span of allSpans) {
+            const text = span.textContent?.trim() || '';
+            if (/\d+\s*(second|minute|hour|day|week|month)s?\s*ago/i.test(text) || text.toLowerCase() === 'today') {
+              // Filter to right panel (detail panel) to avoid matching left panel job cards
+              const rect = span.getBoundingClientRect();
+              if (rect.x < 500 || rect.width === 0) continue;
+
+              let parent = span.parentElement;
+              for (let i = 0; i < 5 && parent; i++) {
+                if (parent.childElementCount >= 1 && parent.getBoundingClientRect().height > 15) {
+                  anchor = parent;
+                  break;
+                }
+                parent = parent.parentElement;
+              }
+              if (anchor) break;
+            }
+          }
+        }
+
+        if (anchor) {
+          badgesContainer = document.createElement('div');
+          badgesContainer.className = 'jobfiltr-linkedin-badges-container';
+          badgesContainer.style.cssText = `
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            margin: 8px 0 4px 0;
+            padding: 0;
+          `;
+          anchor.insertAdjacentElement('afterend', badgesContainer);
+          console.log('[GhostDetection] Created LinkedIn badges container');
+        }
+      }
+
+      if (badgesContainer) {
+        // Insert ghost badge at the beginning (left side)
+        badgesContainer.insertBefore(badge, badgesContainer.firstChild);
+        // Cache badge data for fast re-injection after LinkedIn re-renders
+        lastGhostBadgeHTML = badge.innerHTML;
+        lastGhostBadgeStyle = badge.style.cssText;
+        lastGhostBadgeClick = onClick;
+        console.log('[GhostDetection] Added ghost badge to LinkedIn badges container');
+        return true;
+      }
+
+      // If container creation failed, fall through to legacy insertion
+      console.warn('[GhostDetection] Could not create badges container, using fallback');
+    }
+
+    // Fallback insertion for non-LinkedIn or if container creation failed
     const selectors = Array.isArray(scoreTargets) ? scoreTargets : [scoreTargets];
 
     let target = null;
@@ -1838,6 +2382,12 @@
     }
 
     target.insertAdjacentElement('afterend', badge);
+    // Cache badge data for fast re-injection after LinkedIn re-renders
+    if (isLinkedIn()) {
+      lastGhostBadgeHTML = badge.innerHTML;
+      lastGhostBadgeStyle = badge.style.cssText;
+      lastGhostBadgeClick = onClick;
+    }
     return true;
   }
 
@@ -1949,13 +2499,11 @@
       </svg>
     `;
 
-    // Score section background - navy for safe, theme-aware for others
-    const scoreSectionBg = scoreToShow.category === 'safe'
-      ? 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)'
-      : (darkMode ? 'linear-gradient(135deg, #27272a 0%, #18181b 100%)' : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)');
+    // Score section background - theme-aware for all categories
+    const scoreSectionBg = darkMode ? 'linear-gradient(135deg, #27272a 0%, #18181b 100%)' : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)';
 
-    const scoreLabelColor = scoreToShow.category === 'safe' ? '#ffffff' : theme.modalText;
-    const scoreConfidenceColor = scoreToShow.category === 'safe' ? '#94a3b8' : theme.modalTextSecondary;
+    const scoreLabelColor = theme.modalText;
+    const scoreConfidenceColor = theme.modalTextSecondary;
 
     content.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -1978,7 +2526,7 @@
 
       <div style="text-align: center; padding: 24px; background: ${scoreSectionBg}; border-radius: 12px; margin-bottom: 20px;">
         <div style="display: inline-block; margin-bottom: 12px;">
-          ${createCircularProgress(scoreToShow.category === 'safe' ? (100 - scoreToShow.overall) : scoreToShow.overall, scoreToShow.category === 'safe' ? '#4ade80' : color, 100, true, 'jobfiltr-modal-score')}
+          ${createCircularProgress(scoreToShow.overall, color, 100, true, 'jobfiltr-modal-score')}
         </div>
         <div style="font-size: 18px; font-weight: 600; color: ${scoreLabelColor}; margin-bottom: 4px;">${getLabel(scoreToShow.category)}</div>
         <div id="jobfiltr-modal-confidence" style="font-size: 13px; color: ${scoreConfidenceColor};">
@@ -2076,7 +2624,7 @@
 
     // Trigger animations after modal is in DOM
     setTimeout(() => {
-      animateScoreCount('jobfiltr-modal-score', scoreToShow.category === 'safe' ? (100 - scoreToShow.overall) : scoreToShow.overall, 1500);
+      animateScoreCount('jobfiltr-modal-score', scoreToShow.overall, 1500);
       animateConfidenceCount('jobfiltr-modal-confidence', Math.round(scoreToShow.confidence * 100), 1500);
     }, 100);
   }
@@ -2099,14 +2647,78 @@
 
   function extractLinkedInJob() {
     try {
-      const container = document.querySelector(LINKEDIN_SELECTORS.jobDetail);
+      let container = document.querySelector(LINKEDIN_SELECTORS.jobDetail);
+
+      // Fallback for new LinkedIn UI with obfuscated classes (e.g. /jobs/search-results/)
+      // Detect by looking for "About the job" heading which exists in both UIs
+      if (!container) {
+        const aboutJob = [...document.querySelectorAll('h2')].find(h =>
+          h.textContent.trim().startsWith('About the job')
+        );
+        if (aboutJob) {
+          container = document.body;
+          console.log('[GhostDetection] Using content-based fallback for new LinkedIn UI');
+        }
+      }
+
       if (!container) return null;
 
       const urlMatch = window.location.href.match(/\/jobs\/view\/(\d+)/);
-      const id = urlMatch ? urlMatch[1] : `${Date.now()}`;
+      const currentJobIdParam = new URLSearchParams(window.location.search).get('currentJobId');
+      const id = urlMatch ? urlMatch[1] : (currentJobIdParam || `${Date.now()}`);
+
+      // Try standard selectors first
+      let title = getText(LINKEDIN_SELECTORS.title);
+      let company = getText(LINKEDIN_SELECTORS.company);
+      let location = getText(LINKEDIN_SELECTORS.location);
+      let description = getText(LINKEDIN_SELECTORS.description);
 
       const applicantText = getText(LINKEDIN_SELECTORS.applicants);
       const applicantMatch = applicantText.match(/(\d+)/);
+
+      // Content-based fallback extraction for new UI
+      // Search all <p> elements directly for the metadata line (location · time · applicants)
+      // Using div.querySelector('p') fails because large containers return wrong <p> first
+      if (!title || !company) {
+        const allPs = document.querySelectorAll('p');
+        for (const p of allPs) {
+          const rect = p.getBoundingClientRect();
+          if (rect.x < 500 || rect.width === 0) continue;
+          if (!/\bago\b/i.test(p.textContent) || !p.textContent.includes('·')) continue;
+
+          // Found the metadata <p> - its parent's siblings contain title and company
+          const parent = p.parentElement;
+          if (parent) {
+            const children = [...parent.children];
+            for (const child of children) {
+              if (child === p) continue;
+              const text = child.textContent?.trim() || '';
+              if (!text) continue;
+              // Company is typically shorter and may contain "LLC", "Inc", etc.
+              // Title is typically longer
+              if (!company && (text.length < 40 || /\b(LLC|Inc|Corp|Ltd|Co\.|Company|Group|Solutions)\b/i.test(text))) {
+                company = text;
+              } else if (!title && text.length > 5) {
+                title = text;
+              }
+            }
+          }
+          break;
+        }
+      }
+
+      // Fallback description from "About the job" section
+      if (!description) {
+        const aboutH2 = [...document.querySelectorAll('h2')].find(h =>
+          h.textContent.trim().startsWith('About the job')
+        );
+        if (aboutH2) {
+          const descContainer = aboutH2.nextElementSibling;
+          if (descContainer) {
+            description = descContainer.textContent?.trim()?.substring(0, 2000) || '';
+          }
+        }
+      }
 
       // Use enhanced posted date extraction
       const postedDate = extractPostedDate() || getText(LINKEDIN_SELECTORS.posted) || null;
@@ -2115,11 +2727,11 @@
         id: `linkedin_${id}`,
         platform: 'linkedin',
         url: window.location.href,
-        title: getText(LINKEDIN_SELECTORS.title),
-        company: getText(LINKEDIN_SELECTORS.company),
-        location: getText(LINKEDIN_SELECTORS.location),
+        title: title,
+        company: company,
+        location: location,
         postedDate: postedDate,
-        description: getText(LINKEDIN_SELECTORS.description),
+        description: description,
         applicantCount: applicantMatch ? parseInt(applicantMatch[1]) : undefined,
         isEasyApply: !!document.querySelector(LINKEDIN_SELECTORS.easyApply),
         isSponsored: !!document.querySelector(LINKEDIN_SELECTORS.promoted) ||
@@ -2200,16 +2812,42 @@
   }
 
   // ============================================
+  // BADGE REMOVAL HELPERS
+  // ============================================
+
+  function removeGhostScoreBadges() {
+    document.querySelector('.jobfiltr-ghost-score')?.remove();
+    document.getElementById('jobfiltr-floating-badge-container')?.remove();
+    document.querySelector('.jobfiltr-modal')?.remove();
+  }
+
+  function removeReportedCompanyDetailBadges() {
+    document.querySelector('.jobfiltr-reported-company-badge')?.remove();
+    document.querySelector('.jobfiltr-reported-modal')?.remove();
+  }
+
+  // ============================================
   // ANALYSIS HANDLERS
   // ============================================
 
   async function analyzeLinkedIn() {
     if (!config?.enabled) return;
 
-    // Check if ghost analysis is enabled in filter settings
+    // Check user settings for ghost analysis and community reported warnings
     const ghostSettings = await isGhostAnalysisEnabled();
+    console.log('[GhostDetection] Settings state:', ghostSettings);
+
+    // Remove badges for disabled features (even if analysis continues for the other feature)
     if (!ghostSettings.enabled) {
-      console.log('[GhostDetection] Ghost analysis disabled in filter settings, skipping');
+      removeGhostScoreBadges();
+    }
+    if (!ghostSettings.showCommunityWarnings) {
+      removeReportedCompanyDetailBadges();
+    }
+
+    // If both features are disabled, skip analysis entirely
+    if (!ghostSettings.enabled && !ghostSettings.showCommunityWarnings) {
+      console.log('[GhostDetection] Both features disabled, skipping analysis');
       return;
     }
 
@@ -2217,6 +2855,7 @@
     if (!job || job.id === currentJob?.id) return;
 
     currentJob = job;
+    lastAnalyzedJobId = job.id; // Mark this job as analyzed to prevent infinite retries
     console.log('[GhostDetection] Analyzing LinkedIn job:', job.title, '@', job.company, 'ID:', job.id);
 
     try {
@@ -2229,14 +2868,14 @@
 
       console.log(`[GhostDetection] Score: ${score.overall} (${score.category}) for job:`, job.id);
 
-      // Ghost analysis badge automatically shows when toggle is ON
-      if (config.showScores) {
+      // Ghost analysis badge - only show if enabled in settings
+      if (config.showScores && ghostSettings.enabled) {
         // FIX: Pass job ID to showDetails callback so clicking badge shows the correct job's score
         const jobId = job.id;
         injectScoreUI(score.overall, score.category, LINKEDIN_SELECTORS.scoreTargets, () => showDetails(jobId));
       }
 
-      // Community-reported warnings badge (controlled by separate checkbox)
+      // Community-reported warnings badge - only show if enabled in settings
       if (ghostSettings.showCommunityWarnings) {
         const reportResult = detectReportedCompany(job.company);
         if (reportResult.detected) {
@@ -2249,21 +2888,36 @@
     }
   }
 
-  async function analyzeIndeed() {
+  // Track retry attempts for Indeed jobs
+  let indeedRetryCount = 0;
+  const MAX_INDEED_RETRIES = 3;
+
+  async function analyzeIndeed(isRetry = false) {
     if (!config?.enabled) return;
 
-    // Check if ghost analysis is enabled in filter settings
+    // Check user settings for ghost analysis and community reported warnings
     const ghostSettings = await isGhostAnalysisEnabled();
+    console.log('[GhostDetection] Settings state:', ghostSettings);
+
+    // Remove badges for disabled features (even if analysis continues for the other feature)
     if (!ghostSettings.enabled) {
-      console.log('[GhostDetection] Ghost analysis disabled in filter settings, skipping');
+      removeGhostScoreBadges();
+    }
+    if (!ghostSettings.showCommunityWarnings) {
+      removeReportedCompanyDetailBadges();
+    }
+
+    // If both features are disabled, skip analysis entirely
+    if (!ghostSettings.enabled && !ghostSettings.showCommunityWarnings) {
+      console.log('[GhostDetection] Both features disabled, skipping analysis');
       return;
     }
 
     const job = extractIndeedJob();
-    if (!job || job.id === currentJob?.id) return;
+    if (!job || (!isRetry && job.id === currentJob?.id)) return;
 
     currentJob = job;
-    console.log('[GhostDetection] Analyzing Indeed job:', job.title, '@', job.company, 'ID:', job.id);
+    console.log('[GhostDetection] Analyzing Indeed job:', job.title, '@', job.company, 'ID:', job.id, isRetry ? '(retry)' : '');
 
     try {
       const score = await analyzeJob(job);
@@ -2275,14 +2929,26 @@
 
       console.log(`[GhostDetection] Score: ${score.overall} (${score.category}) for job:`, job.id);
 
-      // Ghost analysis badge automatically shows when toggle is ON
-      if (config.showScores) {
+      // Check if we got unknown posting age and should retry
+      const ageSignal = score.signals.find(s => s.id === 'posting_age');
+      const hasUnknownAge = ageSignal && ageSignal.value === -1;
+
+      if (hasUnknownAge && !isRetry && indeedRetryCount < MAX_INDEED_RETRIES) {
+        indeedRetryCount++;
+        console.log(`[GhostDetection] Unknown age, scheduling retry ${indeedRetryCount}/${MAX_INDEED_RETRIES} in 1.5s`);
+        setTimeout(() => analyzeIndeed(true), 1500);
+      } else if (isRetry) {
+        indeedRetryCount = 0; // Reset counter after successful retry or max retries
+      }
+
+      // Ghost analysis badge - only show if enabled in settings
+      if (config.showScores && ghostSettings.enabled) {
         // FIX: Pass job ID to showDetails callback so clicking badge shows the correct job's score
         const jobId = job.id;
         injectScoreUI(score.overall, score.category, INDEED_SELECTORS.scoreTargets, () => showDetails(jobId));
       }
 
-      // Community-reported warnings badge (controlled by separate checkbox)
+      // Community-reported warnings badge - only show if enabled in settings
       if (ghostSettings.showCommunityWarnings) {
         const reportResult = detectReportedCompany(job.company);
         if (reportResult.detected) {
@@ -2299,16 +2965,43 @@
   // OBSERVERS
   // ============================================
 
+  let ghostBadgeReinjectionTimer = null;
+  // Cache last ghost badge HTML for fast re-injection
+  let lastGhostBadgeHTML = null;
+  let lastGhostBadgeStyle = null;
+  let lastGhostBadgeClick = null;
+
   function startObserving() {
     if (observer) observer.disconnect();
 
     observer = new MutationObserver(() => {
       if (isLinkedIn()) {
         const urlMatch = window.location.href.match(/\/jobs\/view\/(\d+)/);
-        const jobId = urlMatch ? urlMatch[1] : null;
+        const currentJobIdParam = new URLSearchParams(window.location.search).get('currentJobId');
+        const jobId = urlMatch ? urlMatch[1] : currentJobIdParam;
         if (jobId && jobId !== currentJobId) {
           currentJobId = jobId;
+          lastGhostBadgeHTML = null; // Clear cache on job change
+          lastAnalyzedJobId = null; // Allow periodic retry for new job
           setTimeout(analyzeLinkedIn, 500);
+        } else if (jobId && jobId === currentJobId) {
+          // Badge persistence: fast re-inject from cache if badge removed by LinkedIn re-render
+          if (lastGhostBadgeHTML && !document.querySelector('.jobfiltr-ghost-score')) {
+            clearTimeout(ghostBadgeReinjectionTimer);
+            ghostBadgeReinjectionTimer = setTimeout(() => {
+              if (document.querySelector('.jobfiltr-ghost-score')) return;
+              const container = document.querySelector('.jobfiltr-linkedin-badges-container');
+              if (container) {
+                const badge = document.createElement('div');
+                badge.className = 'jobfiltr-ghost-score jobfiltr-ghost-badge-container';
+                badge.style.cssText = lastGhostBadgeStyle;
+                badge.innerHTML = lastGhostBadgeHTML;
+                if (lastGhostBadgeClick) badge.addEventListener('click', lastGhostBadgeClick);
+                container.insertBefore(badge, container.firstChild);
+                console.log('[GhostDetection] Fast re-injected ghost badge from cache');
+              }
+            }, 300);
+          }
         }
       } else if (isIndeed()) {
         const params = new URLSearchParams(window.location.search);
@@ -2322,6 +3015,49 @@
 
     observer.observe(document.body, { childList: true, subtree: true });
   }
+
+  // Track whether ghost analysis succeeded for the current job
+  let lastAnalyzedJobId = null;
+
+  // Periodic ghost badge persistence: retry analysis if first attempt failed
+  // LinkedIn's new async UI may not have rendered the detail panel when the
+  // initial analyzeLinkedIn() call runs (1s after page load). This interval
+  // retries until the ghost badge appears or analysis succeeds.
+  setInterval(() => {
+    if (!config?.enabled) return;
+    if (!isLinkedIn()) return;
+
+    const urlMatch = window.location.href.match(/\/jobs\/view\/(\d+)/);
+    const currentJobIdParam = new URLSearchParams(window.location.search).get('currentJobId');
+    const jobId = urlMatch ? urlMatch[1] : currentJobIdParam;
+    if (!jobId) return;
+
+    // If ghost badge already exists, nothing to do
+    if (document.querySelector('.jobfiltr-ghost-score')) return;
+
+    // If we have cached badge HTML, re-inject it
+    if (lastGhostBadgeHTML) {
+      const container = document.querySelector('.jobfiltr-linkedin-badges-container');
+      if (container && !document.querySelector('.jobfiltr-ghost-score')) {
+        const badge = document.createElement('div');
+        badge.className = 'jobfiltr-ghost-score jobfiltr-ghost-badge-container';
+        badge.style.cssText = lastGhostBadgeStyle;
+        badge.innerHTML = lastGhostBadgeHTML;
+        if (lastGhostBadgeClick) badge.addEventListener('click', lastGhostBadgeClick);
+        container.insertBefore(badge, container.firstChild);
+        console.log('[GhostDetection] Periodic re-injected ghost badge from cache');
+      }
+      return;
+    }
+
+    // No cached badge = analysis hasn't succeeded yet for this job. Retry.
+    if (jobId !== lastAnalyzedJobId) {
+      // Reset currentJob so analyzeLinkedIn doesn't skip with "same job" check
+      currentJob = null;
+      console.log('[GhostDetection] Periodic retry: no ghost badge, retrying analysis for', jobId);
+      analyzeLinkedIn();
+    }
+  }, 2000);
 
   // ============================================
   // INITIALIZATION
@@ -2351,7 +3087,13 @@
       startObserving();
     } else if (isIndeed()) {
       console.log('[GhostDetection] Indeed detected');
-      setTimeout(analyzeIndeed, 1000);
+      // Inject web accessible resource to extract mosaic age data
+      injectMosaicExtractor();
+      // Wait a bit for mosaic data to be extracted before analyzing
+      setTimeout(() => {
+        requestMosaicAges(); // Request fresh data before analysis
+        setTimeout(analyzeIndeed, 500); // Analyze after short delay for data to arrive
+      }, 500);
       startObserving();
     }
 
@@ -2392,6 +3134,11 @@
       }
 
       if (isLinkedIn() || isIndeed()) {
+        if (isIndeed()) {
+          // Request fresh mosaic data on SPA navigation
+          injectMosaicExtractor();
+          requestMosaicAges();
+        }
         setTimeout(() => {
           if (isLinkedIn()) analyzeLinkedIn();
           else if (isIndeed()) analyzeIndeed();
@@ -2399,5 +3146,46 @@
       }
     }
   }, 1000);
+
+  // ============================================
+  // LISTEN FOR APPLY_FILTERS FROM POPUP/CONTENT SCRIPT
+  // ============================================
+  // When the user toggles ghost analysis or community warnings and clicks Apply,
+  // immediately update badge visibility without waiting for a new job click.
+  if (isExtensionContextValid()) {
+    try {
+      chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.type === 'APPLY_FILTERS' && message.settings) {
+          const enableGhost = message.settings.enableGhostAnalysis !== false;
+          const showCommunity = message.settings.showCommunityReportedWarnings !== false;
+
+          console.log('[GhostDetection] APPLY_FILTERS received:', { enableGhost, showCommunity });
+
+          // Remove badges for disabled features
+          if (!enableGhost) {
+            removeGhostScoreBadges();
+          }
+          if (!showCommunity) {
+            removeReportedCompanyDetailBadges();
+          }
+
+          // If a feature was just turned ON, re-analyze the current job to show badges
+          if (enableGhost || showCommunity) {
+            // Reset currentJob so the analyze function doesn't skip it as a duplicate
+            currentJob = null;
+            currentJobId = null;
+            setTimeout(() => {
+              if (isLinkedIn()) analyzeLinkedIn();
+              else if (isIndeed()) analyzeIndeed();
+            }, 300);
+          }
+        }
+        // Don't block other listeners
+        return false;
+      });
+    } catch (e) {
+      console.error('[GhostDetection] Failed to add message listener:', e);
+    }
+  }
 
 })();

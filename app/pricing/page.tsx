@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useSubscription } from "@/hooks/use-subscription";
 import { cn } from "@/lib/utils";
 import { JobFiltrLogo } from "@/components/JobFiltrLogo";
+import { Footer } from "@/components/Footer";
 
 const PRICING_TIERS = [
   {
@@ -35,7 +36,7 @@ const PRICING_TIERS = [
   },
   {
     name: "Pro",
-    price: "$3.99",
+    price: "$7.99",
     priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID!,
     description: "Full protection for job seekers",
     icon: Crown,
@@ -277,6 +278,9 @@ export default function PricingPage() {
           </motion.div>
         </div>
       </div>
+
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }

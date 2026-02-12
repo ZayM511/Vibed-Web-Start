@@ -4,7 +4,9 @@ import { motion } from "framer-motion";
 import { HeaderNav } from "@/components/HeaderNav";
 import { JobFiltrHero } from "@/components/JobFiltrHero";
 import { SolutionShowcase } from "@/components/SolutionShowcase";
+import { FeaturesSection } from "@/components/FeaturesSection";
 import { ChromeExtensionSection } from "@/components/ChromeExtensionSection";
+import { Footer } from "@/components/Footer";
 import { cn } from "@/lib/utils";
 
 // Background shapes component from HeroGeometric
@@ -142,6 +144,9 @@ export default function Page() {
           {/* Solution Showcase with integrated AnimatedBottomCTA */}
           <SolutionShowcase />
 
+          {/* Features & Filters Section */}
+          <FeaturesSection />
+
           {/* Chrome Extension Section */}
           <ChromeExtensionSection id="extension" />
         </div>
@@ -149,6 +154,9 @@ export default function Page() {
         {/* Bottom gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/80 pointer-events-none" />
       </div>
+
+      {/* Footer */}
+      <Footer />
     </>
   );
 }

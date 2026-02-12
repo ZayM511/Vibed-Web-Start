@@ -1459,6 +1459,18 @@
                 Your Convex backend URL for AI-powered job analysis. Find this in your Convex dashboard.
               </p>
             </div>
+
+            <div class="form-group">
+              <label for="webAppUrl">Web App URL</label>
+              <input
+                type="url"
+                id="webAppUrl"
+                placeholder="http://localhost:3000"
+              />
+              <p class="help-text">
+                Base URL for the JobFiltr web app. Update this if your dev server runs on a different port.
+              </p>
+            </div>
           </div>
 
           <!-- Extension Behavior -->
@@ -1470,14 +1482,6 @@
               </svg>
               Behavior
             </h2>
-
-            <div class="toggle-group">
-              <div class="toggle-info">
-                <strong>Auto-Scan</strong>
-                <span>Automatically scan job postings when you visit them</span>
-              </div>
-              <div class="toggle-switch" id="autoScanToggle"></div>
-            </div>
 
             <div class="toggle-group">
               <div class="toggle-info">
@@ -1512,12 +1516,12 @@
 
             <div class="info-box">
               <strong>JobFiltr</strong><br>
-              AI-powered scam and ghost job detection for smarter job searching.
+              Your intelligent companion to take control of your job search. Focus on real opportunities that match your career goals.
               <br><br>
               <div class="info-box-links">
                 <div class="info-box-links-left">
-                  <a href="https://jobfiltr.com" target="_blank">Visit Website</a>
-                  <a href="https://jobfiltr.app/contact" target="_blank">Contact Us</a>
+                  <a href="#" id="visitWebsiteLink" target="_blank">Visit Website</a>
+                  <a href="#" id="contactUsLink" target="_blank">Contact Us</a>
                 </div>
                 <div class="version-badge">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none">

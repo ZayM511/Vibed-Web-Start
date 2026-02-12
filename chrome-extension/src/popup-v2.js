@@ -31,6 +31,86 @@ initTheme();
 // Theme toggle button
 document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
 
+// ===== LOGO STATE MANAGEMENT =====
+const LogoStateManager = {
+  states: {
+    DEFAULT: 'default',   // Theme-aware main logo (idle state)
+    VERIFIED: 'verified', // Scan result: good
+    WARNING: 'warning',   // Scan result: caution
+    DANGER: 'danger',     // Scan result: bad
+    SCANNER: 'scanner'    // Scanning in progress
+  },
+
+  currentState: 'default',
+
+  // Set logo state with smooth transition
+  setState(state) {
+    const logoIcon = document.getElementById('logoIcon');
+    if (!logoIcon) {
+      console.warn('[Logo] Logo icon element not found');
+      return;
+    }
+
+    if (this.currentState === state) return;
+
+    this.currentState = state;
+    logoIcon.setAttribute('data-state', state);
+
+    console.log('[Logo] State changed to:', state);
+  },
+
+  // Determine state from scan result
+  getStateFromScanResult(result) {
+    if (!result) return this.states.VERIFIED;
+
+    const score = result.legitimacyScore || 100;
+    const category = result.primaryCategory || 'safe';
+
+    // Danger: Ghost score under 55% or likely scam
+    if (score < 55 || category === 'scam') {
+      return this.states.DANGER;
+    }
+
+    // Warning: Community reports, yellow ghost scores, spam, suspicious
+    if (score < 70 || category === 'suspicious' || category === 'spam' || category === 'mixed') {
+      return this.states.WARNING;
+    }
+
+    // Verified: Good standing
+    return this.states.VERIFIED;
+  },
+
+  // Start scanning animation
+  startScanning() {
+    this.setState(this.states.SCANNER);
+  },
+
+  // Stop scanning and show result state, then revert to default
+  stopScanning(scanResult) {
+    const newState = this.getStateFromScanResult(scanResult);
+    this.setState(newState);
+
+    // Clear any existing reset timer
+    if (this._resetTimer) {
+      clearTimeout(this._resetTimer);
+    }
+
+    // Revert to default icon after showing result briefly
+    this._resetTimer = setTimeout(() => {
+      this.reset();
+      this._resetTimer = null;
+    }, 3000);
+  },
+
+  // Reset to default theme-aware state
+  reset() {
+    this.setState(this.states.DEFAULT);
+  }
+};
+
+// Export for use in other contexts
+window.LogoStateManager = LogoStateManager;
+
 // ===== TOAST NOTIFICATIONS =====
 function showToast({ type = 'info', title, message, duration = 5000 }) {
   // Create toast container if it doesn't exist
@@ -174,6 +254,87 @@ function showAuthenticatedUI(showAnimation = false) {
   } else {
     hideAuthOverlay();
   }
+
+  // Fetch and display subscription status
+  fetchAndUpdateSubscriptionBadge();
+}
+
+// ===== SUBSCRIPTION BADGE =====
+const CONVEX_URL = 'https://reminiscent-goldfish-690.convex.cloud';
+
+async function fetchSubscriptionStatus() {
+  try {
+    const { authToken, userEmail } = await chrome.storage.local.get(['authToken', 'userEmail']);
+
+    if (!authToken || !userEmail) return null;
+
+    // Query the Convex subscription status with authentication
+    const response = await fetch(`${CONVEX_URL}/api/query`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        path: 'subscriptions:getSubscriptionStatus',
+        args: {}
+      })
+    });
+
+    if (!response.ok) {
+      console.warn('JobFiltr: Could not fetch subscription status');
+      return null;
+    }
+
+    const result = await response.json();
+    return result.value;
+  } catch (error) {
+    console.error('JobFiltr: Error fetching subscription status:', error);
+    return null;
+  }
+}
+
+function updateSubscriptionBadge(subscriptionStatus) {
+  const container = document.getElementById('subscriptionBadgeContainer');
+  const badge = document.getElementById('subscriptionBadge');
+  const badgeText = document.getElementById('subscriptionText');
+  const upgradeBtn = document.getElementById('upgradeBtn');
+  const headerBadge = document.getElementById('headerPlanBadge');
+
+  const isPro = subscriptionStatus?.plan === 'pro' && subscriptionStatus?.isActive;
+
+  // Update dropdown badge
+  if (container && badge && badgeText) {
+    if (isPro) {
+      badge.classList.remove('free');
+      badge.classList.add('pro');
+      badgeText.textContent = 'Pro Member';
+      container.classList.add('pro');
+    } else {
+      badge.classList.remove('pro');
+      badge.classList.add('free');
+      badgeText.textContent = 'Free Plan';
+      container.classList.remove('pro');
+    }
+  }
+
+  // Update header badge (next to title)
+  if (headerBadge) {
+    if (isPro) {
+      headerBadge.classList.remove('free');
+      headerBadge.classList.add('pro');
+      headerBadge.textContent = 'Pro';
+    } else {
+      headerBadge.classList.remove('pro');
+      headerBadge.classList.add('free');
+      headerBadge.textContent = 'Free';
+    }
+  }
+}
+
+async function fetchAndUpdateSubscriptionBadge() {
+  const subscriptionStatus = await fetchSubscriptionStatus();
+  updateSubscriptionBadge(subscriptionStatus);
 }
 
 // Show success animation overlay
@@ -1383,7 +1544,6 @@ async function loadFilterSettings() {
     const showCommunityReportedWarnings = filterSettings.showCommunityReportedWarnings !== false; // Default true
     document.getElementById('enableGhostAnalysis').checked = enableGhostAnalysis;
     document.getElementById('showCommunityReportedWarnings').checked = showCommunityReportedWarnings;
-    updateGhostSettingsState(enableGhostAnalysis);
 
     // Load keywords and companies
     includeKeywords = filterSettings.includeKeywords || [];
@@ -1454,7 +1614,6 @@ async function resetFiltersToDefault() {
   // Ghost Job Analysis Settings (reset to enabled by default)
   document.getElementById('enableGhostAnalysis').checked = true;
   document.getElementById('showCommunityReportedWarnings').checked = true;
-  updateGhostSettingsState(true);
 
   // Clear keywords
   includeKeywords = [];
@@ -1774,18 +1933,11 @@ document.getElementById('filterSponsored')?.addEventListener('change', (e) => {
 });
 
 // Ghost Job Analysis settings toggle
-function updateGhostSettingsState(enabled) {
-  const optionsSection = document.getElementById('ghostSettingsOptions');
-  if (optionsSection) {
-    optionsSection.classList.toggle('disabled', !enabled);
-  }
-}
-
-document.getElementById('enableGhostAnalysis')?.addEventListener('change', (e) => {
-  updateGhostSettingsState(e.target.checked);
+document.getElementById('enableGhostAnalysis')?.addEventListener('change', () => {
   saveFilterSettings();
 });
 
+// Community Reported Warnings toggle
 document.getElementById('showCommunityReportedWarnings')?.addEventListener('change', () => {
   saveFilterSettings();
 });
@@ -2374,6 +2526,42 @@ async function deleteTemplate(id) {
   renderTemplates();
 }
 
+async function updateTemplate(id) {
+  const template = templates.find(t => t.id === id);
+  if (template) {
+    // Capture current filter settings
+    const settings = getCurrentFilterSettings();
+
+    // Update template with new settings (keep name, createdAt, favorite status)
+    template.settings = settings;
+    template.filterCount = countActiveFilters(settings);
+    template.updatedAt = Date.now();
+
+    await saveTemplates();
+    renderTemplates();
+
+    // Visual feedback
+    showTemplateFeedback('Updated!');
+  }
+}
+
+function showTemplateFeedback(message) {
+  const saveBtn = document.getElementById('saveTemplateBtn');
+  const originalHTML = saveBtn.innerHTML;
+  saveBtn.innerHTML = `
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 12l5 5L20 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    ${message}
+  `;
+  saveBtn.style.background = 'var(--success)';
+
+  setTimeout(() => {
+    saveBtn.innerHTML = originalHTML;
+    saveBtn.style.background = '';
+  }, 1500);
+}
+
 async function toggleFavorite(id) {
   const template = templates.find(t => t.id === id);
   if (template) {
@@ -2396,20 +2584,7 @@ async function loadTemplate(id) {
     renderTemplates(); // Re-render to show active state
 
     // Show feedback
-    const saveBtn = document.getElementById('saveTemplateBtn');
-    const originalHTML = saveBtn.innerHTML;
-    saveBtn.innerHTML = `
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M5 12l5 5L20 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      Loaded!
-    `;
-    saveBtn.style.background = 'var(--success)';
-
-    setTimeout(() => {
-      saveBtn.innerHTML = originalHTML;
-      saveBtn.style.background = '';
-    }, 1500);
+    showTemplateFeedback('Loaded!');
   }
 }
 
@@ -2485,6 +2660,12 @@ function renderTemplates() {
             <path d="M5 12l5 5L20 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
+        <button class="btn-update-template" title="Update with current filters" data-id="${template.id}">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M17 21v-8H7v8M7 3v5h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
         <button class="btn-delete-template" title="Delete template" data-id="${template.id}">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -2510,6 +2691,12 @@ function renderTemplates() {
     item.querySelector('.btn-load-template').addEventListener('click', (e) => {
       e.stopPropagation();
       loadTemplate(template.id);
+    });
+
+    // Update button handler
+    item.querySelector('.btn-update-template').addEventListener('click', (e) => {
+      e.stopPropagation();
+      updateTemplate(template.id);
     });
 
     // Delete button handler
@@ -3034,6 +3221,9 @@ document.getElementById('scanButton').addEventListener('click', async () => {
     return;
   }
 
+  // Start scanner animation on logo
+  LogoStateManager.startScanning();
+
   // Show loading state
   document.querySelector('.scan-results').classList.add('hidden');
   document.querySelector('.loading-section').classList.remove('hidden');
@@ -3058,6 +3248,9 @@ document.getElementById('scanButton').addEventListener('click', async () => {
     document.querySelector('.loading-section').classList.add('hidden');
     document.querySelector('.scan-results').classList.remove('hidden');
 
+    // Update logo to show result state (verified/warning/danger)
+    LogoStateManager.stopScanning(scanResult);
+
     // Display the scan results
     displayScanResults(scanResult);
 
@@ -3079,6 +3272,8 @@ document.getElementById('scanButton').addEventListener('click', async () => {
       await new Promise(resolve => setTimeout(resolve, MIN_SCAN_TIME - elapsedTime));
     }
     document.querySelector('.loading-section').classList.add('hidden');
+    // Reset logo to verified state on error
+    LogoStateManager.reset();
     alert('Error scanning job. Please try again.');
   }
 });
@@ -4074,8 +4269,23 @@ document.getElementById('openSettings').addEventListener('click', () => {
   chrome.runtime.openOptionsPage();
 });
 
+document.getElementById('openContact').addEventListener('click', () => {
+  chrome.tabs.create({ url: 'http://localhost:3004/contact' });
+});
+
+document.getElementById('openPrivacy').addEventListener('click', () => {
+  chrome.tabs.create({ url: 'http://localhost:3004/privacy' });
+});
+
 document.getElementById('openWebApp').addEventListener('click', () => {
-  chrome.tabs.create({ url: 'https://jobfiltr.com/dashboard' });
+  chrome.tabs.create({ url: 'http://localhost:3004/dashboard' });
+});
+
+// Upgrade to Pro button - navigates to dashboard subscription section
+document.getElementById('upgradeBtn')?.addEventListener('click', () => {
+  chrome.tabs.create({ url: 'http://localhost:3004/dashboard#subscription' });
+  // Close the user dropdown
+  document.getElementById('userDropdown')?.classList.add('hidden');
 });
 
 // ===== RESPONSIVE SIZING =====

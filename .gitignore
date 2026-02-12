@@ -40,9 +40,43 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Ignored for the template, you probably want to remove it:
-package-lock.json
+# package-lock.json is committed for deterministic Vercel builds
 
 # clerk configuration (can include secrets)
 /.clerk/
 nul
+
+# Chrome extension debug profiles
+chrome-extension/.chrome-debug-profile/
+chrome-extension/.chrome-debug-profile-backup/
+
+# Test screenshots and output files (can be large)
+test-screenshots/
+TEST_RESULTS.json
+TEST_RESULTS_SUMMARY.md
+test-output.log
+
+# Test and debug scripts
+test-*.js
+run-automated-tests.js
+launch-chrome-debug.js
+launch-test-browser.js
+temp-search.js
+snapshot*.txt
+
+# Chrome extension test/debug files
+chrome-extension/.test-profile/
+chrome-extension/test-inject.js
+chrome-extension/tools/
+chrome-extension/HOW_TO_TEST.md
+chrome-extension/MANUAL_TEST_CHECKLIST.md
+chrome-extension/TESTING_GUIDE_8_ISSUES.md
+
+# Dev notes
+BROWSER_OPEN_NEXT_STEPS.md
+
+# MCP server lock files (internal tooling)
+.claude/mcp-servers/*/package-lock.json
+.claude/skills/*/package-lock.json
+mcp-server/package-lock.json
+jobfiltr/package-lock.json

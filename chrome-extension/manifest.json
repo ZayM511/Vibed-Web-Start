@@ -74,6 +74,10 @@
     {
       "resources": ["src/linkedin-api-interceptor.js"],
       "matches": ["https://*.linkedin.com/*"]
+    },
+    {
+      "resources": ["src/indeed-mosaic-extractor.js"],
+      "matches": ["https://*.indeed.com/*"]
     }
   ],
   "content_security_policy": {
