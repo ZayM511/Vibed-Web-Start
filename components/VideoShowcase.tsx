@@ -37,22 +37,46 @@ const videos = [
 
 export function VideoShowcase() {
   const [current, setCurrent] = useState(0);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  const [isVisible, setIsVisible] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const paginate = useCallback((dir: number) => {
     setCurrent((prev) => (prev + dir + videos.length) % videos.length);
   }, []);
 
-  // When the current video changes, load and play the new one
+  // Lazy load: only start loading videos when section scrolls into view
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.load();
-    video.play().catch(() => {});
-  }, [current]);
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Play current video, pause others
+  useEffect(() => {
+    if (!isVisible) return;
+    videoRefs.current.forEach((video, i) => {
+      if (!video) return;
+      if (i === current) {
+        video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
+    });
+  }, [current, isVisible]);
 
   return (
-    <div className="mt-20 mb-8">
+    <div className="mt-20 mb-8" ref={containerRef}>
       <h3 className="text-2xl md:text-3xl font-bold text-center mb-4">
         <span className="text-white">See It In Action</span>
       </h3>
@@ -78,28 +102,25 @@ export function VideoShowcase() {
             </div>
           </div>
 
-          {/* Video container */}
+          {/* Video container - all videos rendered, only current visible */}
           <div className="relative overflow-hidden rounded-b-xl bg-black">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={current}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
+            {isVisible && videos.map((v, i) => (
+              <div
+                key={i}
+                className={i === current ? "block" : "hidden"}
               >
                 <video
-                  ref={videoRef}
+                  ref={(el) => { videoRefs.current[i] = el; }}
                   className="w-full block"
                   loop
                   muted
                   playsInline
-                  autoPlay
+                  preload={i === 0 ? "auto" : "metadata"}
                 >
-                  <source src={videos[current].src} type="video/mp4" />
+                  <source src={v.src} type="video/mp4" />
                 </video>
-              </motion.div>
-            </AnimatePresence>
+              </div>
+            ))}
           </div>
         </div>
 
