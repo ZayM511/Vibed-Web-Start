@@ -4882,6 +4882,19 @@ function performFullScan() {
       if (recruitBadge) recruitBadge.remove();
     }
 
+    // Filter 10: Community-Reported Companies (highlight with orange)
+    // Shows orange outline for companies reported for spam/ghost jobs
+    if (filterSettings.showCommunityReportedWarnings !== false) {
+      const reportResult = checkReportedCompanyFromCard(jobCard);
+      if (reportResult) {
+        applyReportedCompanyHighlight(jobCard, reportResult);
+      } else {
+        removeReportedCompanyStyling(jobCard);
+      }
+    } else {
+      removeReportedCompanyStyling(jobCard);
+    }
+
     // Apply hiding
     if (shouldHide) {
       if (jobCard.style.display !== 'none') {

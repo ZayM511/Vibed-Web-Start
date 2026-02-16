@@ -2954,10 +2954,39 @@
         if (reportResult.detected) {
           console.log(`[GhostDetection] Community-reported company detected: ${reportResult.company?.name}`);
           injectReportedCompanyBadge(reportResult);
+          // Also highlight the corresponding job card in the left panel as backup
+          // (content script's applyFilters may miss cards due to timing/DOM changes)
+          highlightReportedJobCard(job.id);
         }
       }
     } catch (e) {
       console.error('[GhostDetection] Indeed analysis error:', e);
+    }
+  }
+
+  /**
+   * Highlight the job card in the left panel for a community-reported company.
+   * Backup for content script's applyFilters which may miss cards due to timing.
+   * @param {string} jobId - The Indeed job key (vjk/jk)
+   */
+  function highlightReportedJobCard(jobId) {
+    if (!jobId || !isIndeed()) return;
+    try {
+      // Find the card link by data-jk attribute, then navigate up to job_seen_beacon
+      const link = document.querySelector(`a[data-jk="${jobId}"]`);
+      if (!link) return;
+      const jobCard = link.closest('.job_seen_beacon') || link.closest('.cardOutline') || link.closest('li');
+      if (!jobCard) return;
+      if (jobCard.classList.contains('jobfiltr-reported-company')) return; // Already highlighted
+      jobCard.classList.add('jobfiltr-reported-company');
+      jobCard.style.border = '2px solid #f97316';
+      jobCard.style.borderRadius = '8px';
+      jobCard.style.backgroundColor = 'rgba(249, 115, 22, 0.06)';
+      jobCard.style.boxShadow = '0 0 0 1px rgba(249, 115, 22, 0.3)';
+      jobCard.style.transition = 'all 0.2s ease';
+      console.log(`[GhostDetection] Highlighted job card for reported company, jobId: ${jobId}`);
+    } catch (e) {
+      // Silently fail - card highlighting is a backup mechanism
     }
   }
 
