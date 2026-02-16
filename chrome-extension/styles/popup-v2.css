@@ -5014,7 +5014,7 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 }
 
 .filter-item.platform-unavailable::after {
-  content: 'Not available on this platform';
+  content: 'Indeed extra feature';
   position: absolute;
   top: 50%;
   left: 50%;

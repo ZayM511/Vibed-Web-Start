@@ -1221,8 +1221,8 @@ async function detectCurrentSite() {
       applyBtn.disabled = true;
     }
 
-    // Issue #6 Fix: Auto-dim Salary Range and Early Applicant sections on LinkedIn
-    // LinkedIn doesn't provide salary data, early applicant indicators, or applied job tracking reliably
+    // Dim Indeed-extra filters on LinkedIn (salary, early applicant, applied jobs)
+    // These filters use data unique to Indeed's platform
     const salaryFilter = document.querySelector('.filter-item.expandable:has(#filterSalary)');
     const earlyApplicantFilter = document.getElementById('earlyApplicantFilter');
     const appliedJobsFilter = document.querySelector('.filter-item:has(#filterApplied)');
@@ -1232,7 +1232,7 @@ async function detectCurrentSite() {
       if (salaryFilter) {
         salaryFilter.style.opacity = '0.5';
         salaryFilter.style.pointerEvents = 'none';
-        salaryFilter.title = 'Not available on LinkedIn - Salary data is not consistently provided';
+        salaryFilter.title = 'Indeed extra \u2014 This filter uses salary data unique to Indeed\'s platform';
         const salaryCheckbox = document.getElementById('filterSalary');
         if (salaryCheckbox) {
           salaryCheckbox.checked = false;
@@ -1244,7 +1244,7 @@ async function detectCurrentSite() {
       if (earlyApplicantFilter) {
         earlyApplicantFilter.style.opacity = '0.5';
         earlyApplicantFilter.style.pointerEvents = 'none';
-        earlyApplicantFilter.title = 'Not available on LinkedIn - Early applicant data is not consistently provided';
+        earlyApplicantFilter.title = 'Indeed extra \u2014 This filter uses early applicant data unique to Indeed\'s platform';
         const earlyApplicantCheckbox = document.getElementById('filterEarlyApplicant');
         if (earlyApplicantCheckbox) {
           earlyApplicantCheckbox.checked = false;
@@ -1256,7 +1256,7 @@ async function detectCurrentSite() {
       if (appliedJobsFilter) {
         appliedJobsFilter.style.opacity = '0.5';
         appliedJobsFilter.style.pointerEvents = 'none';
-        appliedJobsFilter.title = 'Not available on LinkedIn - Applied job status is not consistently provided';
+        appliedJobsFilter.title = 'Indeed extra \u2014 This filter uses applied job data unique to Indeed\'s platform';
         const appliedCheckbox = document.getElementById('filterApplied');
         if (appliedCheckbox) {
           appliedCheckbox.checked = false;

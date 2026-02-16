@@ -230,17 +230,17 @@ export function FeaturesSection() {
                     })}
                   </div>
 
-                  {/* Indeed-only footnote */}
+                  {/* Indeed extra footnote */}
                   <div className="mt-4 pt-3 border-t border-white/5">
                     <button
                       onClick={() => setShowIndeedOnlyDialog(true)}
-                      className="text-xs text-white/40 hover:text-cyan-400 transition-colors flex items-center gap-1.5 cursor-pointer"
+                      className="text-xs text-white/50 hover:text-cyan-400 transition-colors flex items-center gap-1.5 cursor-pointer"
                     >
                       <span className="text-cyan-400/70">*</span>
-                      <span>Indeed only</span>
+                      <span>Indeed extra</span>
                       <span className="text-white/20">&mdash;</span>
                       <span className="underline underline-offset-2 decoration-white/30">
-                        Learn why
+                        Learn more
                       </span>
                     </button>
                   </div>
@@ -366,50 +366,45 @@ export function FeaturesSection() {
           </motion.div>
         </div>
       </div>
-      {/* Indeed-Only Explanation Dialog */}
+      {/* Indeed Extra Features Dialog */}
       <Dialog open={showIndeedOnlyDialog} onOpenChange={setShowIndeedOnlyDialog}>
-        <DialogContent className="bg-[#0c0c1a] border-white/10 max-w-lg">
+        <DialogContent className="bg-gradient-to-br from-[#0f0f23] to-[#0c0c1a] border-white/10 backdrop-blur-xl max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-white flex items-center gap-2.5">
               <Info className="h-5 w-5 text-cyan-400 flex-shrink-0" />
-              Why Some Filters Are Indeed-Only
+              Indeed Extra Features
             </DialogTitle>
             <DialogDescription className="text-white/50 text-sm">
-              Platform differences affect feature availability
+              Bonus filters powered by Indeed&apos;s open platform
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5 text-sm leading-relaxed mt-1">
-            {/* LinkedIn's limitations */}
-            <div className="space-y-2">
-              <h4 className="text-white font-semibold flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-amber-400 flex-shrink-0" />
-                LinkedIn&apos;s Technical Barriers
-              </h4>
-              <p className="text-white/60">
-                LinkedIn aggressively restricts third-party browser extensions.
-                Their platform frequently changes its underlying page structure,
-                uses virtualized rendering that hides job data, and actively
-                detects and blocks extension interactions.
-              </p>
-              <p className="text-white/60">
-                This makes certain filters&mdash;like detecting early applicant
-                status, salary ranges, applied jobs, and hiring urgency&mdash;unreliable
-                or impossible to implement on LinkedIn.
-              </p>
-            </div>
-
-            {/* Why Indeed works */}
+            {/* Why Indeed enables more — lead with the positive */}
             <div className="space-y-2">
               <h4 className="text-white font-semibold flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-emerald-400 flex-shrink-0" />
-                Why Indeed Works Better
+                Why Indeed Enables More
               </h4>
               <p className="text-white/60">
-                Indeed maintains a stable, consistent page structure and
-                doesn&apos;t actively block browser extensions. This allows
-                JobFiltr to reliably read job metadata and provide these
-                advanced filtering features.
+                Indeed&apos;s stable, extension-friendly platform gives JobFiltr
+                access to rich job metadata that powers these bonus filters&mdash;including
+                early applicant detection, salary range filtering, applied job
+                tracking, and hiring urgency indicators.
+              </p>
+            </div>
+
+            {/* LinkedIn context — brief, not the focus */}
+            <div className="space-y-2">
+              <h4 className="text-white font-semibold flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-400 flex-shrink-0" />
+                LinkedIn Limitations
+              </h4>
+              <p className="text-white/60">
+                LinkedIn frequently changes its page structure and restricts
+                third-party extensions, which makes these specific data points
+                unreliable to access. JobFiltr still provides a full suite of
+                filters on LinkedIn&mdash;just without these Indeed-specific extras.
               </p>
             </div>
 
