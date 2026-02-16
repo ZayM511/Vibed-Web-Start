@@ -337,7 +337,9 @@ export default defineSchema({
     email: v.string(),
     name: v.optional(v.string()),
     location: v.optional(v.string()), // Location field (optional for backwards compatibility)
-    source: v.optional(v.string()), // Where they signed up from
+    source: v.optional(v.string()), // Where they signed up from (utm_source or default)
+    utmMedium: v.optional(v.string()), // UTM medium: "post", "ad", "bio_link", etc.
+    utmCampaign: v.optional(v.string()), // UTM campaign: "launch_feb2026", etc.
     status: v.union(
       v.literal("pending"),
       v.literal("confirmed"),

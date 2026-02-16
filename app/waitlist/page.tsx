@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   CheckCircle2,
@@ -16,7 +17,12 @@ import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { HeaderNav } from "@/components/HeaderNav";
 
-export default function WaitlistPage() {
+function WaitlistPageContent() {
+  const searchParams = useSearchParams();
+  const utmSource = searchParams.get("utm_source");
+  const utmMedium = searchParams.get("utm_medium");
+  const utmCampaign = searchParams.get("utm_campaign");
+
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
@@ -38,6 +44,8 @@ export default function WaitlistPage() {
 
   const isFormValid = email.trim() !== "" && isValidEmail(email) && name.trim() !== "" && location.trim() !== "";
 
+  const source = utmSource || "waitlist_page";
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid) return;
@@ -50,7 +58,9 @@ export default function WaitlistPage() {
         email: email.trim(),
         name: name.trim() || undefined,
         location: location.trim(),
-        source: "waitlist_page",
+        source,
+        utmMedium: utmMedium || undefined,
+        utmCampaign: utmCampaign || undefined,
       });
 
       if (!result.success && result.error === "already_exists") {
@@ -78,7 +88,7 @@ export default function WaitlistPage() {
           name: name.trim() || undefined,
           location: location.trim(),
           totalCount: (waitlistCount || 0) + 1,
-          source: "waitlist_page",
+          source,
         });
       } catch (adminEmailError) {
         console.error("Failed to send admin notification:", adminEmailError);
@@ -346,5 +356,13 @@ export default function WaitlistPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function WaitlistPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <WaitlistPageContent />
+    </Suspense>
   );
 }

@@ -29,6 +29,8 @@ export const joinWaitlist = mutation({
     name: v.optional(v.string()),
     location: v.string(),
     source: v.optional(v.string()),
+    utmMedium: v.optional(v.string()),
+    utmCampaign: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const normalizedEmail = args.email.toLowerCase().trim();
@@ -48,6 +50,8 @@ export const joinWaitlist = mutation({
       name: args.name?.trim(),
       location: args.location.trim(),
       source: args.source || "homepage",
+      utmMedium: args.utmMedium?.trim() || undefined,
+      utmCampaign: args.utmCampaign?.trim() || undefined,
       status: "pending",
       emailConfirmed: false,
       createdAt: Date.now(),
@@ -188,6 +192,30 @@ export const getWaitlistAnalytics = query({
       .map(([source, count]) => ({ source, count }))
       .sort((a, b) => b.count - a.count);
 
+    // Group by UTM medium
+    const mediumMap: Record<string, number> = {};
+    for (const entry of all) {
+      const medium = (entry as any).utmMedium?.trim();
+      if (medium) {
+        mediumMap[medium] = (mediumMap[medium] || 0) + 1;
+      }
+    }
+    const byMedium = Object.entries(mediumMap)
+      .map(([medium, count]) => ({ medium, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // Group by UTM campaign
+    const campaignMap: Record<string, number> = {};
+    for (const entry of all) {
+      const campaign = (entry as any).utmCampaign?.trim();
+      if (campaign) {
+        campaignMap[campaign] = (campaignMap[campaign] || 0) + 1;
+      }
+    }
+    const byCampaign = Object.entries(campaignMap)
+      .map(([campaign, count]) => ({ campaign, count }))
+      .sort((a, b) => b.count - a.count);
+
     // Daily signups for last 30 days
     const dailyMap: Record<string, number> = {};
     for (let i = 29; i >= 0; i--) {
@@ -215,6 +243,8 @@ export const getWaitlistAnalytics = query({
       byStatus,
       byLocation,
       bySource,
+      byMedium,
+      byCampaign,
       dailySignups,
     };
   },
