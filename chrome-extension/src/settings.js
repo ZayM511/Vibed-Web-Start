@@ -10,6 +10,7 @@ const DEFAULT_WEB_APP_URL = 'https://jobfiltr.app';
 // Founder emails that can see analytics dashboard
 const FOUNDER_EMAILS = [
   'isaiah.e.malone@gmail.com',
+  'zaydozier17@gmail.com',
   'support@jobfiltr.app',
   'hello@jobfiltr.app'
 ];
@@ -1177,12 +1178,127 @@ async function enableFounderMode() {
   await loadRecentGreetings();
   updateGreeting();
   loadAnalytics();
+  // Show and initialize founder tier toggle
+  initFounderTierToggle();
   // Match analytics panel height to settings panel after a short delay
   setTimeout(matchPanelHeights, 100);
 }
 
 function disableFounderMode() {
   document.body.classList.remove('founder-mode');
+  // Hide tier toggle
+  const tierToggle = document.getElementById('founderTierToggle');
+  if (tierToggle) tierToggle.classList.add('hidden');
+}
+
+// ===== FOUNDER TIER TOGGLE =====
+async function initFounderTierToggle() {
+  const tierToggle = document.getElementById('founderTierToggle');
+  const tierToggleBtn = document.getElementById('tierToggleBtn');
+  const tierOptFree = document.getElementById('tierOptFree');
+  const tierOptPro = document.getElementById('tierOptPro');
+  const tierRefreshBtn = document.getElementById('tierRefreshBtn');
+
+  if (!tierToggle || !tierToggleBtn) return;
+
+  // Show the toggle
+  tierToggle.classList.remove('hidden');
+
+  // Fetch current tier override from Convex
+  try {
+    const { authToken } = await chrome.storage.local.get(['authToken']);
+    if (!authToken) return;
+
+    const convexUrl = await getConvexUrl();
+    const response = await fetch(`${convexUrl}/api/query`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        path: 'subscriptions:getFounderSettings',
+        args: {}
+      })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      const settings = result.value;
+      if (settings && settings.isFounder) {
+        const currentTier = settings.tierOverride || 'pro';
+        updateTierToggleUI(currentTier, tierOptFree, tierOptPro);
+      }
+    }
+  } catch (error) {
+    console.error('[Settings] Error fetching founder tier:', error);
+  }
+
+  // Toggle click handler
+  tierToggleBtn.addEventListener('click', async () => {
+    const isCurrentlyPro = tierOptPro.classList.contains('active');
+    const newTier = isCurrentlyPro ? 'free' : 'pro';
+
+    try {
+      const { authToken } = await chrome.storage.local.get(['authToken']);
+      if (!authToken) return;
+
+      const convexUrl = await getConvexUrl();
+      const response = await fetch(`${convexUrl}/api/mutation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          path: 'subscriptions:setFounderTierOverride',
+          args: { tierOverride: newTier }
+        })
+      });
+
+      if (response.ok) {
+        updateTierToggleUI(newTier, tierOptFree, tierOptPro);
+        // Update cached subscription status so extension picks up the change
+        const subResponse = await fetch(`${convexUrl}/api/query`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            path: 'subscriptions:getSubscriptionStatus',
+            args: {}
+          })
+        });
+        if (subResponse.ok) {
+          const subResult = await subResponse.json();
+          await chrome.storage.local.set({ cachedSubscriptionStatus: subResult.value });
+        }
+      }
+    } catch (error) {
+      console.error('[Settings] Error setting tier override:', error);
+    }
+  });
+
+  // Refresh button
+  if (tierRefreshBtn) {
+    tierRefreshBtn.addEventListener('click', () => {
+      tierRefreshBtn.classList.add('spinning');
+      setTimeout(() => {
+        window.location.reload();
+      }, 300);
+    });
+  }
+}
+
+function updateTierToggleUI(tier, freeEl, proEl) {
+  if (tier === 'free') {
+    freeEl.classList.add('active');
+    proEl.classList.remove('active');
+  } else {
+    proEl.classList.add('active');
+    freeEl.classList.remove('active');
+  }
 }
 
 // ===== PANEL HEIGHT SYNC =====

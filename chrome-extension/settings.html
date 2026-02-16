@@ -970,6 +970,123 @@
       font-size: 13px;
     }
 
+    /* Founder Tier Toggle */
+    .founder-tier-toggle {
+      display: none;
+      margin: 12px 16px 0;
+    }
+
+    body.founder-mode .founder-tier-toggle:not(.hidden) {
+      display: block;
+    }
+
+    .tier-toggle-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.08) 0%, rgba(255, 165, 0, 0.05) 100%);
+      border: 2px solid rgba(255, 215, 0, 0.3);
+      border-radius: 14px;
+    }
+
+    .tier-toggle-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .tier-toggle-icon {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 215, 0, 0.1);
+      border-radius: 10px;
+      color: #F59E0B;
+      flex-shrink: 0;
+    }
+
+    .tier-toggle-text strong {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .tier-toggle-text span {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .tier-toggle-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tier-toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 3px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tier-toggle-btn:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .tier-option {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 14px;
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      transition: all 0.2s ease;
+    }
+
+    .tier-option.active.tier-free {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .tier-option.active.tier-pro {
+      background: linear-gradient(135deg, #F59E0B 0%, #EAB308 100%);
+      color: #000;
+    }
+
+    .tier-refresh-btn {
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tier-refresh-btn:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .tier-refresh-btn.spinning svg {
+      animation: spin 0.6s linear infinite;
+    }
+
     .not-signed-in-message {
       padding: 20px;
       background: var(--warning-bg);
@@ -1372,6 +1489,45 @@
           <p id="greetingSubtext">Your dashboard is ready with live analytics.</p>
         </div>
         <div class="greeting-icon" id="greetingIcon">👋</div>
+      </div>
+    </div>
+
+    <!-- Founder Tier Toggle (only visible in founder mode) -->
+    <div class="founder-tier-toggle hidden" id="founderTierToggle">
+      <div class="tier-toggle-inner">
+        <div class="tier-toggle-left">
+          <div class="tier-toggle-icon">
+            <svg viewBox="0 0 24 24" fill="none" width="20" height="20">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="tier-toggle-text">
+            <strong>Founder Testing Mode</strong>
+            <span>Switch tiers to test Free vs Pro feature gating</span>
+          </div>
+        </div>
+        <div class="tier-toggle-right">
+          <button class="tier-toggle-btn" id="tierToggleBtn">
+            <span class="tier-option tier-free" id="tierOptFree">
+              <svg viewBox="0 0 24 24" fill="none" width="12" height="12">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Free
+            </span>
+            <span class="tier-option tier-pro active" id="tierOptPro">
+              <svg viewBox="0 0 24 24" fill="none" width="12" height="12">
+                <path d="M2 17L5 8L9 12L12 4L15 12L19 8L22 17H2Z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+              </svg>
+              Pro
+            </span>
+          </button>
+          <button class="tier-refresh-btn" id="tierRefreshBtn" title="Refresh to apply tier change">
+            <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
+              <path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
 

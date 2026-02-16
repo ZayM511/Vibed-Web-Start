@@ -26,6 +26,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { AnimatedStatCard } from "@/components/admin/AnimatedStatCard";
 import { UserInsightsTab } from "@/components/admin/UserInsightsTab";
+import { FounderTierToggle } from "@/components/dashboard/FounderTierToggle";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -273,6 +274,9 @@ export default function AdminPage() {
             </h1>
             <p className="text-white/60 text-lg font-light">Real-time system monitoring and control</p>
           </motion.div>
+
+          {/* Founder Tier Toggle */}
+          {isFounder && <FounderTierToggle />}
 
           {/* Navigation Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">

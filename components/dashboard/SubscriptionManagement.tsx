@@ -11,7 +11,7 @@ import { useState } from "react";
 
 const features = {
   free: [
-    "Full Indeed Support",
+    "Indeed Support",
     "Access to primary filters",
     "Ghost Job Analysis Badges",
     "10 Scam/Spam Job Scans per month",
@@ -22,6 +22,7 @@ const features = {
   ],
   pro: [
     "Everything in Free tier plus:",
+    "LinkedIn Support",
     "Unlimited saved templates",
     "Unlimited Scam/Spam Job Scans",
     "Ghost Job Analysis full breakdown",
@@ -29,7 +30,6 @@ const features = {
     "Unlimited Excluded Companies",
     "Save Jobs in app",
     "Resume/Cover Letter/Portfolio Storage in app",
-    "LinkedIn Support",
   ],
 };
 
