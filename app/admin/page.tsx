@@ -21,11 +21,13 @@ import {
   Trash2,
   ShieldX,
   Eye,
+  Megaphone,
 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { AnimatedStatCard } from "@/components/admin/AnimatedStatCard";
 import { UserInsightsTab } from "@/components/admin/UserInsightsTab";
+import { MarketingPromoTab } from "@/components/admin/MarketingPromoTab";
 import { FounderTierToggle } from "@/components/dashboard/FounderTierToggle";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -306,6 +308,13 @@ export default function AdminPage() {
               >
                 <Eye className="mr-2 h-4 w-4" />
                 User Insights
+              </TabsTrigger>
+              <TabsTrigger
+                value="marketing"
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-orange-500/50 transition-all duration-300"
+              >
+                <Megaphone className="mr-2 h-4 w-4" />
+                Marketing / Promo
               </TabsTrigger>
             </TabsList>
 
@@ -826,6 +835,11 @@ export default function AdminPage() {
             {/* User Insights Tab */}
             <TabsContent value="insights">
               <UserInsightsTab />
+            </TabsContent>
+
+            {/* Marketing / Promo Tab */}
+            <TabsContent value="marketing">
+              <MarketingPromoTab />
             </TabsContent>
 
           </Tabs>
