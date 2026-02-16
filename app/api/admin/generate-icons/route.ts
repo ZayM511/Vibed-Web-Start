@@ -31,9 +31,31 @@ export async function POST() {
     await mkdir(publicIconsDir, { recursive: true });
     await mkdir(extensionIconsDir, { recursive: true });
 
+    // Remove white background from source to create transparent version
+    const { data, info } = await sharp(sourcePath)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    const output = Buffer.from(data);
+    const threshold = 245;
+    for (let i = 0; i < output.length; i += 4) {
+      const r = output[i], g = output[i + 1], b = output[i + 2];
+      if (r >= threshold && g >= threshold && b >= threshold) {
+        output[i + 3] = 0;
+      } else if (r >= 230 && g >= 230 && b >= 230) {
+        const brightness = (r + g + b) / 3;
+        output[i + 3] = Math.max(0, Math.min(255, Math.round(255 * (1 - (brightness - 230) / 25))));
+      }
+    }
+
+    const transparentSource = await sharp(output, {
+      raw: { width: info.width, height: info.height, channels: 4 },
+    }).png().toBuffer();
+
     for (const size of sizes) {
-      const buffer = await sharp(sourcePath)
-        .resize(size, size, { fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } })
+      const buffer = await sharp(transparentSource)
+        .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png()
         .toBuffer();
 
