@@ -3,18 +3,28 @@ import { mutation, query, internalMutation } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 
 /**
- * Admin bypass - specific user IDs that bypass all restrictions
- * Add your Clerk user ID here to enable admin mode
+ * Founder email addresses that can access tier override
+ * Duplicated from lib/feature-flags.ts since Convex can't import from lib/
  */
-const ADMIN_USER_IDS: string[] = [
-  // Add your Clerk user ID here when you're signed in
-  // You can find it in the Clerk dashboard or console.log(identity.subject)
+const FOUNDER_EMAILS = [
+  "isaiah.e.malone@gmail.com",
+  "zaydozier17@gmail.com",
+  "support@jobfiltr.app",
 ];
 
 /**
+ * Check if a user identity email matches a founder email
+ */
+function isFounderEmail(identity: { email?: string; tokenIdentifier?: string }): boolean {
+  const email = identity.email?.toLowerCase();
+  if (!email) return false;
+  return FOUNDER_EMAILS.includes(email);
+}
+
+/**
  * Get the current user's subscription status
- * Returns detailed information about subscription state, trial, and access level
- * Admin users are treated as Pro subscribers
+ * Founders with a tier override will see that tier instead of their actual subscription.
+ * Regular users see their actual subscription status.
  */
 export const getSubscriptionStatus = query({
   args: {},
@@ -28,24 +38,47 @@ export const getSubscriptionStatus = query({
         status: "none" as const,
         cancelAtPeriodEnd: false,
         isAdmin: false,
+        isFounder: false,
       };
     }
 
     const userId = identity.subject;
+    const founder = isFounderEmail(identity);
 
-    // Admin bypass - treat as Pro subscriber
-    const isAdmin = ADMIN_USER_IDS.includes(userId);
-    if (isAdmin) {
+    // Founder tier override check
+    if (founder) {
+      const founderSettings = await ctx.db
+        .query("founderSettings")
+        .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", userId))
+        .first();
+
+      // If founder has an override set, respect it
+      if (founderSettings) {
+        const overridePlan = founderSettings.tierOverride;
+        return {
+          isActive: overridePlan === "pro",
+          plan: overridePlan as "free" | "pro",
+          currentPeriodEnd: overridePlan === "pro" ? Date.now() + 365 * 24 * 60 * 60 * 1000 : null,
+          status: overridePlan === "pro" ? ("active" as const) : ("none" as const),
+          cancelAtPeriodEnd: false,
+          isAdmin: true,
+          isFounder: true,
+        };
+      }
+
+      // No override set — default founders to Pro
       return {
         isActive: true,
         plan: "pro" as const,
-        currentPeriodEnd: Date.now() + 365 * 24 * 60 * 60 * 1000, // 1 year from now
+        currentPeriodEnd: Date.now() + 365 * 24 * 60 * 60 * 1000,
         status: "active" as const,
         cancelAtPeriodEnd: false,
         isAdmin: true,
+        isFounder: true,
       };
     }
 
+    // Regular user — check actual subscription
     const subscription = await ctx.db
       .query("subscriptions")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -60,6 +93,7 @@ export const getSubscriptionStatus = query({
         status: "none" as const,
         cancelAtPeriodEnd: false,
         isAdmin: false,
+        isFounder: false,
       };
     }
 
@@ -72,6 +106,7 @@ export const getSubscriptionStatus = query({
       status: subscription.status,
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
       isAdmin: false,
+      isFounder: false,
     };
   },
 });
@@ -317,7 +352,7 @@ export const getUserSubscription = query({
 /**
  * Get scan usage statistics for the current user
  * Free users are limited to 3 scans
- * Admin users bypass all limits
+ * Founders respect their tier override
  */
 export const getScanUsage = query({
   args: {},
@@ -334,39 +369,7 @@ export const getScanUsage = query({
     }
 
     const userId = identity.subject;
-
-    // Admin bypass - unlimited access
-    const isAdmin = ADMIN_USER_IDS.includes(userId);
-    if (isAdmin) {
-      const jobScans = await ctx.db
-        .query("jobScans")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect();
-
-      const manualScans = await ctx.db
-        .query("scans")
-        .withIndex("by_userId_timestamp", (q) => q.eq("userId", userId))
-        .collect();
-
-      const totalScans = jobScans.length + manualScans.length;
-
-      return {
-        totalScans,
-        scansRemaining: -1, // -1 indicates unlimited
-        isLimitReached: false,
-        isPro: true, // Treat admin as Pro
-        isAdmin: true,
-      };
-    }
-
-    // Check subscription status
-    const subscription = await ctx.db
-      .query("subscriptions")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .order("desc")
-      .first();
-
-    const isPro = subscription?.plan === "pro" && subscription?.status === "active";
+    const founder = isFounderEmail(identity);
 
     // Count total scans from both jobScans and scans tables
     const jobScans = await ctx.db
@@ -381,6 +384,44 @@ export const getScanUsage = query({
 
     const totalScans = jobScans.length + manualScans.length;
     const FREE_SCAN_LIMIT = 3;
+
+    // Founder tier override check
+    if (founder) {
+      const founderSettings = await ctx.db
+        .query("founderSettings")
+        .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", userId))
+        .first();
+
+      const overridePlan = founderSettings?.tierOverride ?? "pro";
+
+      if (overridePlan === "pro") {
+        return {
+          totalScans,
+          scansRemaining: -1,
+          isLimitReached: false,
+          isPro: true,
+          isAdmin: true,
+        };
+      }
+      // Founder testing as free — enforce free limits
+      const scansRemaining = Math.max(0, FREE_SCAN_LIMIT - totalScans);
+      return {
+        totalScans,
+        scansRemaining,
+        isLimitReached: totalScans >= FREE_SCAN_LIMIT,
+        isPro: false,
+        isAdmin: true,
+      };
+    }
+
+    // Check subscription status
+    const subscription = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc")
+      .first();
+
+    const isPro = subscription?.plan === "pro" && subscription?.status === "active";
 
     // Pro users have unlimited scans
     if (isPro) {
@@ -404,5 +445,70 @@ export const getScanUsage = query({
       isPro: false,
       isAdmin: false,
     };
+  },
+});
+
+/**
+ * Get founder settings (tier override) for the current user
+ * Returns null if user is not a founder
+ */
+export const getFounderSettings = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    if (!isFounderEmail(identity)) return null;
+
+    const settings = await ctx.db
+      .query("founderSettings")
+      .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", identity.subject))
+      .first();
+
+    return {
+      isFounder: true,
+      tierOverride: settings?.tierOverride ?? "pro",
+    };
+  },
+});
+
+/**
+ * Set founder tier override
+ * Only founders can call this mutation
+ */
+export const setFounderTierOverride = mutation({
+  args: {
+    tierOverride: v.union(v.literal("free"), v.literal("pro")),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    if (!isFounderEmail(identity)) {
+      throw new Error("Not authorized — founders only");
+    }
+
+    const userId = identity.subject;
+    const existing = await ctx.db
+      .query("founderSettings")
+      .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", userId))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        tierOverride: args.tierOverride,
+        updatedAt: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("founderSettings", {
+        clerkUserId: userId,
+        tierOverride: args.tierOverride,
+        updatedAt: Date.now(),
+      });
+    }
+
+    return { success: true, tierOverride: args.tierOverride };
   },
 });

@@ -259,8 +259,14 @@ function showAuthenticatedUI(showAnimation = false) {
   fetchAndUpdateSubscriptionBadge();
 }
 
-// ===== SUBSCRIPTION BADGE =====
+// ===== SUBSCRIPTION & TIER GATING =====
 const CONVEX_URL = 'https://reminiscent-goldfish-690.convex.cloud';
+let cachedSubscriptionStatus = null;
+let isPro = false;
+
+// Free tier limits
+const FREE_EXCLUDE_KEYWORD_LIMIT = 3;
+const FREE_EXCLUDE_COMPANY_LIMIT = 1;
 
 async function fetchSubscriptionStatus() {
   try {
@@ -333,8 +339,209 @@ function updateSubscriptionBadge(subscriptionStatus) {
 }
 
 async function fetchAndUpdateSubscriptionBadge() {
-  const subscriptionStatus = await fetchSubscriptionStatus();
-  updateSubscriptionBadge(subscriptionStatus);
+  cachedSubscriptionStatus = await fetchSubscriptionStatus();
+  isPro = cachedSubscriptionStatus?.plan === 'pro' && cachedSubscriptionStatus?.isActive;
+  updateSubscriptionBadge(cachedSubscriptionStatus);
+  // Cache for content scripts (ghost-detection-bundle reads this)
+  chrome.storage.local.set({ cachedSubscriptionStatus: cachedSubscriptionStatus });
+  // Apply tier-based UI restrictions
+  applyTierRestrictions();
+}
+
+// ===== UPGRADE PROMPT MODAL =====
+function showUpgradePrompt(featureName, message) {
+  // Remove any existing prompt
+  document.querySelector('.jobfiltr-upgrade-prompt')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'jobfiltr-upgrade-prompt';
+  overlay.style.cssText = `
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6); display: flex; align-items: center;
+    justify-content: center; z-index: 99999; backdrop-filter: blur(2px);
+  `;
+
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const bg = isDark ? '#1a1a2e' : '#ffffff';
+  const text = isDark ? '#e2e8f0' : '#1e293b';
+  const subtext = isDark ? '#94a3b8' : '#64748b';
+  const border = isDark ? '#2d2d44' : '#e2e8f0';
+
+  const card = document.createElement('div');
+  card.style.cssText = `
+    background: ${bg}; border-radius: 16px; padding: 28px; max-width: 340px;
+    width: 90%; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4);
+    border: 1px solid ${border};
+  `;
+
+  card.innerHTML = `
+    <div style="margin-bottom: 16px;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin: 0 auto;">
+        <rect x="3" y="11" width="18" height="11" rx="2" stroke="#f59e0b" stroke-width="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <h3 style="font-size: 18px; font-weight: 700; color: ${text}; margin-bottom: 8px;">
+      Upgrade to Pro
+    </h3>
+    <p style="font-size: 13px; color: ${subtext}; margin-bottom: 20px; line-height: 1.5;">
+      ${message || `${featureName} is a Pro feature. Upgrade to unlock unlimited access.`}
+    </p>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <button class="jobfiltr-upgrade-btn" style="
+        background: linear-gradient(135deg, #f59e0b, #eab308); color: #000;
+        border: none; border-radius: 10px; padding: 12px 20px; font-size: 14px;
+        font-weight: 700; cursor: pointer; transition: all 0.2s;
+      ">Upgrade Now</button>
+      <button class="jobfiltr-dismiss-btn" style="
+        background: none; color: ${subtext}; border: none; padding: 8px;
+        font-size: 12px; cursor: pointer; transition: all 0.2s;
+      ">Maybe Later</button>
+    </div>
+  `;
+
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+
+  // Close on overlay click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  // Upgrade button opens dashboard
+  card.querySelector('.jobfiltr-upgrade-btn').addEventListener('click', () => {
+    chrome.tabs.create({ url: 'https://jobfiltr.app/dashboard' });
+    overlay.remove();
+  });
+
+  // Dismiss button
+  card.querySelector('.jobfiltr-dismiss-btn').addEventListener('click', () => {
+    overlay.remove();
+  });
+}
+
+// ===== TIER RESTRICTION ENFORCEMENT =====
+function applyTierRestrictions() {
+  console.log('[JobFiltr] Applying tier restrictions. isPro:', isPro);
+
+  // --- Include Keywords (Pro only) ---
+  const includeKeywordSection = document.querySelector('.keyword-section.include-keywords');
+  const includeInput = document.getElementById('includeKeywordInput');
+  const includeAddBtn = document.getElementById('addIncludeKeyword');
+  const includeCheckbox = document.getElementById('filterIncludeKeywords');
+
+  if (!isPro) {
+    if (includeKeywordSection) {
+      includeKeywordSection.style.opacity = '0.5';
+      includeKeywordSection.style.pointerEvents = 'none';
+      includeKeywordSection.style.position = 'relative';
+      // Add Pro badge overlay if not already there
+      if (!includeKeywordSection.querySelector('.pro-lock-badge')) {
+        const badge = document.createElement('span');
+        badge.className = 'pro-lock-badge';
+        badge.style.cssText = `
+          position: absolute; top: 8px; right: 8px; background: linear-gradient(135deg, #f59e0b, #eab308);
+          color: #000; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+          pointer-events: auto; cursor: pointer; z-index: 5;
+        `;
+        badge.textContent = 'PRO';
+        badge.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showUpgradePrompt('Include Keywords', 'Include Keywords lets you only show jobs that match specific terms. Upgrade to Pro to use this filter.');
+        });
+        includeKeywordSection.appendChild(badge);
+      }
+    }
+    if (includeInput) includeInput.disabled = true;
+    if (includeAddBtn) includeAddBtn.disabled = true;
+    if (includeCheckbox) { includeCheckbox.checked = false; includeCheckbox.disabled = true; }
+  } else {
+    if (includeKeywordSection) {
+      includeKeywordSection.style.opacity = '1';
+      includeKeywordSection.style.pointerEvents = 'auto';
+      const badge = includeKeywordSection.querySelector('.pro-lock-badge');
+      if (badge) badge.remove();
+    }
+    if (includeInput) includeInput.disabled = false;
+    if (includeAddBtn) includeAddBtn.disabled = false;
+    if (includeCheckbox) includeCheckbox.disabled = false;
+  }
+
+  // --- Templates (Pro only) ---
+  const saveTemplateBtn = document.getElementById('saveTemplateBtn');
+  const templatesList = document.getElementById('templatesList');
+
+  if (!isPro) {
+    if (saveTemplateBtn) {
+      saveTemplateBtn.disabled = true;
+      saveTemplateBtn.title = 'Pro feature — Upgrade to save filter templates';
+      saveTemplateBtn.style.opacity = '0.5';
+    }
+    if (templatesList) {
+      templatesList.style.opacity = '0.5';
+      templatesList.style.pointerEvents = 'none';
+    }
+  } else {
+    if (saveTemplateBtn) {
+      saveTemplateBtn.disabled = false;
+      saveTemplateBtn.title = '';
+      saveTemplateBtn.style.opacity = '1';
+    }
+    if (templatesList) {
+      templatesList.style.opacity = '1';
+      templatesList.style.pointerEvents = 'auto';
+    }
+  }
+
+  // --- Saved Jobs (Pro only) ---
+  const saveJobBtn = document.getElementById('saveJobButton');
+  if (!isPro) {
+    if (saveJobBtn) {
+      saveJobBtn.title = 'Pro feature — Upgrade to save jobs';
+      saveJobBtn.style.opacity = '0.5';
+    }
+  } else {
+    if (saveJobBtn) {
+      saveJobBtn.title = 'Save this job';
+      saveJobBtn.style.opacity = '1';
+    }
+  }
+
+  // --- Documents Tab (Pro only) ---
+  const documentsContent = document.getElementById('documentsContent');
+  if (!isPro && documentsContent) {
+    // Add a Pro overlay if not already there
+    if (!documentsContent.querySelector('.pro-overlay')) {
+      const overlay = document.createElement('div');
+      overlay.className = 'pro-overlay';
+      overlay.style.cssText = `
+        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.4); backdrop-filter: blur(3px);
+        display: flex; flex-direction: column; align-items: center;
+        justify-content: center; z-index: 10; border-radius: 8px;
+        cursor: pointer;
+      `;
+      overlay.innerHTML = `
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style="margin-bottom: 8px;">
+          <rect x="3" y="11" width="18" height="11" rx="2" stroke="#f59e0b" stroke-width="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span style="color: #f59e0b; font-weight: 700; font-size: 14px;">Pro Feature</span>
+        <span style="color: #94a3b8; font-size: 11px; margin-top: 4px;">Tap to learn more</span>
+      `;
+      overlay.addEventListener('click', () => {
+        showUpgradePrompt('Documents', 'Store your resumes, cover letters, and portfolio files. Upgrade to Pro to unlock document storage.');
+      });
+      documentsContent.style.position = 'relative';
+      documentsContent.appendChild(overlay);
+    }
+  } else if (isPro && documentsContent) {
+    const overlay = documentsContent.querySelector('.pro-overlay');
+    if (overlay) overlay.remove();
+  }
+
+  // --- Scan limit display ---
+  updateScanLimitDisplay();
 }
 
 // Show success animation overlay
@@ -1221,6 +1428,45 @@ async function detectCurrentSite() {
       applyBtn.disabled = true;
     }
 
+    // LinkedIn platform gating for free users
+    const linkedinProBanner = document.getElementById('linkedinProBanner');
+    if (site === 'linkedin' && !isPro) {
+      // Show LinkedIn Pro banner
+      if (!linkedinProBanner) {
+        const banner = document.createElement('div');
+        banner.id = 'linkedinProBanner';
+        banner.style.cssText = `
+          background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid #4338ca;
+          border-radius: 10px; padding: 14px; margin-bottom: 12px; text-align: center;
+          cursor: pointer;
+        `;
+        banner.innerHTML = `
+          <div style="font-size: 13px; font-weight: 700; color: #c7d2fe; margin-bottom: 4px;">
+            LinkedIn requires Pro
+          </div>
+          <div style="font-size: 11px; color: #818cf8;">
+            Upgrade to use filters on LinkedIn
+          </div>
+        `;
+        banner.addEventListener('click', () => {
+          showUpgradePrompt('LinkedIn Support', 'LinkedIn filtering is a Pro feature. Free accounts can use all filters on Indeed. Upgrade to Pro for LinkedIn support.');
+        });
+        const filtersContainer = document.getElementById('filtersContainer');
+        filtersContainer?.parentElement?.insertBefore(banner, filtersContainer);
+      }
+      // Dim filters on LinkedIn for free users
+      filtersContainer.style.opacity = '0.3';
+      filtersContainer.style.pointerEvents = 'none';
+      applyBtn.disabled = true;
+      // Notify content script
+      if (currentTabId) {
+        chrome.tabs.sendMessage(currentTabId, { action: 'setTierRestriction', isPro: false }).catch(() => {});
+      }
+    } else {
+      // Remove banner if exists and user is Pro or not on LinkedIn
+      if (linkedinProBanner) linkedinProBanner.remove();
+    }
+
     // Dim Indeed-extra filters on LinkedIn (salary, early applicant, applied jobs)
     // These filters use data unique to Indeed's platform
     const salaryFilter = document.querySelector('.filter-item.expandable:has(#filterSalary)');
@@ -1429,7 +1675,18 @@ async function initializeFilters() {
 
 async function loadFilterSettings() {
   try {
-    const result = await chrome.storage.local.get('filterSettings');
+    // Free users: try session storage first (resets on browser close)
+    // Pro users: always use local storage (persistent)
+    let result;
+    if (!isPro) {
+      result = await chrome.storage.session.get('filterSettings');
+      if (!result.filterSettings) {
+        // Fallback: first time after upgrade/downgrade, read from local
+        result = await chrome.storage.local.get('filterSettings');
+      }
+    } else {
+      result = await chrome.storage.local.get('filterSettings');
+    }
     filterSettings = result.filterSettings || {};
 
     // DEBUG: Log what we're loading from storage
@@ -2021,8 +2278,17 @@ async function saveFilterSettings() {
   console.log('%c  excludeKeywords length:', 'color: yellow;', filterSettings.excludeKeywords?.length);
   console.log('%c=====================================================', 'background: #FF0000; color: white; padding: 4px 8px; font-weight: bold;');
 
-  await chrome.storage.local.set({ filterSettings });
-  console.log('%c[JobFiltr Popup] Settings saved to chrome.storage.local', 'background: #9C27B0; color: white; padding: 2px 6px;');
+  // Free users: save to session storage (resets on browser close)
+  // Pro users: save to local storage (persists forever)
+  if (isPro) {
+    await chrome.storage.local.set({ filterSettings });
+    console.log('%c[JobFiltr Popup] Settings saved to chrome.storage.local (Pro - persistent)', 'background: #9C27B0; color: white; padding: 2px 6px;');
+  } else {
+    await chrome.storage.session.set({ filterSettings });
+    // Also save to local so content scripts can read (they'll get latest on next page load)
+    await chrome.storage.local.set({ filterSettings });
+    console.log('%c[JobFiltr Popup] Settings saved to chrome.storage.session (Free - session only)', 'background: #FF9800; color: white; padding: 2px 6px;');
+  }
 }
 
 // Helper function to save settings AND auto-apply to content script
@@ -2155,6 +2421,18 @@ async function addKeyword(type, keyword) {
   console.log('  type:', type);
   console.log('  keyword:', keyword);
 
+  // Tier gating: Include keywords are Pro-only
+  if (type === 'include' && !isPro) {
+    showUpgradePrompt('Include Keywords', 'Include Keywords lets you only show jobs that match specific terms. Upgrade to Pro to use this filter.');
+    return false;
+  }
+
+  // Tier gating: Exclude keywords limited to 3 for free users
+  if (type === 'exclude' && !isPro && excludeKeywords.length >= FREE_EXCLUDE_KEYWORD_LIMIT) {
+    showUpgradePrompt('Excluded Keywords', `Free accounts can add up to ${FREE_EXCLUDE_KEYWORD_LIMIT} excluded keywords. Upgrade to Pro for unlimited keywords.`);
+    return false;
+  }
+
   if (type === 'include') {
     if (includeKeywords.includes(keyword)) {
       console.log('  Keyword already exists in includeKeywords');
@@ -2233,6 +2511,12 @@ async function addCompany(company) {
   company = company.trim().toLowerCase();
 
   if (!company) return false;
+
+  // Tier gating: Exclude companies limited to 1 for free users
+  if (!isPro && excludeCompanies.length >= FREE_EXCLUDE_COMPANY_LIMIT) {
+    showUpgradePrompt('Excluded Companies', `Free accounts can add up to ${FREE_EXCLUDE_COMPANY_LIMIT} excluded company. Upgrade to Pro for unlimited excluded companies.`);
+    return false;
+  }
 
   if (excludeCompanies.includes(company)) {
     console.log('  Company already exists in excludeCompanies');
@@ -2493,6 +2777,12 @@ function applyTemplateSettings(settings) {
 }
 
 async function saveTemplate(name) {
+  // Tier gating: Templates are Pro-only
+  if (!isPro) {
+    showUpgradePrompt('Filter Templates', 'Save and load filter templates to quickly switch between different filter configurations. Upgrade to Pro to use templates.');
+    return;
+  }
+
   const settings = getCurrentFilterSettings();
   const template = {
     id: Date.now().toString(),
@@ -3197,8 +3487,73 @@ function updateDetectedJobInfo(data, failureReason = null) {
 // Minimum scan time in milliseconds (2.5 seconds for accurate analysis)
 const MIN_SCAN_TIME = 2500;
 
+// Scan limit display helper
+async function updateScanLimitDisplay() {
+  const scanButton = document.getElementById('scanButton');
+  if (!scanButton) return;
+
+  // Remove existing scan limit badge
+  const existingBadge = document.querySelector('.scan-limit-badge');
+  if (existingBadge) existingBadge.remove();
+
+  if (!isPro) {
+    try {
+      const { authToken } = await chrome.storage.local.get(['authToken']);
+      if (authToken) {
+        const response = await fetch(`${CONVEX_URL}/api/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+          body: JSON.stringify({ path: 'subscriptions:getScanUsage', args: {} })
+        });
+        if (response.ok) {
+          const result = await response.json();
+          const usage = result.value;
+          if (usage && usage.scansRemaining !== -1) {
+            const badge = document.createElement('div');
+            badge.className = 'scan-limit-badge';
+            badge.style.cssText = `
+              text-align: center; margin-top: 6px; font-size: 11px;
+              color: ${usage.isLimitReached ? '#ef4444' : '#94a3b8'};
+            `;
+            badge.textContent = usage.isLimitReached
+              ? 'Scan limit reached — Upgrade to Pro'
+              : `${usage.scansRemaining}/3 scans remaining`;
+            scanButton.parentElement?.insertBefore(badge, scanButton.nextSibling);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[JobFiltr] Could not fetch scan usage:', e);
+    }
+  }
+}
+
 // Scan Button - Uses local scam/spam analysis for accurate detection
 document.getElementById('scanButton').addEventListener('click', async () => {
+  // Tier gating: Check scan limit for free users
+  if (!isPro) {
+    try {
+      const { authToken } = await chrome.storage.local.get(['authToken']);
+      if (authToken) {
+        const response = await fetch(`${CONVEX_URL}/api/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+          body: JSON.stringify({ path: 'subscriptions:getScanUsage', args: {} })
+        });
+        if (response.ok) {
+          const result = await response.json();
+          const usage = result.value;
+          if (usage?.isLimitReached) {
+            showUpgradePrompt('Scam Scanner', 'You\'ve used all 3 free scans this month. Upgrade to Pro for unlimited scam/spam scans.');
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[JobFiltr] Could not check scan limit:', e);
+    }
+  }
+
   // FIX: Always re-fetch fresh job data before scanning to ensure description is populated
   // Previously this used stale cached data which often had empty descriptions
   await detectCurrentJob();
@@ -4104,6 +4459,12 @@ async function saveSavedJobsToStorage() {
 
 // Save current job
 async function saveCurrentJob() {
+  // Tier gating: Save Jobs is Pro-only
+  if (!isPro) {
+    showUpgradePrompt('Save Jobs', 'Save job postings for later review. Upgrade to Pro to unlock job saving.');
+    return;
+  }
+
   if (!currentJobData) return;
 
   // Check if already saved
@@ -4506,6 +4867,12 @@ function setupDocumentEventListeners() {
 
 // Trigger file upload for a category
 function triggerFileUpload(category) {
+  // Tier gating: Documents are Pro-only
+  if (!isPro) {
+    showUpgradePrompt('Documents', 'Store your resumes, cover letters, and portfolio files. Upgrade to Pro to unlock document storage.');
+    return;
+  }
+
   if (documents[category].length >= DOCUMENT_LIMITS[category]) {
     alert(`Maximum ${DOCUMENT_LIMITS[category]} documents allowed in this category.`);
     return;

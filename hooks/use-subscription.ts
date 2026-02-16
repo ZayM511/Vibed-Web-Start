@@ -10,18 +10,16 @@ import { api } from "@/convex/_generated/api";
 export function useSubscription() {
   const subscriptionStatus = useQuery(api.subscriptions.getSubscriptionStatus);
 
-  // TEMPORARY: Override for testing (12 hours) - bypass all restrictions
-  const BYPASS_MODE = true;
-
   return {
     // Subscription data
     subscription: subscriptionStatus,
 
-    // Convenience flags - BYPASS MODE ACTIVE
-    isActive: BYPASS_MODE ? true : (subscriptionStatus?.isActive ?? false),
-    isPro: BYPASS_MODE ? true : (subscriptionStatus?.plan === "pro"),
-    isFree: BYPASS_MODE ? false : (subscriptionStatus?.plan === "free" || !subscriptionStatus?.plan),
-    isCanceled: BYPASS_MODE ? false : (subscriptionStatus?.status === "canceled"),
+    // Convenience flags
+    isActive: subscriptionStatus?.isActive ?? false,
+    isPro: subscriptionStatus?.plan === "pro",
+    isFree: subscriptionStatus?.plan === "free" || !subscriptionStatus?.plan,
+    isCanceled: subscriptionStatus?.status === "canceled",
+    isFounder: subscriptionStatus?.isFounder ?? false,
 
     // Loading state
     isLoading: subscriptionStatus === undefined,
@@ -64,15 +62,12 @@ export function usePaymentHistory(limit?: number) {
 export function useScanUsage() {
   const scanUsage = useQuery(api.subscriptions.getScanUsage);
 
-  // TEMPORARY: Override for testing (12 hours) - unlimited scans
-  const BYPASS_MODE = true;
-
   return {
     totalScans: scanUsage?.totalScans ?? 0,
-    scansRemaining: BYPASS_MODE ? -1 : (scanUsage?.scansRemaining ?? 0), // -1 = unlimited
-    isLimitReached: BYPASS_MODE ? false : (scanUsage?.isLimitReached ?? false),
-    isPro: BYPASS_MODE ? true : (scanUsage?.isPro ?? false),
-    isUnlimited: BYPASS_MODE ? true : (scanUsage?.scansRemaining === -1),
+    scansRemaining: scanUsage?.scansRemaining ?? 0,
+    isLimitReached: scanUsage?.isLimitReached ?? false,
+    isPro: scanUsage?.isPro ?? false,
+    isUnlimited: scanUsage?.scansRemaining === -1,
     isLoading: scanUsage === undefined,
   };
 }

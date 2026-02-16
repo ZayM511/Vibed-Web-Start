@@ -9,6 +9,8 @@ import { ProfileSettings } from "@/components/dashboard/ProfileSettings";
 import { SubscriptionManagement } from "@/components/dashboard/SubscriptionManagement";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
 import { ProfileCompletionDialog } from "@/components/ProfileCompletionDialog";
+import { FounderTierToggle } from "@/components/dashboard/FounderTierToggle";
+import { FOUNDER_EMAILS } from "@/lib/feature-flags";
 import { cn } from "@/lib/utils";
 import { Crown, Sparkles } from "lucide-react";
 
@@ -82,9 +84,10 @@ function ElegantShape({
 export default function DashboardPage() {
   const { user } = useUser();
 
-  // Get user subscription status
-  const subscription = useQuery(api.subscriptions.getUserSubscription);
-  const isPro = subscription?.plan === "pro" && subscription?.status === "active";
+  // Get user subscription status (respects founder tier override)
+  const subscriptionStatus = useQuery(api.subscriptions.getSubscriptionStatus);
+  const isPro = subscriptionStatus?.plan === "pro" && subscriptionStatus?.isActive;
+  const isFounder = FOUNDER_EMAILS.includes(user?.primaryEmailAddress?.emailAddress ?? "");
 
   return (
     <>
@@ -193,6 +196,9 @@ export default function DashboardPage() {
               Welcome to your dashboard
             </p>
           </motion.div>
+
+          {/* Founder Tier Toggle (only visible to founders) */}
+          {isFounder && <FounderTierToggle />}
 
           {/* Profile Completion Banner */}
           <ProfileCompletionBanner />

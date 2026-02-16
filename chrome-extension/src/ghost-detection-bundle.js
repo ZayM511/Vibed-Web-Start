@@ -2422,7 +2422,7 @@
 
   // FIX: showDetails now accepts a jobId parameter to look up the correct score
   // This prevents the global currentScore from showing the wrong job's score
-  function showDetails(jobId = null) {
+  async function showDetails(jobId = null) {
     // Look up the specific job's score and data from cache
     const scoreToShow = jobId ? jobScoreCache.get(jobId) : currentScore;
     const jobToShow = jobId ? jobDataCache.get(jobId) : currentJob;
@@ -2433,6 +2433,16 @@
     }
 
     console.log('[GhostDetection] Score details for job:', jobId, scoreToShow);
+
+    // Check subscription status to determine detail level
+    let isUserPro = false;
+    try {
+      const stored = await chrome.storage.local.get('cachedSubscriptionStatus');
+      const sub = stored.cachedSubscriptionStatus;
+      isUserPro = sub?.plan === 'pro' && sub?.isActive;
+    } catch (e) {
+      console.warn('[GhostDetection] Could not read subscription status:', e);
+    }
 
     // Remove any existing modal
     document.querySelector('.jobfiltr-modal')?.remove();
@@ -2534,6 +2544,7 @@
         </div>
       </div>
 
+      ${isUserPro ? `
       <h3 style="font-size: 13px; color: ${theme.modalTextSecondary}; margin: 20px 0 12px; text-transform: uppercase; letter-spacing: 0.5px;">Risk Breakdown</h3>
       <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
         ${Object.entries(scoreToShow.breakdown)
@@ -2584,6 +2595,25 @@
             </div>
           `).join('')}
       </div>
+      ` : `
+      <div style="background: ${theme.cardBg}; border-radius: 10px; padding: 16px; margin-top: 16px; text-align: center; ${darkMode ? 'border: 1px solid ' + theme.cardBorder + ';' : ''}">
+        <div style="font-size: 13px; color: ${theme.modalTextSecondary}; margin-bottom: 12px;">
+          ${scoreToShow.category === 'likely_ghost' || scoreToShow.category === 'high_risk'
+            ? 'Multiple risk factors detected in this posting.'
+            : scoreToShow.category === 'medium_risk'
+              ? 'Some risk indicators present. Review the posting carefully.'
+              : 'This posting appears legitimate based on available signals.'}
+        </div>
+        <div style="font-size: 12px; color: ${theme.modalTextSecondary}; margin-bottom: 16px;">
+          Upgrade to Pro for the full risk breakdown and detection signals.
+        </div>
+        <button class="jobfiltr-ghost-upgrade-btn" style="
+          background: linear-gradient(135deg, #f59e0b, #eab308); color: #000;
+          border: none; border-radius: 8px; padding: 10px 24px; font-size: 13px;
+          font-weight: 700; cursor: pointer;
+        ">See Full Analysis — Upgrade to Pro</button>
+      </div>
+      `}
 
       <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid ${theme.cardBorder}; text-align: center;">
         <span style="font-size: 11px; color: ${theme.modalTextSecondary};">Powered by JobFiltr Ghost Detection</span>
@@ -2598,6 +2628,14 @@
       e.stopPropagation();
       modal.remove();
     });
+
+    // Upgrade button handler (for free users)
+    const upgradeBtn = content.querySelector('.jobfiltr-ghost-upgrade-btn');
+    if (upgradeBtn) {
+      upgradeBtn.addEventListener('click', () => {
+        window.open('https://jobfiltr.app/dashboard', '_blank');
+      });
+    }
 
     // Click outside to close
     modal.addEventListener('click', (e) => {

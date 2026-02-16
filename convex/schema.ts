@@ -414,4 +414,11 @@ export default defineSchema({
     .index("by_platform", ["platform", "timestamp"])
     .index("by_resolved", ["resolved", "timestamp"])
     .index("by_user", ["userId", "timestamp"]),
+
+  // Founder Settings (tier override for testing)
+  founderSettings: defineTable({
+    clerkUserId: v.string(),
+    tierOverride: v.union(v.literal("free"), v.literal("pro")),
+    updatedAt: v.number(),
+  }).index("by_clerk_user", ["clerkUserId"]),
 });

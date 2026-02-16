@@ -2366,6 +2366,12 @@ async function waitForJobCards(maxWaitMs = 5000, checkIntervalMs = 500) {
 
 // Main filter application with concurrent filtering prevention
 async function applyFilters(settings) {
+  // Tier restriction: free users can't use filters on LinkedIn
+  if (window._jobfiltrTierRestricted) {
+    log('Tier restricted (Free user) — skipping filter application on LinkedIn');
+    return;
+  }
+
   if (isFilteringInProgress) {
     log('Filter already in progress, skipping');
     return;
@@ -3519,6 +3525,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'PING') {
     sendResponse({ success: true, platform: 'linkedin', timestamp: Date.now() });
+    return true;
+  }
+
+  // Tier restriction: free users can't use filters on LinkedIn
+  if (message.action === 'setTierRestriction') {
+    window._jobfiltrTierRestricted = !message.isPro;
+    log('Tier restriction set:', window._jobfiltrTierRestricted ? 'FREE (filters disabled)' : 'PRO (filters enabled)');
+    if (window._jobfiltrTierRestricted) {
+      // Reset any applied filters since free users can't filter on LinkedIn
+      resetFilters();
+    }
+    sendResponse({ success: true });
     return true;
   }
 
