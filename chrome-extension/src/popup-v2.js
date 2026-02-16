@@ -261,6 +261,7 @@ function showAuthenticatedUI(showAnimation = false) {
 
 // ===== SUBSCRIPTION & TIER GATING =====
 const CONVEX_URL = 'https://reminiscent-goldfish-690.convex.cloud';
+const CONVEX_SITE_URL = 'https://reminiscent-goldfish-690.convex.site';
 let cachedSubscriptionStatus = null;
 let isPro = false;
 
@@ -270,30 +271,24 @@ const FREE_EXCLUDE_COMPANY_LIMIT = 1;
 
 async function fetchSubscriptionStatus() {
   try {
-    const { authToken, userEmail } = await chrome.storage.local.get(['authToken', 'userEmail']);
+    const { userEmail } = await chrome.storage.local.get(['userEmail']);
 
-    if (!authToken || !userEmail) return null;
+    if (!userEmail) return null;
 
-    // Query the Convex subscription status with authentication
-    const response = await fetch(`${CONVEX_URL}/api/query`, {
+    // Use HTTP endpoint that doesn't require JWT auth
+    const response = await fetch(`${CONVEX_SITE_URL}/extension/subscription-status`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`
-      },
-      body: JSON.stringify({
-        path: 'subscriptions:getSubscriptionStatus',
-        args: {}
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: userEmail })
     });
 
     if (!response.ok) {
-      console.warn('JobFiltr: Could not fetch subscription status');
+      console.warn('JobFiltr: Could not fetch subscription status, status:', response.status);
       return null;
     }
 
     const result = await response.json();
-    return result.value;
+    return result;
   } catch (error) {
     console.error('JobFiltr: Error fetching subscription status:', error);
     return null;
@@ -634,7 +629,7 @@ async function signInWithEmail() {
 
   try {
     // Call backend API for authentication
-    const response = await fetch('https://adamant-orca-697.convex.site/auth/signin', {
+    const response = await fetch('https://reminiscent-goldfish-690.convex.site/auth/signin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
@@ -747,7 +742,7 @@ async function signInWithGoogle() {
     // Try to exchange Google token for our backend token
     let backendToken = null;
     try {
-      const backendResponse = await fetch('https://adamant-orca-697.convex.site/auth/google', {
+      const backendResponse = await fetch('https://reminiscent-goldfish-690.convex.site/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -843,7 +838,7 @@ async function createAccount() {
   createBtn.disabled = true;
 
   try {
-    const response = await fetch('https://adamant-orca-697.convex.site/auth/signup', {
+    const response = await fetch('https://reminiscent-goldfish-690.convex.site/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, name })

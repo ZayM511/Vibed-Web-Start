@@ -108,3 +108,59 @@ export const signin = internalAction({
     };
   },
 });
+
+/**
+ * Handle Google OAuth sign-in for extension.
+ * Creates or updates an extensionUser with a new session token.
+ */
+export const googleAuth = internalAction({
+  args: {
+    email: v.string(),
+    name: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const email = args.email.toLowerCase().trim();
+
+    // Check if user already exists
+    const existing: any = await ctx.runQuery(internal.extensionAuthHelpers.getUserByEmail, { email });
+
+    const token = generateToken();
+    const tokenExpiry = Date.now() + 30 * 24 * 60 * 60 * 1000;
+
+    if (existing) {
+      // Update token for existing user
+      await ctx.runMutation(internal.extensionAuthHelpers.updateToken, {
+        userId: existing._id,
+        token,
+        tokenExpiry,
+      });
+
+      return {
+        success: true,
+        token,
+        email: existing.email,
+        name: existing.name || args.name || "",
+      };
+    }
+
+    // Create new user (Google users don't have passwords)
+    const salt = generateSalt();
+    const dummyHash = crypto.randomBytes(64).toString("hex");
+
+    await ctx.runMutation(internal.extensionAuthHelpers.createUser, {
+      email,
+      passwordHash: dummyHash,
+      salt,
+      name: args.name?.trim(),
+      token,
+      tokenExpiry,
+    });
+
+    return {
+      success: true,
+      token,
+      email,
+      name: args.name?.trim() || "",
+    };
+  },
+});

@@ -418,7 +418,10 @@ export default defineSchema({
   // Founder Settings (tier override for testing)
   founderSettings: defineTable({
     clerkUserId: v.string(),
+    email: v.optional(v.string()),
     tierOverride: v.union(v.literal("free"), v.literal("pro")),
     updatedAt: v.number(),
-  }).index("by_clerk_user", ["clerkUserId"]),
+  })
+    .index("by_clerk_user", ["clerkUserId"])
+    .index("by_email", ["email"]),
 });

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query, internalMutation } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 
 /**
@@ -491,6 +491,7 @@ export const setFounderTierOverride = mutation({
     }
 
     const userId = identity.subject;
+    const email = identity.email?.toLowerCase();
     const existing = await ctx.db
       .query("founderSettings")
       .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", userId))
@@ -499,16 +500,124 @@ export const setFounderTierOverride = mutation({
     if (existing) {
       await ctx.db.patch(existing._id, {
         tierOverride: args.tierOverride,
+        email: email || existing.email,
         updatedAt: Date.now(),
       });
     } else {
       await ctx.db.insert("founderSettings", {
         clerkUserId: userId,
+        email,
         tierOverride: args.tierOverride,
         updatedAt: Date.now(),
       });
     }
 
     return { success: true, tierOverride: args.tierOverride };
+  },
+});
+
+/**
+ * Get subscription status by email (for Chrome extension).
+ * Does NOT require Clerk JWT auth — used by the extension HTTP endpoint.
+ * - Founders: checks founderSettings for tier override, defaults to Pro
+ * - Regular users: checks subscriptions table by matching email to users table
+ */
+export const getSubscriptionStatusByEmail = internalQuery({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const email = args.email.toLowerCase().trim();
+
+    // Check if founder
+    if (FOUNDER_EMAILS.includes(email)) {
+      // Try to find founder settings by email
+      const founderSettings = await ctx.db
+        .query("founderSettings")
+        .withIndex("by_email", (q) => q.eq("email", email))
+        .first();
+
+      // Also check all records (tiny table) in case record exists without email field
+      const matchedSettings = founderSettings
+        || (await ctx.db.query("founderSettings").collect())[0]
+        || null;
+
+      if (matchedSettings) {
+        const overridePlan = matchedSettings.tierOverride;
+        return {
+          isActive: overridePlan === "pro",
+          plan: overridePlan as "free" | "pro",
+          status: overridePlan === "pro" ? "active" : "none",
+          isFounder: true,
+        };
+      }
+
+      // No override record at all — default founders to Pro
+      return {
+        isActive: true,
+        plan: "pro" as const,
+        status: "active",
+        isFounder: true,
+      };
+    }
+
+    // Non-founder: try to find subscription via users table
+    // The users table has clerkUserId, and subscriptions are keyed by userId (clerkUserId)
+    // We need to find a user with this email — but users table doesn't store email.
+    // Check if there's an extensionUser with this email that has a linked clerkUserId
+    // For now, non-founder users without a direct Stripe subscription default to free.
+    // TODO: Add email→clerkUserId mapping when users link their accounts
+
+    return {
+      isActive: false,
+      plan: "free" as const,
+      status: "none",
+      isFounder: false,
+    };
+  },
+});
+
+/**
+ * Set founder tier override by email (for Chrome extension HTTP endpoint).
+ * Does NOT require Clerk JWT auth — validated by founder email whitelist in HTTP handler.
+ */
+export const setFounderTierOverrideByEmail = internalMutation({
+  args: {
+    email: v.string(),
+    tierOverride: v.union(v.literal("free"), v.literal("pro")),
+  },
+  handler: async (ctx, args) => {
+    const email = args.email.toLowerCase().trim();
+
+    // First try to find by email index
+    let existing = await ctx.db
+      .query("founderSettings")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .first();
+
+    // If not found by email, scan all records (tiny table, 1-3 records max)
+    // This handles records created by the website dashboard that don't have an email field yet
+    if (!existing) {
+      const allSettings = await ctx.db.query("founderSettings").collect();
+      if (allSettings.length > 0) {
+        // Use the first record (there should only be one per founder in practice)
+        existing = allSettings[0];
+      }
+    }
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        tierOverride: args.tierOverride,
+        email, // Backfill email if missing
+        updatedAt: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("founderSettings", {
+        clerkUserId: `extension_${email}`,
+        email,
+        tierOverride: args.tierOverride,
+        updatedAt: Date.now(),
+      });
+    }
+
+    return { success: true };
   },
 });

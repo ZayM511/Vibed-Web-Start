@@ -370,4 +370,163 @@ http.route({
   }),
 });
 
+// ===== Extension Subscription Status Endpoint =====
+
+http.route({
+  path: "/extension/subscription-status",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const { email } = await request.json();
+
+      if (!email) {
+        return new Response(
+          JSON.stringify({ error: "Email is required" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+        );
+      }
+
+      const status = await ctx.runQuery(
+        internal.subscriptions.getSubscriptionStatusByEmail,
+        { email }
+      );
+
+      return new Response(
+        JSON.stringify(status),
+        { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+      );
+    } catch (error) {
+      console.error("Error fetching subscription status:", error);
+      return new Response(
+        JSON.stringify({ error: "Failed to fetch subscription status" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+      );
+    }
+  }),
+});
+
+http.route({
+  path: "/extension/subscription-status",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }),
+});
+
+// ===== Extension Founder Tier Override Endpoint =====
+
+http.route({
+  path: "/extension/set-founder-tier",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const { email, tierOverride } = await request.json();
+
+      if (!email || !tierOverride) {
+        return new Response(
+          JSON.stringify({ error: "Email and tierOverride are required" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+        );
+      }
+
+      if (tierOverride !== "free" && tierOverride !== "pro") {
+        return new Response(
+          JSON.stringify({ error: "tierOverride must be 'free' or 'pro'" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+        );
+      }
+
+      // Validate founder email server-side
+      const FOUNDER_EMAILS = [
+        "isaiah.e.malone@gmail.com",
+        "zaydozier17@gmail.com",
+        "support@jobfiltr.app",
+      ];
+
+      const normalizedEmail = email.toLowerCase().trim();
+      if (!FOUNDER_EMAILS.includes(normalizedEmail)) {
+        return new Response(
+          JSON.stringify({ error: "Not authorized — founders only" }),
+          { status: 403, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+        );
+      }
+
+      // Upsert founder settings by email
+      await ctx.runMutation(internal.subscriptions.setFounderTierOverrideByEmail, {
+        email: normalizedEmail,
+        tierOverride,
+      });
+
+      return new Response(
+        JSON.stringify({ success: true, tierOverride }),
+        { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+      );
+    } catch (error) {
+      console.error("Error setting founder tier:", error);
+      return new Response(
+        JSON.stringify({ error: "Failed to set tier override" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+      );
+    }
+  }),
+});
+
+http.route({
+  path: "/extension/set-founder-tier",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }),
+});
+
+// ===== Extension Google Auth Endpoint =====
+
+http.route({
+  path: "/auth/google",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const { email, name } = await request.json();
+
+      if (!email) {
+        return new Response(
+          JSON.stringify({ message: "Email is required" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+        );
+      }
+
+      const result = await ctx.runAction(internal.extensionAuth.googleAuth, {
+        email,
+        name: name || undefined,
+      });
+
+      if (!result.success) {
+        return new Response(
+          JSON.stringify({ message: "Google authentication failed" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ token: result.token, email: result.email, name: result.name }),
+        { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+      );
+    } catch (error) {
+      console.error("Google auth error:", error);
+      return new Response(
+        JSON.stringify({ message: "Google authentication failed" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+      );
+    }
+  }),
+});
+
+http.route({
+  path: "/auth/google",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }),
+});
+
 export default http;

@@ -1204,29 +1204,23 @@ async function initFounderTierToggle() {
   // Show the toggle
   tierToggle.classList.remove('hidden');
 
-  // Fetch current tier override from Convex
-  try {
-    const { authToken } = await chrome.storage.local.get(['authToken']);
-    if (!authToken) return;
+  const CONVEX_SITE_URL = 'https://reminiscent-goldfish-690.convex.site';
 
-    const convexUrl = await getConvexUrl();
-    const response = await fetch(`${convexUrl}/api/query`, {
+  // Fetch current subscription status via HTTP endpoint (no JWT needed)
+  try {
+    const { userEmail } = await chrome.storage.local.get(['userEmail']);
+    if (!userEmail) return;
+
+    const response = await fetch(`${CONVEX_SITE_URL}/extension/subscription-status`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`
-      },
-      body: JSON.stringify({
-        path: 'subscriptions:getFounderSettings',
-        args: {}
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: userEmail })
     });
 
     if (response.ok) {
-      const result = await response.json();
-      const settings = result.value;
-      if (settings && settings.isFounder) {
-        const currentTier = settings.tierOverride || 'pro';
+      const status = await response.json();
+      if (status && status.isFounder) {
+        const currentTier = status.plan || 'pro';
         updateTierToggleUI(currentTier, tierOptFree, tierOptPro);
       }
     }
@@ -1240,39 +1234,26 @@ async function initFounderTierToggle() {
     const newTier = isCurrentlyPro ? 'free' : 'pro';
 
     try {
-      const { authToken } = await chrome.storage.local.get(['authToken']);
-      if (!authToken) return;
+      const { userEmail } = await chrome.storage.local.get(['userEmail']);
+      if (!userEmail) return;
 
-      const convexUrl = await getConvexUrl();
-      const response = await fetch(`${convexUrl}/api/mutation`, {
+      const response = await fetch(`${CONVEX_SITE_URL}/extension/set-founder-tier`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({
-          path: 'subscriptions:setFounderTierOverride',
-          args: { tierOverride: newTier }
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail, tierOverride: newTier })
       });
 
       if (response.ok) {
         updateTierToggleUI(newTier, tierOptFree, tierOptPro);
         // Update cached subscription status so extension picks up the change
-        const subResponse = await fetch(`${convexUrl}/api/query`, {
+        const subResponse = await fetch(`${CONVEX_SITE_URL}/extension/subscription-status`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`
-          },
-          body: JSON.stringify({
-            path: 'subscriptions:getSubscriptionStatus',
-            args: {}
-          })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: userEmail })
         });
         if (subResponse.ok) {
-          const subResult = await subResponse.json();
-          await chrome.storage.local.set({ cachedSubscriptionStatus: subResult.value });
+          const subStatus = await subResponse.json();
+          await chrome.storage.local.set({ cachedSubscriptionStatus: subStatus });
         }
       }
     } catch (error) {
