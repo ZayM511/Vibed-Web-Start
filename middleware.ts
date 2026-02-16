@@ -18,11 +18,9 @@ const isProtectedRoute = createRouteMatcher([
   "/extension-errors/(.*)",
 ]);
 
-// Routes that should redirect to home during waitlist mode (everything except /admin)
+// Routes that should redirect to home during waitlist mode (everything except /admin and /dashboard)
 const isWaitlistBlockedRoute = createRouteMatcher([
   "/server",
-  "/dashboard",
-  "/dashboard/(.*)",
   "/billing",
   "/billing/(.*)",
   "/scan",
@@ -31,14 +29,20 @@ const isWaitlistBlockedRoute = createRouteMatcher([
   "/extension-errors/(.*)",
 ]);
 
+// Dashboard needs sign-in but shouldn't redirect during waitlist mode (founders need access)
+const isDashboardRoute = createRouteMatcher([
+  "/dashboard",
+  "/dashboard/(.*)",
+]);
+
 export default clerkMiddleware(async (auth, req) => {
   if (WAITLIST_MODE) {
     // In waitlist mode: redirect non-admin protected routes to home
     if (isWaitlistBlockedRoute(req)) {
       return NextResponse.redirect(new URL("/", req.url));
     }
-    // Admin route still requires sign-in
-    if (isAdminRoute(req)) {
+    // Admin and dashboard routes require sign-in (founders need dashboard access for tier testing)
+    if (isAdminRoute(req) || isDashboardRoute(req)) {
       await auth.protect();
     }
   } else {
