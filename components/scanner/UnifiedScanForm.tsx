@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Loader2, Link2, FileText, Sparkles, Zap } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+
 
 interface UnifiedScanFormProps {
   onManualScan: (data: { jobInput: string; context?: string }) => Promise<void>;
@@ -66,9 +66,6 @@ export function UnifiedScanForm({ onManualScan, onGhostJobScan, isScanning }: Un
               Choose your scan type and input method to get started
             </CardDescription>
           </div>
-          <Badge variant="secondary" className="text-xs">
-            Beta
-          </Badge>
         </div>
 
         <Separator />

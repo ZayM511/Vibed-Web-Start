@@ -1308,12 +1308,6 @@ function updateSiteStatus(site) {
   const currentSiteText = document.getElementById('currentSite');
   const pageIndicator = document.getElementById('pageIndicator');
 
-  // Remove any existing beta badge
-  const existingBetaBadge = siteStatus.querySelector('.site-beta-badge');
-  if (existingBetaBadge) {
-    existingBetaBadge.remove();
-  }
-
   if (site) {
     siteStatus.classList.add('active');
     const siteNames = {
@@ -1322,15 +1316,6 @@ function updateSiteStatus(site) {
       'google-jobs': 'Google Jobs'
     };
     currentSiteText.textContent = `Active on ${siteNames[site]}`;
-
-    // Add beta badge for LinkedIn
-    if (site === 'linkedin') {
-      const betaBadge = document.createElement('span');
-      betaBadge.className = 'site-beta-badge';
-      betaBadge.textContent = 'Beta';
-      betaBadge.title = 'LinkedIn support is in beta - some features may be limited';
-      siteStatus.appendChild(betaBadge);
-    }
 
     // Show page indicator for LinkedIn, request current page info
     if (site === 'linkedin') {

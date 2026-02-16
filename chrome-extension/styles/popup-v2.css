@@ -886,32 +886,6 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
   color: var(--text-tertiary);
 }
 
-/* Site Beta Badge */
-.site-beta-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 6px;
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: white;
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-radius: 4px;
-  margin-left: 6px;
-  animation: betaPulse 2s ease-in-out infinite;
-}
-
-@keyframes betaPulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.85;
-    transform: scale(1.02);
-  }
-}
 
 /* ============================================
    FILTERS CONTAINER

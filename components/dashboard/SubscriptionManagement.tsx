@@ -29,7 +29,7 @@ const features = {
     "Unlimited Excluded Companies",
     "Save Jobs in app",
     "Resume/Cover Letter/Portfolio Storage in app",
-    "Beta LinkedIn Support",
+    "LinkedIn Support",
   ],
 };
 

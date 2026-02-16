@@ -1,8 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import Link from "next/link";
 import {
   Building2,
@@ -31,6 +39,8 @@ import {
   ScanLine,
   FolderOpen,
   MessageSquare,
+  AlertCircle,
+  Info,
 } from "lucide-react";
 import { ScreenshotSlideshow } from "@/components/ScreenshotSlideshow";
 import { VideoShowcase } from "@/components/VideoShowcase";
@@ -63,6 +73,8 @@ const IndeedIcon = ({ className }: { className?: string }) => (
 );
 
 export function FeaturesSection() {
+  const [showIndeedOnlyDialog, setShowIndeedOnlyDialog] = useState(false);
+
   const fadeUpVariants = {
     hidden: { opacity: 0, y: 30 },
     visible: (i: number) => ({
@@ -77,20 +89,20 @@ export function FeaturesSection() {
   };
 
   const filterFeatures = [
-    { icon: Building2, name: "Hide/Flag/Dim Staffing Firms" },
-    { icon: EyeOff, name: "Hide Sponsored/Promoted" },
-    { icon: Clock, name: "Early Applicant Jobs" },
-    { icon: Calendar, name: "Job Age Display" },
-    { icon: CalendarDays, name: "Job Posting Age" },
-    { icon: MapPin, name: "True Remote Accuracy" },
-    { icon: Plus, name: "Include Keywords" },
-    { icon: Minus, name: "Exclude Keywords" },
-    { icon: Ban, name: "Exclude Companies" },
-    { icon: DollarSign, name: "Salary Range" },
-    { icon: BadgeCheck, name: "Actively Recruiting Badges" },
-    { icon: CheckCircle, name: "Auto-Hide Applied Jobs" },
-    { icon: Zap, name: "Urgently Hiring Only" },
-    { icon: Globe, name: "Visa Sponsorship Only" },
+    { icon: Building2, name: "Hide/Flag/Dim Staffing Firms", indeedOnly: false },
+    { icon: EyeOff, name: "Hide Sponsored/Promoted", indeedOnly: false },
+    { icon: Clock, name: "Early Applicant Jobs", indeedOnly: true },
+    { icon: Calendar, name: "Job Age Display", indeedOnly: false },
+    { icon: CalendarDays, name: "Job Posting Age", indeedOnly: false },
+    { icon: MapPin, name: "True Remote Accuracy", indeedOnly: false },
+    { icon: Plus, name: "Include Keywords", indeedOnly: false },
+    { icon: Minus, name: "Exclude Keywords", indeedOnly: false },
+    { icon: Ban, name: "Exclude Companies", indeedOnly: false },
+    { icon: DollarSign, name: "Salary Range", indeedOnly: true },
+    { icon: BadgeCheck, name: "Actively Recruiting Badges", indeedOnly: false },
+    { icon: CheckCircle, name: "Auto-Hide Applied Jobs", indeedOnly: true },
+    { icon: Zap, name: "Urgently Hiring Only", indeedOnly: true },
+    { icon: Globe, name: "Visa Sponsorship Only", indeedOnly: false },
   ];
 
   const scannerFeatures = [
@@ -207,10 +219,30 @@ export function FeaturesSection() {
                           className="flex items-center gap-2 text-white/70 hover:text-white transition-colors"
                         >
                           <Icon className="h-4 w-4 text-cyan-400 flex-shrink-0" />
-                          <span className="text-sm">{feature.name}</span>
+                          <span className="text-sm">
+                            {feature.name}
+                            {feature.indeedOnly && (
+                              <sup className="text-cyan-400/70 ml-0.5 text-[10px]">*</sup>
+                            )}
+                          </span>
                         </div>
                       );
                     })}
+                  </div>
+
+                  {/* Indeed-only footnote */}
+                  <div className="mt-4 pt-3 border-t border-white/5">
+                    <button
+                      onClick={() => setShowIndeedOnlyDialog(true)}
+                      className="text-xs text-white/40 hover:text-cyan-400 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="text-cyan-400/70">*</span>
+                      <span>Indeed only</span>
+                      <span className="text-white/20">&mdash;</span>
+                      <span className="underline underline-offset-2 decoration-white/30">
+                        Learn why
+                      </span>
+                    </button>
                   </div>
                 </CardContent>
               </Card>
@@ -334,6 +366,69 @@ export function FeaturesSection() {
           </motion.div>
         </div>
       </div>
+      {/* Indeed-Only Explanation Dialog */}
+      <Dialog open={showIndeedOnlyDialog} onOpenChange={setShowIndeedOnlyDialog}>
+        <DialogContent className="bg-[#0c0c1a] border-white/10 max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-white flex items-center gap-2.5">
+              <Info className="h-5 w-5 text-cyan-400 flex-shrink-0" />
+              Why Some Filters Are Indeed-Only
+            </DialogTitle>
+            <DialogDescription className="text-white/50 text-sm">
+              Platform differences affect feature availability
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 text-sm leading-relaxed mt-1">
+            {/* LinkedIn's limitations */}
+            <div className="space-y-2">
+              <h4 className="text-white font-semibold flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-400 flex-shrink-0" />
+                LinkedIn&apos;s Technical Barriers
+              </h4>
+              <p className="text-white/60">
+                LinkedIn aggressively restricts third-party browser extensions.
+                Their platform frequently changes its underlying page structure,
+                uses virtualized rendering that hides job data, and actively
+                detects and blocks extension interactions.
+              </p>
+              <p className="text-white/60">
+                This makes certain filters&mdash;like detecting early applicant
+                status, salary ranges, applied jobs, and hiring urgency&mdash;unreliable
+                or impossible to implement on LinkedIn.
+              </p>
+            </div>
+
+            {/* Why Indeed works */}
+            <div className="space-y-2">
+              <h4 className="text-white font-semibold flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                Why Indeed Works Better
+              </h4>
+              <p className="text-white/60">
+                Indeed maintains a stable, consistent page structure and
+                doesn&apos;t actively block browser extensions. This allows
+                JobFiltr to reliably read job metadata and provide these
+                advanced filtering features.
+              </p>
+            </div>
+
+            {/* Positive: what works on both */}
+            <div className="p-3.5 rounded-lg bg-white/[0.04] border border-white/[0.06]">
+              <h4 className="text-cyan-400 font-semibold flex items-center gap-2 mb-1.5">
+                <Zap className="h-4 w-4 flex-shrink-0" />
+                Works on Both Platforms
+              </h4>
+              <p className="text-white/50 text-xs leading-relaxed">
+                Most JobFiltr features work across both Indeed and LinkedIn,
+                including keyword filtering, company exclusions, staffing firm
+                detection, job age display, remote accuracy, ghost job analysis,
+                and community reported warnings.
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

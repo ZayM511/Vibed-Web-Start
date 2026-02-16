@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Loader2, Shield, Ghost, Scan, CheckCircle2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+
 
 // Custom SVG icons
 const ScamSpottingIcon = ({ className }: { className?: string }) => (
@@ -114,9 +114,6 @@ export function EnhancedScanForm({ onManualScan, isScanning }: EnhancedScanFormP
                 AI-powered detection of scams, ghost jobs, and red flags
               </CardDescription>
             </div>
-            <Badge variant="secondary" className="bg-indigo-500/20 text-indigo-200 border-indigo-400/30">
-              Beta
-            </Badge>
           </motion.div>
 
           {/* Feature Pills */}
