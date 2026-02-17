@@ -31,26 +31,67 @@ export async function POST() {
     await mkdir(publicIconsDir, { recursive: true });
     await mkdir(extensionIconsDir, { recursive: true });
 
-    // Remove white background from source to create transparent version
+    // Remove white background via flood fill from edges (preserves interior white like the funnel)
     const { data, info } = await sharp(sourcePath)
       .ensureAlpha()
       .raw()
       .toBuffer({ resolveWithObject: true });
 
+    const { width: w, height: h } = info;
+    const ch = 4;
     const output = Buffer.from(data);
-    const threshold = 245;
-    for (let i = 0; i < output.length; i += 4) {
-      const r = output[i], g = output[i + 1], b = output[i + 2];
-      if (r >= threshold && g >= threshold && b >= threshold) {
-        output[i + 3] = 0;
-      } else if (r >= 230 && g >= 230 && b >= 230) {
-        const brightness = (r + g + b) / 3;
-        output[i + 3] = Math.max(0, Math.min(255, Math.round(255 * (1 - (brightness - 230) / 25))));
+    const visited = new Uint8Array(w * h);
+
+    const isWhitish = (x: number, y: number) => {
+      const i = (y * w + x) * ch;
+      return output[i] >= 235 && output[i + 1] >= 235 && output[i + 2] >= 235;
+    };
+
+    // Seed BFS from all white-ish edge pixels
+    const queue: [number, number][] = [];
+    for (let x = 0; x < w; x++) {
+      if (isWhitish(x, 0)) { queue.push([x, 0]); visited[x] = 1; }
+      if (isWhitish(x, h - 1)) { queue.push([x, h - 1]); visited[(h - 1) * w + x] = 1; }
+    }
+    for (let y = 0; y < h; y++) {
+      if (isWhitish(0, y)) { queue.push([0, y]); visited[y * w] = 1; }
+      if (isWhitish(w - 1, y)) { queue.push([w - 1, y]); visited[y * w + (w - 1)] = 1; }
+    }
+
+    const dx = [-1, 0, 1, 0, -1, -1, 1, 1];
+    const dy = [0, -1, 0, 1, -1, 1, -1, 1];
+    while (queue.length > 0) {
+      const [cx, cy] = queue.shift()!;
+      output[(cy * w + cx) * ch + 3] = 0;
+      for (let d = 0; d < 8; d++) {
+        const nx = cx + dx[d], ny = cy + dy[d];
+        if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+        if (visited[ny * w + nx]) continue;
+        if (isWhitish(nx, ny)) {
+          visited[ny * w + nx] = 1;
+          queue.push([nx, ny]);
+        }
       }
     }
 
-    const transparentSource = await sharp(output, {
-      raw: { width: info.width, height: info.height, channels: 4 },
+    // Edge anti-aliasing
+    const edgeOutput = Buffer.from(output);
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const i = (y * w + x) * ch;
+        if (edgeOutput[i + 3] === 0) continue;
+        let tn = 0;
+        for (let d = 0; d < 4; d++) {
+          if (output[((y + dy[d]) * w + (x + dx[d])) * ch + 3] === 0) tn++;
+        }
+        if (tn >= 2 && edgeOutput[i] >= 250 && edgeOutput[i + 1] >= 250 && edgeOutput[i + 2] >= 250) {
+          edgeOutput[i + 3] = Math.round(255 * (1 - tn / 6));
+        }
+      }
+    }
+
+    const transparentSource = await sharp(edgeOutput, {
+      raw: { width: w, height: h, channels: 4 },
     }).png().toBuffer();
 
     for (const size of sizes) {
