@@ -417,6 +417,25 @@ export default defineSchema({
     .index("by_resolved", ["resolved", "timestamp"])
     .index("by_user", ["userId", "timestamp"]),
 
+  // Page View Tracking
+  pageViews: defineTable({
+    visitorId: v.string(),
+    path: v.string(),
+    referrer: v.optional(v.string()),
+    userId: v.optional(v.string()),
+    timestamp: v.number(),
+  })
+    .index("by_timestamp", ["timestamp"])
+    .index("by_visitor", ["visitorId", "timestamp"]),
+
+  // Aggregated Daily Page View Stats
+  dailyPageViewStats: defineTable({
+    date: v.string(),
+    totalViews: v.number(),
+    uniqueVisitors: v.number(),
+  })
+    .index("by_date", ["date"]),
+
   // Founder Settings (tier override for testing)
   founderSettings: defineTable({
     clerkUserId: v.string(),

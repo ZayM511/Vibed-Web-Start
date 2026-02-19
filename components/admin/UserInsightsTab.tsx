@@ -17,6 +17,8 @@ import {
   UserPlus,
   MapPin,
   Target,
+  Eye,
+  Globe,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -81,6 +83,9 @@ export function UserInsightsTab() {
 
   // Waitlist analytics data
   const waitlistAnalytics = useQuery(api.waitlist.getWaitlistAnalytics);
+
+  // Page view traffic data
+  const pageViewStats = useQuery(api.pageViews.getDailyPageViewStats, { userEmail });
 
   // Clerk users fetched from API route
   const [clerkUsers, setClerkUsers] = useState<ClerkUser[]>([]);
@@ -185,6 +190,126 @@ export function UserInsightsTab() {
           delay={0.15}
         />
       </div>
+
+      {/* Website Traffic Chart */}
+      <motion.div variants={itemVariants}>
+        <Card className="bg-white/5 backdrop-blur-xl border border-rose-500/30 shadow-lg shadow-rose-500/10">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Globe className="h-5 w-5 text-rose-400" />
+              Website Traffic (Last 30 Days)
+            </CardTitle>
+            <CardDescription className="text-white/60">
+              Daily page views and unique visitors
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {pageViewStats && pageViewStats.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={280}>
+                  <AreaChart data={pageViewStats}>
+                    <defs>
+                      <linearGradient id="viewsGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="visitorsGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                    <XAxis
+                      dataKey="date"
+                      stroke="rgba(255,255,255,0.5)"
+                      fontSize={10}
+                      tickFormatter={(v) => {
+                        const d = new Date(v);
+                        return `${d.getMonth() + 1}/${d.getDate()}`;
+                      }}
+                    />
+                    <YAxis stroke="rgba(255,255,255,0.5)" fontSize={12} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "rgba(15,15,30,0.95)",
+                        border: "1px solid rgba(244,63,94,0.3)",
+                        borderRadius: "8px",
+                        color: "#fff",
+                      }}
+                      labelFormatter={(label) => {
+                        const d = new Date(label);
+                        return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                      }}
+                    />
+                    <Legend />
+                    <Area
+                      type="monotone"
+                      dataKey="totalViews"
+                      stroke="#f43f5e"
+                      fill="url(#viewsGradient)"
+                      strokeWidth={2}
+                      name="Page Views"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="uniqueVisitors"
+                      stroke="#8b5cf6"
+                      fill="url(#visitorsGradient)"
+                      strokeWidth={2}
+                      name="Unique Visitors"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+                <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-white/10">
+                  <div className="text-center">
+                    <p className="text-white/50 text-xs">Today</p>
+                    <p className="text-rose-400 font-bold">
+                      {pageViewStats[pageViewStats.length - 1]?.totalViews ?? 0} views
+                    </p>
+                    <p className="text-violet-400 text-xs">
+                      {pageViewStats[pageViewStats.length - 1]?.uniqueVisitors ?? 0} visitors
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-white/50 text-xs">7-Day Avg</p>
+                    <p className="text-rose-400 font-bold">
+                      {Math.round(
+                        pageViewStats.slice(-7).reduce((sum: number, d: { totalViews: number }) => sum + d.totalViews, 0) / 7
+                      )} views/day
+                    </p>
+                    <p className="text-violet-400 text-xs">
+                      {Math.round(
+                        pageViewStats.slice(-7).reduce((sum: number, d: { uniqueVisitors: number }) => sum + d.uniqueVisitors, 0) / 7
+                      )} visitors/day
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-white/50 text-xs">30-Day Total</p>
+                    <p className="text-rose-400 font-bold">
+                      {pageViewStats.reduce((sum: number, d: { totalViews: number }) => sum + d.totalViews, 0).toLocaleString()} views
+                    </p>
+                    <p className="text-violet-400 text-xs">
+                      {pageViewStats.reduce((sum: number, d: { uniqueVisitors: number }) => sum + d.uniqueVisitors, 0).toLocaleString()} visitors
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-[280px]">
+                {pageViewStats === undefined ? (
+                  <div className="h-8 w-8 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
+                ) : (
+                  <div className="text-center">
+                    <Eye className="h-12 w-12 text-white/20 mx-auto mb-4" />
+                    <p className="text-white/60">No traffic data yet</p>
+                    <p className="text-white/40 text-sm mt-1">Data will appear as visitors browse your site</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* MRR & Revenue Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

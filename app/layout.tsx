@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { PageLoadingIndicator } from "@/components/PageLoadingIndicator";
 import { ErrorNotifications } from "@/components/error-notifications";
 import { GpcBanner } from "@/components/GpcBanner";
+import { PageViewTracker } from "@/components/PageViewTracker";
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -81,6 +82,7 @@ export default function RootLayout({
               <PageLoadingIndicator />
               <ErrorNotifications />
               <GpcBanner />
+              <PageViewTracker />
               {children}
             </ConvexClientProvider>
             <Toaster />
