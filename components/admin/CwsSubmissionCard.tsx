@@ -167,6 +167,61 @@ function downloadBase64(base64: string, filename: string) {
   link.click();
 }
 
+function generateTileCanvas(
+  width: number,
+  height: number,
+  subtitle: string,
+  features?: string[]
+): string {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d")!;
+
+  // Gradient background
+  const grad = ctx.createLinearGradient(0, 0, width, height);
+  grad.addColorStop(0, "#0f172a");
+  grad.addColorStop(0.5, "#1e293b");
+  grad.addColorStop(1, "#0f172a");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, width, height);
+
+  // Blue accent bars
+  ctx.fillStyle = "rgba(59, 130, 246, 0.6)";
+  ctx.fillRect(0, 0, width, 4);
+  ctx.fillRect(0, height - 4, width, 4);
+
+  const centerY = height / 2;
+  const titleSize = Math.round(width / 12);
+  const subtitleSize = Math.round(width / 22);
+  const featureSize = Math.round(width / 28);
+
+  // Title
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `bold ${titleSize}px system-ui, -apple-system, sans-serif`;
+  ctx.fillStyle = "white";
+  ctx.fillText("JobFiltr", width / 2, centerY - 10);
+
+  // Subtitle
+  ctx.font = `${subtitleSize}px system-ui, -apple-system, sans-serif`;
+  ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+  ctx.fillText(subtitle, width / 2, centerY + subtitleSize + 10);
+
+  // Features
+  if (features && features.length > 0) {
+    ctx.font = `${featureSize}px system-ui, -apple-system, sans-serif`;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+    const startY = centerY + titleSize + 20;
+    features.forEach((f, i) => {
+      ctx.fillText(f, width / 2, startY + i * (featureSize + 10));
+    });
+  }
+
+  // Return base64 without the data:image/png;base64, prefix
+  return canvas.toDataURL("image/png").split(",")[1];
+}
+
 export function CwsSubmissionCard() {
   const { copiedKey, copyText } = useCopyFeedback();
 
@@ -236,28 +291,30 @@ export function CwsSubmissionCard() {
     }
   };
 
-  const handleGeneratePromo = async () => {
+  const handleGeneratePromo = () => {
     setGeneratingPromo(true);
     setPromoStatus("idle");
     try {
-      const res = await fetch("/api/admin/generate-promo", { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        const entry: PromoHistoryEntry = {
-          id: String(data.timestamp),
-          timestamp: data.timestamp,
-          small: data.tiles.small,
-          marquee: data.tiles.marquee,
-        };
-        const updated = [entry, ...promoHistory];
-        setPromoHistory(updated);
-        savePromoHistory(updated);
-        setPromoStatus("success");
-        setTimeout(() => setPromoStatus("idle"), 3000);
-      } else {
-        setPromoStatus("error");
-        setTimeout(() => setPromoStatus("idle"), 3000);
-      }
+      const subtitle = "Your Job Search Power Tool";
+
+      const smallBase64 = generateTileCanvas(440, 280, subtitle);
+      const marqueeBase64 = generateTileCanvas(1400, 560, subtitle, [
+        "Ghost Job Detection  |  Scam & Spam Filters  |  Community Reports",
+        "LinkedIn & Indeed  |  Job Age Badges  |  Smart Keyword Filters",
+      ]);
+
+      const timestamp = Date.now();
+      const entry: PromoHistoryEntry = {
+        id: String(timestamp),
+        timestamp,
+        small: { filename: "small-tile-440x280.png", width: 440, height: 280, base64: smallBase64 },
+        marquee: { filename: "marquee-1400x560.png", width: 1400, height: 560, base64: marqueeBase64 },
+      };
+      const updated = [entry, ...promoHistory];
+      setPromoHistory(updated);
+      savePromoHistory(updated);
+      setPromoStatus("success");
+      setTimeout(() => setPromoStatus("idle"), 3000);
     } catch {
       setPromoStatus("error");
       setTimeout(() => setPromoStatus("idle"), 3000);
