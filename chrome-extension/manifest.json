@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "JobFiltr - Job Search Power Tool",
   "version": "2.0.0",
-  "description": "Advanced job search filters and AI-powered scam detection for LinkedIn, Indeed, and Google Jobs. Filter staffing firms, sponsored posts, applicants, and detect ghost jobs.",
+  "description": "Filter ghost jobs, scams & spam on LinkedIn and Indeed. AI-powered detection, smart filters, and community reports.",
   "permissions": [
     "activeTab",
     "storage",
@@ -19,7 +19,6 @@
     "https://*.linkedin.com/*",
     "https://*.indeed.com/*",
     "https://*.google.com/*",
-    "https://*.glassdoor.com/*",
     "https://www.googleapis.com/*",
     "https://accounts.google.com/*"
   ],
@@ -68,7 +67,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["icons/*", "styles/*"],
+      "resources": ["icons/*", "styles/*", "fonts/*"],
       "matches": ["<all_urls>"]
     },
     {

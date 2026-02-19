@@ -3838,11 +3838,15 @@ function showJobFiltrActiveNotification() {
             <div style="font-size:14px;font-weight:600;color:#fff;">JobFiltr Is Active</div>
             <div style="font-size:12px;color:#94a3b8;">Filtering jobs on this page</div>
           </div>
-          <button onclick="this.closest('#jobfiltr-active-notification').remove()" style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:transparent;border:none;border-radius:6px;color:#64748b;cursor:pointer;margin-left:4px;">
+          <button class="jobfiltr-dismiss-btn" style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:transparent;border:none;border-radius:6px;color:#64748b;cursor:pointer;margin-left:4px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </button>
         </div>
       `;
+      const dismissBtn = notification.querySelector('.jobfiltr-dismiss-btn');
+      if (dismissBtn) {
+        dismissBtn.addEventListener('click', () => notification.remove());
+      }
       notification.style.cssText = 'position:fixed;top:24px;right:24px;z-index:99999;animation:jobfiltr-slide-in 0.4s ease-out;';
 
       const style = document.createElement('style');

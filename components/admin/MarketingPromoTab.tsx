@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Package,
   ImageIcon,
   Type,
   FileText,
-  MonitorSmartphone,
   Copy,
   Check,
   Download,
@@ -20,6 +19,8 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UtmLinksCard } from "@/components/admin/UtmLinksCard";
+import { CwsSubmissionCard } from "@/components/admin/CwsSubmissionCard";
+import { useCopyFeedback } from "@/hooks/useCopyFeedback";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -69,41 +70,6 @@ Built by Groundwork Labs for job seekers tired of wading through low-quality lis
 
 const ICON_SIZES = [128, 48, 16] as const;
 
-function useCopyFeedback() {
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-
-  const copyText = useCallback(async (key: string, text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      const textarea = document.createElement("textarea");
-      textarea.value = text;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
-    }
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 2000);
-  }, []);
-
-  const copyImage = useCallback(async (key: string, url: string) => {
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      await navigator.clipboard.write([
-        new ClipboardItem({ "image/png": blob }),
-      ]);
-      setCopiedKey(key);
-      setTimeout(() => setCopiedKey(null), 2000);
-    } catch {
-      setCopiedKey("error");
-      setTimeout(() => setCopiedKey(null), 2000);
-    }
-  }, []);
-
-  return { copiedKey, copyText, copyImage };
-}
 
 export function MarketingPromoTab() {
   const { copiedKey, copyText, copyImage } = useCopyFeedback();
@@ -498,38 +464,8 @@ export function MarketingPromoTab() {
       {/* Section 5: UTM Tracking Links */}
       <UtmLinksCard />
 
-      {/* Section 6: Store Screenshots */}
-      <motion.div variants={itemVariants}>
-        <Card className="bg-white/5 backdrop-blur-xl border border-pink-500/30 shadow-lg shadow-pink-500/10">
-          <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
-              <MonitorSmartphone className="h-5 w-5 text-pink-400" />
-              Store Screenshots
-            </CardTitle>
-            <CardDescription className="text-white/60">
-              Chrome Web Store requires at least one 1280x800 or 640x400 screenshot
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-lg border-2 border-dashed border-pink-500/30 bg-pink-500/5 p-8 flex flex-col items-center gap-4">
-              <MonitorSmartphone className="h-12 w-12 text-pink-400/40" />
-              <div className="text-center space-y-2">
-                <p className="text-white/70 text-sm font-medium">
-                  1280 x 800 Hero Screenshot
-                </p>
-                <p className="text-white/40 text-xs max-w-md">
-                  Use the debug browser (port 9222) to navigate to an Indeed job search page with JobFiltr active. Apply filters, show badges, and capture a 1280x800 screenshot showcasing the extension in action.
-                </p>
-              </div>
-              <div className="flex gap-3 text-xs text-white/30">
-                <span className="px-2 py-1 rounded bg-white/5">PNG or JPEG</span>
-                <span className="px-2 py-1 rounded bg-white/5">1280x800 or 640x400</span>
-                <span className="px-2 py-1 rounded bg-white/5">No alpha/transparency</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+      {/* Section 6: Chrome Web Store Submission */}
+      <CwsSubmissionCard />
     </motion.div>
   );
 }

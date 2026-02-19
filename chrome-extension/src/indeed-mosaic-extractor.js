@@ -20,16 +20,20 @@
 
       const jobs = jobcardsProvider.metaData.mosaicProviderJobCardsModel.results;
 
-      // Send the essential data for age calculation
+      // Send the data we need (jobkey, pubDate, createDate, formattedRelativeTime, extractedSalary, jobTypes)
       const jobData = jobs.map(job => ({
         jobkey: job.jobkey,
         pubDate: job.pubDate,
         createDate: job.createDate,
-        formattedRelativeTime: job.formattedRelativeTime
+        formattedRelativeTime: job.formattedRelativeTime,
+        // Salary data for salary range filtering
+        extractedSalary: job.extractedSalary || null,
+        jobTypes: job.jobTypes || [],
+        salarySnippetText: job.salarySnippet?.text || null
       }));
 
       // Dispatch event to content script
-      window.dispatchEvent(new CustomEvent('jobfiltr-mosaic-ages', {
+      window.dispatchEvent(new CustomEvent('jobfiltr-mosaic-data', {
         detail: jobData
       }));
 
@@ -41,8 +45,8 @@
   // Extract immediately
   extractAndSendMosaicData();
 
-  // Also listen for requests to re-extract (for SPA navigation)
-  window.addEventListener('jobfiltr-request-mosaic-ages', extractAndSendMosaicData);
+  // Also listen for requests to re-extract (for dynamic page updates)
+  window.addEventListener('jobfiltr-request-mosaic', extractAndSendMosaicData);
 
   // Re-extract when mosaic data might have updated (after short delay)
   setTimeout(extractAndSendMosaicData, 500);

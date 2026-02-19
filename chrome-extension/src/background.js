@@ -36,10 +36,7 @@ chrome.runtime.onInstalled.addListener((details) => {
     documentUrlPatterns: [
       '*://*.linkedin.com/jobs/*',
       '*://*.indeed.com/*',
-      '*://*.glassdoor.com/*',
-      '*://*.monster.com/*',
-      '*://*.ziprecruiter.com/*',
-      '*://*.careerbuilder.com/*'
+      '*://*.google.com/search*'
     ]
   });
 });
@@ -122,10 +119,7 @@ function checkIfJobPage(url, tabId) {
     'linkedin.com/jobs',
     'indeed.com/viewjob',
     'indeed.com/rc/clk',
-    'glassdoor.com/job-listing',
-    'monster.com/job-openings',
-    'ziprecruiter.com/c',
-    'careerbuilder.com/job'
+    'indeed.com/jobs'
   ];
 
   const isJobPage = jobSites.some(site => url.includes(site));

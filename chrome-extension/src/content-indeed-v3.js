@@ -3277,43 +3277,8 @@ function injectMosaicDataExtractor() {
 
   const script = document.createElement('script');
   script.id = 'jobfiltr-mosaic-extractor';
-  script.textContent = `
-    (function() {
-      function extractAndSendMosaicData() {
-        try {
-          if (window.mosaic && window.mosaic.providerData) {
-            const jobcardsProvider = window.mosaic.providerData['mosaic-provider-jobcards'];
-            if (jobcardsProvider && jobcardsProvider.metaData &&
-                jobcardsProvider.metaData.mosaicProviderJobCardsModel &&
-                jobcardsProvider.metaData.mosaicProviderJobCardsModel.results) {
-              const jobs = jobcardsProvider.metaData.mosaicProviderJobCardsModel.results;
-              // Send the data we need (jobkey, pubDate, createDate, formattedRelativeTime, extractedSalary, jobTypes)
-              const jobData = jobs.map(job => ({
-                jobkey: job.jobkey,
-                pubDate: job.pubDate,
-                createDate: job.createDate,
-                formattedRelativeTime: job.formattedRelativeTime,
-                // Salary data for salary range filtering
-                extractedSalary: job.extractedSalary || null,
-                jobTypes: job.jobTypes || [],
-                salarySnippetText: job.salarySnippet?.text || null
-              }));
-              window.dispatchEvent(new CustomEvent('jobfiltr-mosaic-data', { detail: jobData }));
-            }
-          }
-        } catch (e) {
-          console.error('JobFiltr: Error extracting mosaic data:', e);
-        }
-      }
-
-      // Extract immediately
-      extractAndSendMosaicData();
-
-      // Also listen for requests to re-extract (for dynamic page updates)
-      window.addEventListener('jobfiltr-request-mosaic', extractAndSendMosaicData);
-    })();
-  `;
-  document.documentElement.appendChild(script);
+  script.src = chrome.runtime.getURL('src/indeed-mosaic-extractor.js');
+  (document.head || document.documentElement).appendChild(script);
 }
 
 // Request fresh mosaic data from page context
