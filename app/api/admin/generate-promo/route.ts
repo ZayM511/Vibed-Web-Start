@@ -2,8 +2,6 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { FOUNDER_EMAILS } from "@/lib/feature-flags";
 import sharp from "sharp";
-import path from "path";
-import { mkdir, readFile } from "fs/promises";
 
 function createGradientSvg(width: number, height: number): Buffer {
   const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
@@ -50,6 +48,27 @@ function createTextOverlay(
   return Buffer.from(svg);
 }
 
+async function generateTile(
+  width: number,
+  height: number,
+  subtitle: string,
+  features?: string[]
+): Promise<Buffer> {
+  const bg = createGradientSvg(width, height);
+  const text = createTextOverlay(width, height, {
+    title: "JobFiltr",
+    subtitle,
+    features,
+  });
+
+  const composite = await sharp(bg)
+    .composite([{ input: text, top: 0, left: 0 }])
+    .png()
+    .toBuffer();
+
+  return composite;
+}
+
 export async function POST() {
   const { userId } = await auth();
   if (!userId) {
@@ -67,79 +86,34 @@ export async function POST() {
   }
 
   try {
-    const outputDir = path.join(process.cwd(), "public", "store-assets", "promo");
-    await mkdir(outputDir, { recursive: true });
+    const subtitle = "Your Job Search Power Tool";
 
-    // Load logo for compositing
-    const logoPath = path.join(process.cwd(), "public", "jobfiltr-logo-transparent.png");
-    let logoBuffer: Buffer | null = null;
-    try {
-      logoBuffer = await readFile(logoPath);
-    } catch {
-      // Logo not available, continue without it
-    }
+    // Generate small promo tile (440x280) - in memory
+    const smallTileBuffer = await generateTile(440, 280, subtitle);
 
-    const generated: string[] = [];
-
-    // Generate small promo tile (440x280)
-    {
-      const w = 440,
-        h = 280;
-      const bg = createGradientSvg(w, h);
-      const text = createTextOverlay(w, h, {
-        title: "JobFiltr",
-        subtitle: "Filter Fake Jobs. Find Real Ones.",
-      });
-
-      let composite = sharp(bg).composite([{ input: text, top: 0, left: 0 }]);
-
-      if (logoBuffer) {
-        const resizedLogo = await sharp(logoBuffer)
-          .resize(60, 60, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-          .png()
-          .toBuffer();
-        composite = sharp(await composite.png().toBuffer()).composite([
-          { input: resizedLogo, top: 30, left: Math.round((w - 60) / 2) },
-        ]);
-      }
-
-      await composite.png().toFile(path.join(outputDir, "small-tile-440x280.png"));
-      generated.push("small-tile-440x280.png");
-    }
-
-    // Generate marquee promo tile (1400x560)
-    {
-      const w = 1400,
-        h = 560;
-      const bg = createGradientSvg(w, h);
-      const text = createTextOverlay(w, h, {
-        title: "JobFiltr",
-        subtitle: "Filter Fake Jobs. Find Real Ones.",
-        features: [
-          "Ghost Job Detection  |  Scam & Spam Filters  |  Community Reports",
-          "LinkedIn & Indeed  |  Job Age Badges  |  Smart Keyword Filters",
-        ],
-      });
-
-      let composite = sharp(bg).composite([{ input: text, top: 0, left: 0 }]);
-
-      if (logoBuffer) {
-        const resizedLogo = await sharp(logoBuffer)
-          .resize(100, 100, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-          .png()
-          .toBuffer();
-        composite = sharp(await composite.png().toBuffer()).composite([
-          { input: resizedLogo, top: 40, left: Math.round((w - 100) / 2) },
-        ]);
-      }
-
-      await composite.png().toFile(path.join(outputDir, "marquee-1400x560.png"));
-      generated.push("marquee-1400x560.png");
-    }
+    // Generate marquee promo tile (1400x560) - in memory
+    const marqueeTileBuffer = await generateTile(1400, 560, subtitle, [
+      "Ghost Job Detection  |  Scam & Spam Filters  |  Community Reports",
+      "LinkedIn & Indeed  |  Job Age Badges  |  Smart Keyword Filters",
+    ]);
 
     return NextResponse.json({
       success: true,
-      generated,
+      timestamp: Date.now(),
+      tiles: {
+        small: {
+          filename: "small-tile-440x280.png",
+          width: 440,
+          height: 280,
+          base64: smallTileBuffer.toString("base64"),
+        },
+        marquee: {
+          filename: "marquee-1400x560.png",
+          width: 1400,
+          height: 560,
+          base64: marqueeTileBuffer.toString("base64"),
+        },
+      },
     });
   } catch (error) {
     console.error("Failed to generate promo tiles:", error);

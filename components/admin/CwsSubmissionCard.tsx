@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   Store,
@@ -20,6 +20,10 @@ import {
   ArrowDownToLine,
   Sun,
   Moon,
+  Trash2,
+  Clock,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -115,6 +119,54 @@ interface AssetFile {
   path: string;
 }
 
+interface PromoTileData {
+  filename: string;
+  width: number;
+  height: number;
+  base64: string;
+}
+
+interface PromoHistoryEntry {
+  id: string;
+  timestamp: number;
+  small: PromoTileData;
+  marquee: PromoTileData;
+}
+
+const PROMO_HISTORY_KEY = "jobfiltr-promo-history";
+
+function loadPromoHistory(): PromoHistoryEntry[] {
+  try {
+    const raw = localStorage.getItem(PROMO_HISTORY_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as PromoHistoryEntry[];
+  } catch {
+    return [];
+  }
+}
+
+function savePromoHistory(history: PromoHistoryEntry[]) {
+  localStorage.setItem(PROMO_HISTORY_KEY, JSON.stringify(history));
+}
+
+function formatTimestamp(ts: number): string {
+  return new Date(ts).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function downloadBase64(base64: string, filename: string) {
+  const link = document.createElement("a");
+  link.href = `data:image/png;base64,${base64}`;
+  link.download = filename;
+  link.click();
+}
+
 export function CwsSubmissionCard() {
   const { copiedKey, copyText } = useCopyFeedback();
 
@@ -128,12 +180,15 @@ export function CwsSubmissionCard() {
 
   // Asset files from API
   const [screenshotFiles, setScreenshotFiles] = useState<AssetFile[]>([]);
-  const [promoFiles, setPromoFiles] = useState<AssetFile[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(true);
 
   // Promo generation state
   const [generatingPromo, setGeneratingPromo] = useState(false);
   const [promoStatus, setPromoStatus] = useState<"idle" | "success" | "error">("idle");
+
+  // Promo history
+  const [promoHistory, setPromoHistory] = useState<PromoHistoryEntry[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Lightbox state
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -141,10 +196,11 @@ export function CwsSubmissionCard() {
   // Icon timestamp for cache busting
   const [refreshKey, setRefreshKey] = useState(Date.now());
 
-  // Load manifest desc from localStorage
+  // Load manifest desc and promo history from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("jobfiltr-manifest-desc");
     if (saved) setManifestDesc(saved);
+    setPromoHistory(loadPromoHistory());
   }, []);
 
   // Fetch available assets
@@ -159,7 +215,6 @@ export function CwsSubmissionCard() {
       if (res.ok) {
         const data = await res.json();
         setScreenshotFiles(data.screenshots || []);
-        setPromoFiles(data.promos || []);
       }
     } catch {
       // Silently fail
@@ -187,8 +242,17 @@ export function CwsSubmissionCard() {
     try {
       const res = await fetch("/api/admin/generate-promo", { method: "POST" });
       if (res.ok) {
+        const data = await res.json();
+        const entry: PromoHistoryEntry = {
+          id: String(data.timestamp),
+          timestamp: data.timestamp,
+          small: data.tiles.small,
+          marquee: data.tiles.marquee,
+        };
+        const updated = [entry, ...promoHistory];
+        setPromoHistory(updated);
+        savePromoHistory(updated);
         setPromoStatus("success");
-        setRefreshKey(Date.now());
         setTimeout(() => setPromoStatus("idle"), 3000);
       } else {
         setPromoStatus("error");
@@ -201,6 +265,14 @@ export function CwsSubmissionCard() {
       setGeneratingPromo(false);
     }
   };
+
+  const handleDeletePromoEntry = useCallback((id: string) => {
+    setPromoHistory((prev) => {
+      const updated = prev.filter((e) => e.id !== id);
+      savePromoHistory(updated);
+      return updated;
+    });
+  }, []);
 
   const handleDownload = (filePath: string, filename: string) => {
     const link = document.createElement("a");
@@ -229,15 +301,16 @@ export function CwsSubmissionCard() {
     return screenshotFiles.some((f) => f.filename === filename);
   };
 
-  const promoFileExists = (filename: string): boolean => {
-    return promoFiles.some((f) => f.filename === filename);
-  };
-
   const getCharCountColor = (length: number) => {
     if (length > 125) return "text-red-400";
     if (length > 100) return "text-amber-400";
     return "text-green-400";
   };
+
+  // Current (latest) promo tiles
+  const latestPromo = promoHistory.length > 0 ? promoHistory[0] : null;
+  const hasPromoTiles = latestPromo !== null;
+  const previousPromos = promoHistory.slice(1);
 
   // Calculate checklist
   const checklist = [
@@ -246,7 +319,7 @@ export function CwsSubmissionCard() {
     { label: "Store icon (128x128)", done: true },
     { label: "At least 1 screenshot", done: screenshotFiles.length >= 1 },
     { label: "3+ screenshots (recommended)", done: screenshotFiles.length >= 6 },
-    { label: "Small promo tile (440x280)", done: promoFileExists("small-tile-440x280.png") },
+    { label: "Small promo tile (440x280)", done: hasPromoTiles },
     { label: "Category set", done: true },
   ];
   const completedCount = checklist.filter((c) => c.done).length;
@@ -596,89 +669,216 @@ export function CwsSubmissionCard() {
                 <span className="text-white/40 text-xs">Creates branded tiles from logo + gradient</span>
               </div>
 
-              {/* Small Promo Tile */}
-              <div className="rounded-lg bg-white/5 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-white text-sm font-medium">Small Promo Tile</p>
-                    <p className="text-white/40 text-xs">440 x 280 pixels</p>
+              {/* Current / Latest Promo Tiles */}
+              {latestPromo ? (
+                <>
+                  {/* Small Promo Tile */}
+                  <div className="rounded-lg bg-white/5 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-white text-sm font-medium">Small Promo Tile</p>
+                        <p className="text-white/40 text-xs">
+                          440 x 280 pixels · Generated {formatTimestamp(latestPromo.timestamp)}
+                        </p>
+                      </div>
+                      <Badge className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/20">
+                        Ready
+                      </Badge>
+                    </div>
+                    <button
+                      onClick={() => setLightboxImage(`data:image/png;base64,${latestPromo.small.base64}`)}
+                      className="w-full rounded-lg overflow-hidden border border-white/10 hover:border-white/20 transition-all cursor-zoom-in"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`data:image/png;base64,${latestPromo.small.base64}`}
+                        alt="Small promo tile"
+                        className="w-full"
+                      />
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => downloadBase64(latestPromo.small.base64, latestPromo.small.filename)}
+                        className="px-3 py-1.5 rounded-md text-xs font-medium bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-all"
+                      >
+                        <Download className="h-3 w-3 inline mr-1" />
+                        Download
+                      </button>
+                      <button
+                        onClick={() => handleDeletePromoEntry(latestPromo.id)}
+                        className="px-3 py-1.5 rounded-md text-xs font-medium bg-white/5 text-red-400/60 hover:bg-red-500/10 hover:text-red-400 transition-all ml-auto"
+                      >
+                        <Trash2 className="h-3 w-3 inline mr-1" />
+                        Delete
+                      </button>
+                    </div>
                   </div>
-                  {promoFileExists("small-tile-440x280.png") ? (
-                    <Badge className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/20">Ready</Badge>
-                  ) : (
-                    <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/20">Missing</Badge>
-                  )}
-                </div>
-                {promoFileExists("small-tile-440x280.png") ? (
-                  <button
-                    onClick={() => setLightboxImage(`/store-assets/promo/small-tile-440x280.png?t=${refreshKey}`)}
-                    className="w-full rounded-lg overflow-hidden border border-white/10 hover:border-white/20 transition-all cursor-zoom-in"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`/store-assets/promo/small-tile-440x280.png?t=${refreshKey}`}
-                      alt="Small promo tile"
-                      className="w-full"
-                    />
-                  </button>
-                ) : (
-                  <div className="w-full aspect-[440/280] rounded-lg border-2 border-dashed border-white/10 flex items-center justify-center">
-                    <ImageIcon className="h-8 w-8 text-white/15" />
-                  </div>
-                )}
-                {promoFileExists("small-tile-440x280.png") && (
-                  <button
-                    onClick={() => handleDownload("/store-assets/promo/small-tile-440x280.png", "small-tile-440x280.png")}
-                    className="px-3 py-1.5 rounded-md text-xs font-medium bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-all"
-                  >
-                    <Download className="h-3 w-3 inline mr-1" />
-                    Download
-                  </button>
-                )}
-              </div>
 
-              {/* Marquee Promo Tile */}
-              <div className="rounded-lg bg-white/5 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-white text-sm font-medium">
-                      Marquee Promo Tile
-                      <span className="text-white/30 text-xs ml-2">(Optional)</span>
-                    </p>
-                    <p className="text-white/40 text-xs">1400 x 560 pixels</p>
+                  {/* Marquee Promo Tile */}
+                  <div className="rounded-lg bg-white/5 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-white text-sm font-medium">
+                          Marquee Promo Tile
+                          <span className="text-white/30 text-xs ml-2">(Optional)</span>
+                        </p>
+                        <p className="text-white/40 text-xs">
+                          1400 x 560 pixels · Generated {formatTimestamp(latestPromo.timestamp)}
+                        </p>
+                      </div>
+                      <Badge className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/20">
+                        Ready
+                      </Badge>
+                    </div>
+                    <button
+                      onClick={() => setLightboxImage(`data:image/png;base64,${latestPromo.marquee.base64}`)}
+                      className="w-full rounded-lg overflow-hidden border border-white/10 hover:border-white/20 transition-all cursor-zoom-in"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`data:image/png;base64,${latestPromo.marquee.base64}`}
+                        alt="Marquee promo tile"
+                        className="w-full"
+                      />
+                    </button>
+                    <button
+                      onClick={() => downloadBase64(latestPromo.marquee.base64, latestPromo.marquee.filename)}
+                      className="px-3 py-1.5 rounded-md text-xs font-medium bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-all"
+                    >
+                      <Download className="h-3 w-3 inline mr-1" />
+                      Download
+                    </button>
                   </div>
-                  {promoFileExists("marquee-1400x560.png") ? (
-                    <Badge className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/20">Ready</Badge>
-                  ) : (
-                    <Badge className="bg-white/5 text-white/30 border-white/10 hover:bg-white/5">Optional</Badge>
+                </>
+              ) : (
+                <>
+                  {/* Empty state - Small */}
+                  <div className="rounded-lg bg-white/5 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-white text-sm font-medium">Small Promo Tile</p>
+                        <p className="text-white/40 text-xs">440 x 280 pixels</p>
+                      </div>
+                      <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/20">
+                        Missing
+                      </Badge>
+                    </div>
+                    <div className="w-full aspect-[440/280] rounded-lg border-2 border-dashed border-white/10 flex items-center justify-center">
+                      <ImageIcon className="h-8 w-8 text-white/15" />
+                    </div>
+                  </div>
+
+                  {/* Empty state - Marquee */}
+                  <div className="rounded-lg bg-white/5 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-white text-sm font-medium">
+                          Marquee Promo Tile
+                          <span className="text-white/30 text-xs ml-2">(Optional)</span>
+                        </p>
+                        <p className="text-white/40 text-xs">1400 x 560 pixels</p>
+                      </div>
+                      <Badge className="bg-white/5 text-white/30 border-white/10 hover:bg-white/5">
+                        Optional
+                      </Badge>
+                    </div>
+                    <div className="w-full aspect-[1400/560] rounded-lg border-2 border-dashed border-white/10 flex items-center justify-center">
+                      <ImageIcon className="h-8 w-8 text-white/15" />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Previous Generations */}
+              {previousPromos.length > 0 && (
+                <div className="rounded-lg bg-white/5 border border-white/10">
+                  <button
+                    onClick={() => setShowHistory(!showHistory)}
+                    className="w-full flex items-center justify-between p-4 text-left hover:bg-white/5 transition-all rounded-lg"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-white/40" />
+                      <span className="text-white/70 text-sm font-medium">
+                        Previous Generations ({previousPromos.length})
+                      </span>
+                    </div>
+                    {showHistory ? (
+                      <ChevronUp className="h-4 w-4 text-white/40" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-white/40" />
+                    )}
+                  </button>
+
+                  {showHistory && (
+                    <div className="border-t border-white/10 p-4 space-y-4">
+                      {previousPromos.map((entry) => (
+                        <div key={entry.id} className="rounded-lg bg-black/20 p-3 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-white/50 text-xs font-mono">
+                              {formatTimestamp(entry.timestamp)}
+                            </span>
+                            <button
+                              onClick={() => handleDeletePromoEntry(entry.id)}
+                              className="p-1 rounded-md text-red-400/50 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                              title="Delete this generation"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            {/* Small tile thumbnail */}
+                            <div className="space-y-1.5">
+                              <button
+                                onClick={() => setLightboxImage(`data:image/png;base64,${entry.small.base64}`)}
+                                className="w-full rounded border border-white/10 overflow-hidden hover:border-white/20 transition-all cursor-zoom-in"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={`data:image/png;base64,${entry.small.base64}`}
+                                  alt="Small tile"
+                                  className="w-full"
+                                />
+                              </button>
+                              <button
+                                onClick={() => downloadBase64(entry.small.base64, `small-tile-${entry.id}.png`)}
+                                className="px-2 py-1 rounded text-[10px] font-medium bg-white/5 text-white/50 hover:bg-white/10 hover:text-white transition-all"
+                              >
+                                <Download className="h-2.5 w-2.5 inline mr-1" />
+                                Small
+                              </button>
+                            </div>
+                            {/* Marquee tile thumbnail */}
+                            <div className="space-y-1.5">
+                              <button
+                                onClick={() => setLightboxImage(`data:image/png;base64,${entry.marquee.base64}`)}
+                                className="w-full rounded border border-white/10 overflow-hidden hover:border-white/20 transition-all cursor-zoom-in"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={`data:image/png;base64,${entry.marquee.base64}`}
+                                  alt="Marquee tile"
+                                  className="w-full"
+                                />
+                              </button>
+                              <button
+                                onClick={() => downloadBase64(entry.marquee.base64, `marquee-${entry.id}.png`)}
+                                className="px-2 py-1 rounded text-[10px] font-medium bg-white/5 text-white/50 hover:bg-white/10 hover:text-white transition-all"
+                              >
+                                <Download className="h-2.5 w-2.5 inline mr-1" />
+                                Marquee
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
-                {promoFileExists("marquee-1400x560.png") ? (
-                  <button
-                    onClick={() => setLightboxImage(`/store-assets/promo/marquee-1400x560.png?t=${refreshKey}`)}
-                    className="w-full rounded-lg overflow-hidden border border-white/10 hover:border-white/20 transition-all cursor-zoom-in"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`/store-assets/promo/marquee-1400x560.png?t=${refreshKey}`}
-                      alt="Marquee promo tile"
-                      className="w-full"
-                    />
-                  </button>
-                ) : (
-                  <div className="w-full aspect-[1400/560] rounded-lg border-2 border-dashed border-white/10 flex items-center justify-center">
-                    <ImageIcon className="h-8 w-8 text-white/15" />
-                  </div>
-                )}
-                {promoFileExists("marquee-1400x560.png") && (
-                  <button
-                    onClick={() => handleDownload("/store-assets/promo/marquee-1400x560.png", "marquee-1400x560.png")}
-                    className="px-3 py-1.5 rounded-md text-xs font-medium bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-all"
-                  >
-                    <Download className="h-3 w-3 inline mr-1" />
-                    Download
-                  </button>
-                )}
+              )}
+
+              {/* Summary */}
+              <div className="text-center text-white/30 text-xs">
+                {promoHistory.length} generation{promoHistory.length !== 1 ? "s" : ""} in history
               </div>
             </TabsContent>
           </Tabs>
