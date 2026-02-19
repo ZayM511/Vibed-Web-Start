@@ -40,7 +40,7 @@ const itemVariants = {
 };
 
 const DEFAULT_SHORT_DESC =
-  "Filter ghost jobs, scams & spam on LinkedIn and Indeed. AI-powered detection, smart filters, and community reports. Apply smarter.";
+  "Job search power tool for LinkedIn and Indeed. Ghost job & scam detection, smart filters, job age badges, and more. Search smarter.";
 
 const DEFAULT_DETAILED_DESC = `JobFiltr - Job Search Power Tool
 

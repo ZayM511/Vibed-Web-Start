@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "JobFiltr - Job Search Power Tool",
   "version": "2.0.0",
-  "description": "Filter ghost jobs, scams & spam on LinkedIn and Indeed. AI-powered detection, smart filters, and community reports.",
+  "description": "Job search power tool for LinkedIn and Indeed. Ghost job & scam detection, smart filters, job age badges, and more. Search smarter.",
   "permissions": [
     "activeTab",
     "storage",
