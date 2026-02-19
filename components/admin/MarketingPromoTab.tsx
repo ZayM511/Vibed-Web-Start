@@ -44,20 +44,20 @@ const DEFAULT_SHORT_DESC =
 
 const DEFAULT_DETAILED_DESC = `JobFiltr - Job Search Power Tool
 
-Stop wasting time on fake, spam, and ghost job listings. JobFiltr is a Chrome extension that filters and analyzes job postings on LinkedIn and Indeed in real time so you only see real opportunities.
+JobFiltr is a Chrome extension that filters and analyzes job postings on LinkedIn and Indeed in real time so you only see opportunities worth your time.
 
 KEY FEATURES:
 \u2022 Ghost Job Detection: AI analyzes 50+ indicators to flag jobs posted with no intention of hiring
-\u2022 Scam & Spam Detection: Flags suspicious postings, unrealistic requirements, and data harvesting schemes
-\u2022 Community Reports: See real warnings from other job seekers about problematic companies
-\u2022 Hide Staffing Firms: Filter out agency postings to find direct-hire opportunities
 \u2022 Job Age Badges: See how old each listing is at a glance
-\u2022 Hide Sponsored/Promoted: Remove pay-to-play postings cluttering your results
+\u2022 Hide Staffing Firms: Filter out agency postings to find direct-hire opportunities
+\u2022 Scam & Spam Detection: Flags suspicious postings, unrealistic requirements, and data harvesting schemes
 \u2022 Keyword Filters: Include or exclude jobs by keywords
+\u2022 Hide Sponsored/Promoted: Remove pay-to-play postings cluttering your results
+\u2022 Remote Job Accuracy: Verify if remote listings are truly remote
 \u2022 Exclude Companies: Block specific companies from your search results
 \u2022 Salary Range Filter: Focus on jobs that match your compensation needs (Indeed)
-\u2022 Remote Job Accuracy: Verify if remote listings are truly remote
 \u2022 Auto-Hide Applied Jobs: Keep your search results clean (Indeed)
+\u2022 Community Reports: See warnings from other job seekers about problematic companies
 
 SUPPORTED PLATFORMS:
 \u2022 Indeed (full feature support with bonus Indeed-exclusive filters)
@@ -66,7 +66,7 @@ SUPPORTED PLATFORMS:
 PRIVACY FIRST:
 Zero tracking. Zero data selling. We analyze job postings, not you. Your search activity stays completely private.
 
-Built by Groundwork Labs for job seekers tired of wading through low-quality listings. Take back control of your job search.`;
+Built by Groundwork Labs for job seekers tired of wading through low-quality listings. Search smarter.`;
 
 const ICON_SIZES = [128, 48, 16] as const;
 
