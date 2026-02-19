@@ -760,8 +760,8 @@ export function UserInsightsTab() {
       {/* Signup Trend & Status Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Signup Trend */}
-        <motion.div variants={itemVariants}>
-          <Card className="bg-white/5 backdrop-blur-xl border border-indigo-500/30 shadow-lg shadow-indigo-500/10">
+        <motion.div variants={itemVariants} className="flex">
+          <Card className="bg-white/5 backdrop-blur-xl border border-indigo-500/30 shadow-lg shadow-indigo-500/10 flex-1">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-indigo-400" />
@@ -824,8 +824,8 @@ export function UserInsightsTab() {
         </motion.div>
 
         {/* Status Breakdown */}
-        <motion.div variants={itemVariants}>
-          <Card className="bg-white/5 backdrop-blur-xl border border-amber-500/30 shadow-lg shadow-amber-500/10">
+        <motion.div variants={itemVariants} className="flex">
+          <Card className="bg-white/5 backdrop-blur-xl border border-amber-500/30 shadow-lg shadow-amber-500/10 flex-1">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <Target className="h-5 w-5 text-amber-400" />
@@ -904,8 +904,8 @@ export function UserInsightsTab() {
       {/* Top Locations & Signup Sources */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Locations Bar Chart */}
-        <motion.div variants={itemVariants}>
-          <Card className="bg-white/5 backdrop-blur-xl border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
+        <motion.div variants={itemVariants} className="flex">
+          <Card className="bg-white/5 backdrop-blur-xl border border-emerald-500/30 shadow-lg shadow-emerald-500/10 flex-1">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-emerald-400" />
@@ -955,8 +955,8 @@ export function UserInsightsTab() {
         </motion.div>
 
         {/* Signup Sources */}
-        <motion.div variants={itemVariants}>
-          <Card className="bg-white/5 backdrop-blur-xl border border-pink-500/30 shadow-lg shadow-pink-500/10">
+        <motion.div variants={itemVariants} className="flex">
+          <Card className="bg-white/5 backdrop-blur-xl border border-pink-500/30 shadow-lg shadow-pink-500/10 flex-1">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <UserPlus className="h-5 w-5 text-pink-400" />
