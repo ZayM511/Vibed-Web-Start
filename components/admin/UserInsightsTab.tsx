@@ -314,8 +314,8 @@ export function UserInsightsTab() {
       {/* MRR & Revenue Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* MRR Over Time */}
-        <motion.div variants={itemVariants}>
-          <Card className="bg-white/5 backdrop-blur-xl border border-cyan-500/30 shadow-lg shadow-cyan-500/10">
+        <motion.div variants={itemVariants} className="flex">
+          <Card className="bg-white/5 backdrop-blur-xl border border-cyan-500/30 shadow-lg shadow-cyan-500/10 flex-1">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-cyan-400" />
@@ -383,8 +383,8 @@ export function UserInsightsTab() {
         </motion.div>
 
         {/* User Growth Chart */}
-        <motion.div variants={itemVariants}>
-          <Card className="bg-white/5 backdrop-blur-xl border border-green-500/30 shadow-lg shadow-green-500/10">
+        <motion.div variants={itemVariants} className="flex">
+          <Card className="bg-white/5 backdrop-blur-xl border border-green-500/30 shadow-lg shadow-green-500/10 flex-1">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-green-400" />
