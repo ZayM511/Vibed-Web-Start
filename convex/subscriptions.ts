@@ -47,10 +47,20 @@ export const getSubscriptionStatus = query({
 
     // Founder tier override check
     if (founder) {
-      const founderSettings = await ctx.db
+      const email = identity.email?.toLowerCase();
+
+      // Find by clerkUserId first, then fall back to email index
+      let founderSettings = await ctx.db
         .query("founderSettings")
         .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", userId))
         .first();
+
+      if (!founderSettings && email) {
+        founderSettings = await ctx.db
+          .query("founderSettings")
+          .withIndex("by_email", (q) => q.eq("email", email))
+          .first();
+      }
 
       // If founder has an override set, respect it
       if (founderSettings) {
@@ -387,10 +397,18 @@ export const getScanUsage = query({
 
     // Founder tier override check
     if (founder) {
-      const founderSettings = await ctx.db
+      const email = identity.email?.toLowerCase();
+      let founderSettings = await ctx.db
         .query("founderSettings")
         .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", userId))
         .first();
+
+      if (!founderSettings && email) {
+        founderSettings = await ctx.db
+          .query("founderSettings")
+          .withIndex("by_email", (q) => q.eq("email", email))
+          .first();
+      }
 
       const overridePlan = founderSettings?.tierOverride ?? "pro";
 
@@ -460,10 +478,20 @@ export const getFounderSettings = query({
 
     if (!isFounderEmail(identity)) return null;
 
-    const settings = await ctx.db
+    const email = identity.email?.toLowerCase();
+
+    // Find by clerkUserId first, then fall back to email index
+    let settings = await ctx.db
       .query("founderSettings")
       .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", identity.subject))
       .first();
+
+    if (!settings && email) {
+      settings = await ctx.db
+        .query("founderSettings")
+        .withIndex("by_email", (q) => q.eq("email", email))
+        .first();
+    }
 
     return {
       isFounder: true,
@@ -492,17 +520,41 @@ export const setFounderTierOverride = mutation({
 
     const userId = identity.subject;
     const email = identity.email?.toLowerCase();
-    const existing = await ctx.db
+
+    // Find by clerkUserId first, then fall back to email index
+    let existing = await ctx.db
       .query("founderSettings")
       .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", userId))
       .first();
 
+    if (!existing && email) {
+      existing = await ctx.db
+        .query("founderSettings")
+        .withIndex("by_email", (q) => q.eq("email", email))
+        .first();
+    }
+
     if (existing) {
+      // Update the record and normalize clerkUserId to the real Clerk ID
       await ctx.db.patch(existing._id, {
+        clerkUserId: userId,
         tierOverride: args.tierOverride,
         email: email || existing.email,
         updatedAt: Date.now(),
       });
+
+      // Clean up any duplicate records for the same email
+      if (email) {
+        const dupes = await ctx.db
+          .query("founderSettings")
+          .withIndex("by_email", (q) => q.eq("email", email))
+          .collect();
+        for (const dupe of dupes) {
+          if (dupe._id !== existing._id) {
+            await ctx.db.delete(dupe._id);
+          }
+        }
+      }
     } else {
       await ctx.db.insert("founderSettings", {
         clerkUserId: userId,
@@ -529,19 +581,23 @@ export const getSubscriptionStatusByEmail = internalQuery({
 
     // Check if founder
     if (FOUNDER_EMAILS.includes(email)) {
-      // Try to find founder settings by email
-      const founderSettings = await ctx.db
+      // Try to find founder settings by email index
+      let founderSettings = await ctx.db
         .query("founderSettings")
         .withIndex("by_email", (q) => q.eq("email", email))
         .first();
 
-      // Also check all records (tiny table) in case record exists without email field
-      const matchedSettings = founderSettings
-        || (await ctx.db.query("founderSettings").collect())[0]
-        || null;
+      // Fallback: scan all records for one whose clerkUserId contains this email
+      // (handles records created before email field was backfilled)
+      if (!founderSettings) {
+        const allSettings = await ctx.db.query("founderSettings").collect();
+        founderSettings = allSettings.find(
+          (s) => s.email === email || s.clerkUserId === `extension_${email}`
+        ) ?? null;
+      }
 
-      if (matchedSettings) {
-        const overridePlan = matchedSettings.tierOverride;
+      if (founderSettings) {
+        const overridePlan = founderSettings.tierOverride;
         return {
           isActive: overridePlan === "pro",
           plan: overridePlan as "free" | "pro",
@@ -587,20 +643,18 @@ export const setFounderTierOverrideByEmail = internalMutation({
   handler: async (ctx, args) => {
     const email = args.email.toLowerCase().trim();
 
-    // First try to find by email index
+    // Find by email index first
     let existing = await ctx.db
       .query("founderSettings")
       .withIndex("by_email", (q) => q.eq("email", email))
       .first();
 
-    // If not found by email, scan all records (tiny table, 1-3 records max)
-    // This handles records created by the website dashboard that don't have an email field yet
+    // Fallback: scan for record with matching extension clerkUserId
     if (!existing) {
       const allSettings = await ctx.db.query("founderSettings").collect();
-      if (allSettings.length > 0) {
-        // Use the first record (there should only be one per founder in practice)
-        existing = allSettings[0];
-      }
+      existing = allSettings.find(
+        (s) => s.email === email || s.clerkUserId === `extension_${email}`
+      ) ?? null;
     }
 
     if (existing) {
@@ -609,6 +663,17 @@ export const setFounderTierOverrideByEmail = internalMutation({
         email, // Backfill email if missing
         updatedAt: Date.now(),
       });
+
+      // Clean up any duplicate records for the same email
+      const dupes = await ctx.db
+        .query("founderSettings")
+        .withIndex("by_email", (q) => q.eq("email", email))
+        .collect();
+      for (const dupe of dupes) {
+        if (dupe._id !== existing._id) {
+          await ctx.db.delete(dupe._id);
+        }
+      }
     } else {
       await ctx.db.insert("founderSettings", {
         clerkUserId: `extension_${email}`,
