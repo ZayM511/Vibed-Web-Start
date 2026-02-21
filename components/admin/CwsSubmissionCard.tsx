@@ -167,6 +167,60 @@ function downloadBase64(base64: string, filename: string) {
   link.click();
 }
 
+// Draw the JobFiltr funnel logo with gradient fill and checkmark
+function drawLogo(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+  const scale = size / 40; // SVG viewBox is 0 0 40 40
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  // Funnel gradient fill
+  const grad = ctx.createLinearGradient(8, 6, 32, 34);
+  grad.addColorStop(0, "#8B5CF6");
+  grad.addColorStop(0.5, "#A78BFA");
+  grad.addColorStop(1, "#FFFFFF");
+
+  // Outer funnel
+  ctx.beginPath();
+  ctx.moveTo(8, 6);
+  ctx.lineTo(32, 6);
+  ctx.lineTo(24, 18);
+  ctx.lineTo(24, 30);
+  ctx.lineTo(16, 34);
+  ctx.lineTo(16, 18);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.globalAlpha = 0.9;
+  ctx.fill();
+
+  // Inner highlight
+  ctx.beginPath();
+  ctx.moveTo(12, 8);
+  ctx.lineTo(28, 8);
+  ctx.lineTo(22, 17);
+  ctx.lineTo(22, 26);
+  ctx.lineTo(18, 28);
+  ctx.lineTo(18, 17);
+  ctx.closePath();
+  ctx.fillStyle = "white";
+  ctx.globalAlpha = 0.2;
+  ctx.fill();
+
+  // Checkmark
+  ctx.globalAlpha = 1;
+  ctx.beginPath();
+  ctx.moveTo(17, 14);
+  ctx.lineTo(19, 16);
+  ctx.lineTo(23, 12);
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.stroke();
+
+  ctx.restore();
+}
+
 function generateTileCanvas(
   width: number,
   height: number,
@@ -177,24 +231,48 @@ function generateTileCanvas(
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d")!;
+  const isMarquee = features && features.length > 0;
 
-  // Gradient background
-  const grad = ctx.createLinearGradient(0, 0, width, height);
-  grad.addColorStop(0, "#0f172a");
-  grad.addColorStop(0.5, "#1e293b");
-  grad.addColorStop(1, "#0f172a");
-  ctx.fillStyle = grad;
+  // --- Background ---
+  // Base fill
+  ctx.fillStyle = "#0c0c1a";
   ctx.fillRect(0, 0, width, height);
 
-  // Blue accent bars
-  ctx.fillStyle = "rgba(59, 130, 246, 0.6)";
-  ctx.fillRect(0, 0, width, 4);
-  ctx.fillRect(0, height - 4, width, 4);
+  // Radial gradient glow
+  const glowX = isMarquee ? width * 0.22 : width / 2;
+  const glowY = isMarquee ? height * 0.4 : height * 0.35;
+  const glowR = Math.max(width, height) * 0.6;
+  const radGrad = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, glowR);
+  radGrad.addColorStop(0, "rgba(139, 92, 246, 0.18)");
+  radGrad.addColorStop(0.4, "rgba(139, 92, 246, 0.06)");
+  radGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = radGrad;
+  ctx.fillRect(0, 0, width, height);
 
-  const padding = Math.round(width * 0.05);
-  const maxTextWidth = width - padding * 2;
+  // Secondary subtle glow (bottom-right)
+  const glow2X = isMarquee ? width * 0.75 : width * 0.7;
+  const glow2Y = height * 0.7;
+  const glow2R = Math.max(width, height) * 0.4;
+  const radGrad2 = ctx.createRadialGradient(glow2X, glow2Y, 0, glow2X, glow2Y, glow2R);
+  radGrad2.addColorStop(0, "rgba(59, 130, 246, 0.08)");
+  radGrad2.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = radGrad2;
+  ctx.fillRect(0, 0, width, height);
 
-  // Helper: fit text within max width by scaling font size down if needed
+  // --- Accent lines ---
+  const lineGrad = ctx.createLinearGradient(0, 0, width, 0);
+  lineGrad.addColorStop(0, "rgba(139, 92, 246, 0.0)");
+  lineGrad.addColorStop(0.3, "rgba(139, 92, 246, 0.7)");
+  lineGrad.addColorStop(0.7, "rgba(59, 130, 246, 0.7)");
+  lineGrad.addColorStop(1, "rgba(59, 130, 246, 0.0)");
+  ctx.fillStyle = lineGrad;
+  ctx.fillRect(0, 0, width, 3);
+  ctx.fillRect(0, height - 3, width, 3);
+
+  // --- Text helpers ---
+  const padding = Math.round(width * 0.06);
+  const maxTextWidth = isMarquee ? width * 0.58 : width - padding * 2;
+
   function fitFont(baseSize: number, text: string, bold = false): number {
     let size = baseSize;
     const prefix = bold ? "bold " : "";
@@ -206,55 +284,84 @@ function generateTileCanvas(
     return size;
   }
 
-  let titleSize = Math.round(width / 12);
-  let subtitleSize = Math.round(width / 22);
-  let featureSize = Math.round(width / 28);
+  if (isMarquee) {
+    // === MARQUEE LAYOUT: Icon left, text right ===
+    const iconSize = Math.round(height * 0.28);
+    const iconX = width * 0.12;
+    const iconCenterY = height * 0.38;
+    drawLogo(ctx, iconX - iconSize / 2, iconCenterY - iconSize / 2, iconSize);
 
-  // Fit each text element to available width
-  titleSize = fitFont(titleSize, "JobFiltr", true);
-  subtitleSize = fitFont(subtitleSize, subtitle);
+    // Text area starts right of icon
+    const textLeft = width * 0.32;
+    const textCenterX = textLeft + (width - textLeft - padding) / 2;
 
-  const featureSizes: number[] = [];
-  if (features && features.length > 0) {
+    let titleSize = fitFont(Math.round(width / 14), "JobFiltr", true);
+    let subtitleSize = fitFont(Math.round(width / 26), subtitle);
+    let featureSize = Math.round(width / 34);
+    const featureSizes: number[] = [];
+    const featureMaxW = width - padding * 2;
     features.forEach((f) => {
-      featureSizes.push(fitFont(featureSize, f));
+      let s = featureSize;
+      while (s > 10) {
+        ctx.font = `${s}px system-ui, -apple-system, sans-serif`;
+        if (ctx.measureText(f).width <= featureMaxW) break;
+        s -= 1;
+      }
+      featureSizes.push(s);
     });
     featureSize = Math.min(...featureSizes);
-  }
 
-  // Calculate total content height and center vertically
-  const gap = Math.round(height * 0.04);
-  let totalHeight = titleSize + gap + subtitleSize;
-  if (features && features.length > 0) {
-    totalHeight += gap + features.length * featureSize + (features.length - 1) * Math.round(gap * 0.5);
-  }
-  let y = (height - totalHeight) / 2;
+    // Title + subtitle block
+    const titleSubGap = Math.round(height * 0.03);
+    const titleBlockY = iconCenterY - (titleSize + titleSubGap + subtitleSize) / 2;
 
-  // Title
-  ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  ctx.font = `bold ${titleSize}px system-ui, -apple-system, sans-serif`;
-  ctx.fillStyle = "white";
-  ctx.fillText("JobFiltr", width / 2, y);
-  y += titleSize + gap;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.font = `bold ${titleSize}px system-ui, -apple-system, sans-serif`;
+    ctx.fillStyle = "white";
+    ctx.fillText("JobFiltr", textCenterX, titleBlockY);
 
-  // Subtitle
-  ctx.font = `${subtitleSize}px system-ui, -apple-system, sans-serif`;
-  ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-  ctx.fillText(subtitle, width / 2, y);
-  y += subtitleSize + gap;
+    ctx.font = `${subtitleSize}px system-ui, -apple-system, sans-serif`;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+    ctx.fillText(subtitle, textCenterX, titleBlockY + titleSize + titleSubGap);
 
-  // Features
-  if (features && features.length > 0) {
+    // Feature lines - centered below everything
+    const featureGap = Math.round(height * 0.025);
+    const featuresStartY = height * 0.68;
+    ctx.textAlign = "center";
     ctx.font = `${featureSize}px system-ui, -apple-system, sans-serif`;
-    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-    const featureGap = Math.round(gap * 0.5);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
     features.forEach((f, i) => {
-      ctx.fillText(f, width / 2, y + i * (featureSize + featureGap));
+      ctx.fillText(f, width / 2, featuresStartY + i * (featureSize + featureGap));
     });
+  } else {
+    // === SMALL TILE LAYOUT: Icon centered above text ===
+    const iconSize = Math.round(height * 0.3);
+    let titleSize = fitFont(Math.round(width / 13), "JobFiltr", true);
+    let subtitleSize = fitFont(Math.round(width / 24), subtitle);
+
+    const gap = Math.round(height * 0.04);
+    const totalHeight = iconSize + gap + titleSize + Math.round(gap * 0.5) + subtitleSize;
+    let y = (height - totalHeight) / 2;
+
+    // Icon
+    drawLogo(ctx, (width - iconSize) / 2, y, iconSize);
+    y += iconSize + gap;
+
+    // Title
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.font = `bold ${titleSize}px system-ui, -apple-system, sans-serif`;
+    ctx.fillStyle = "white";
+    ctx.fillText("JobFiltr", width / 2, y);
+    y += titleSize + Math.round(gap * 0.5);
+
+    // Subtitle
+    ctx.font = `${subtitleSize}px system-ui, -apple-system, sans-serif`;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+    ctx.fillText(subtitle, width / 2, y);
   }
 
-  // Return base64 without the data:image/png;base64, prefix
   return canvas.toDataURL("image/png").split(",")[1];
 }
 
@@ -335,8 +442,8 @@ export function CwsSubmissionCard() {
 
       const smallBase64 = generateTileCanvas(440, 280, subtitle);
       const marqueeBase64 = generateTileCanvas(1400, 560, subtitle, [
-        "Ghost Job Detection  |  Scam & Spam Filters  |  Community Reports",
-        "Smart Keyword Filters  |  Job Age Badges  |  LinkedIn & Indeed Support",
+        "Ghost Job Detection  ·  Scam & Spam Filters  ·  Community Reports",
+        "Smart Keyword Filters  ·  Job Age Badges  ·  LinkedIn & Indeed Support",
       ]);
 
       const timestamp = Date.now();
