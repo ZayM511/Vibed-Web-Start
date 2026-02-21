@@ -145,8 +145,22 @@ function loadPromoHistory(): PromoHistoryEntry[] {
   }
 }
 
+const MAX_PROMO_HISTORY = 3;
+
 function savePromoHistory(history: PromoHistoryEntry[]) {
-  localStorage.setItem(PROMO_HISTORY_KEY, JSON.stringify(history));
+  // Limit history to prevent localStorage quota overflow (~1MB per entry)
+  const trimmed = history.slice(0, MAX_PROMO_HISTORY);
+  try {
+    localStorage.setItem(PROMO_HISTORY_KEY, JSON.stringify(trimmed));
+  } catch {
+    // If still over quota, keep only the latest entry
+    try {
+      localStorage.setItem(PROMO_HISTORY_KEY, JSON.stringify(trimmed.slice(0, 1)));
+    } catch {
+      localStorage.removeItem(PROMO_HISTORY_KEY);
+    }
+  }
+  return trimmed;
 }
 
 function formatTimestamp(ts: number): string {
@@ -454,8 +468,8 @@ export function CwsSubmissionCard() {
         marquee: { filename: "marquee-1400x560.png", width: 1400, height: 560, base64: marqueeBase64 },
       };
       const updated = [entry, ...promoHistory];
-      setPromoHistory(updated);
-      savePromoHistory(updated);
+      const saved = savePromoHistory(updated);
+      setPromoHistory(saved);
       setPromoStatus("success");
       setTimeout(() => setPromoStatus("idle"), 3000);
     } catch {
@@ -469,8 +483,7 @@ export function CwsSubmissionCard() {
   const handleDeletePromoEntry = useCallback((id: string) => {
     setPromoHistory((prev) => {
       const updated = prev.filter((e) => e.id !== id);
-      savePromoHistory(updated);
-      return updated;
+      return savePromoHistory(updated);
     });
   }, []);
 
