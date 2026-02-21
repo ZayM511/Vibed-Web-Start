@@ -284,13 +284,16 @@ async function generateTileCanvas(
     });
     featureSize = Math.min(...featureSizes);
 
-    // Measure title width to position logo just to its left
+    // Measure text widths to position logo left of the widest line
     ctx.font = `bold ${titleSize}px system-ui, -apple-system, sans-serif`;
     const titleWidth = ctx.measureText("JobFiltr").width;
+    ctx.font = `${subtitleSize}px system-ui, -apple-system, sans-serif`;
+    const subtitleWidth = ctx.measureText(subtitle).width;
+    const widestText = Math.max(titleWidth, subtitleWidth);
     const textCenterX = width / 2;
-    const titleLeftEdge = textCenterX - titleWidth / 2;
+    const textLeftEdge = textCenterX - widestText / 2;
     const iconGap = Math.round(width * 0.02);
-    const iconCenterX = titleLeftEdge - iconGap - iconSize / 2;
+    const iconCenterX = textLeftEdge - iconGap - iconSize / 2;
 
     // Title + subtitle block - vertically centered on canvas
     const titleSubGap = Math.round(height * 0.03);
