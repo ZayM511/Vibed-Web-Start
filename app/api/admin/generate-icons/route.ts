@@ -74,6 +74,18 @@ export async function POST() {
       }
     }
 
+    // Second pass: make any remaining unvisited white pixels in the top 20% transparent.
+    // These are enclosed white regions (like the gap between handle and suitcase body)
+    // that the edge BFS couldn't reach. The funnel body starts lower, so top 20% is safe.
+    const topLimit = Math.round(h * 0.20);
+    for (let y = 0; y < topLimit; y++) {
+      for (let x = 0; x < w; x++) {
+        if (visited[y * w + x]) continue;
+        if (!isWhitish(x, y)) continue;
+        output[(y * w + x) * ch + 3] = 0;
+      }
+    }
+
     // Edge anti-aliasing
     const edgeOutput = Buffer.from(output);
     for (let y = 1; y < h - 1; y++) {
@@ -94,24 +106,33 @@ export async function POST() {
       raw: { width: w, height: h, channels: 4 },
     }).png().toBuffer();
 
+    const iconBuffers: Record<number, string> = {};
     for (const size of sizes) {
       const buffer = await sharp(transparentSource)
         .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png()
         .toBuffer();
+      iconBuffers[size] = buffer.toString("base64");
 
-      const publicPath = path.join(publicIconsDir, `icon${size}.png`);
-      const extensionPath = path.join(extensionIconsDir, `icon${size}.png`);
-
-      await sharp(buffer).toFile(publicPath);
-      await sharp(buffer).toFile(extensionPath);
+      // Best-effort disk write (works locally, fails silently on Vercel's read-only fs)
+      try {
+        await sharp(buffer).toFile(path.join(publicIconsDir, `icon${size}.png`));
+        await sharp(buffer).toFile(path.join(extensionIconsDir, `icon${size}.png`));
+      } catch { /* read-only filesystem on Vercel */ }
     }
+
+    // Best-effort: save cleaned transparent PNG for promo tile generation
+    try {
+      const transparentPngPath = path.join(process.cwd(), "public", "jobfiltr-logo-transparent.png");
+      await sharp(transparentSource).toFile(transparentPngPath);
+    } catch { /* read-only filesystem on Vercel */ }
 
     return NextResponse.json({
       success: true,
       icons: sizes.map((size) => ({
         size: `${size}x${size}`,
         publicPath: `/icons/icon${size}.png`,
+        base64: iconBuffers[size],
       })),
     });
   } catch (error) {

@@ -435,8 +435,8 @@ export function UserInsightsTab() {
       {/* User Breakdown & Conversion Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* User Type Breakdown Pie */}
-        <motion.div variants={itemVariants}>
-          <Card className="bg-white/5 backdrop-blur-xl border border-amber-500/30 shadow-lg shadow-amber-500/10">
+        <motion.div variants={itemVariants} className="h-full">
+          <Card className="bg-white/5 backdrop-blur-xl border border-amber-500/30 shadow-lg shadow-amber-500/10 h-full flex flex-col">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <Users className="h-5 w-5 text-amber-400" />
@@ -484,8 +484,8 @@ export function UserInsightsTab() {
         </motion.div>
 
         {/* Conversion Rate Trend */}
-        <motion.div variants={itemVariants} className="lg:col-span-2">
-          <Card className="bg-white/5 backdrop-blur-xl border border-purple-500/30 shadow-lg shadow-purple-500/10">
+        <motion.div variants={itemVariants} className="lg:col-span-2 h-full">
+          <Card className="bg-white/5 backdrop-blur-xl border border-purple-500/30 shadow-lg shadow-purple-500/10 h-full flex flex-col">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-purple-400" />
@@ -495,9 +495,9 @@ export function UserInsightsTab() {
                 Free to Pro conversion rate over time
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1">
               {founderData?.conversionRateData?.monthlyData ? (
-                <ResponsiveContainer width="100%" height={220}>
+                <ResponsiveContainer width="100%" height="100%" minHeight={220}>
                   <LineChart data={founderData.conversionRateData.monthlyData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                     <XAxis dataKey="month" stroke="rgba(255,255,255,0.5)" fontSize={12} />

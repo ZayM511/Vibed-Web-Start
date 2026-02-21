@@ -86,6 +86,7 @@ export function MarketingPromoTab() {
   const [regenerating, setRegenerating] = useState(false);
   const [regenerateStatus, setRegenerateStatus] = useState<"idle" | "success" | "error">("idle");
   const [iconTimestamp, setIconTimestamp] = useState(Date.now());
+  const [iconBase64, setIconBase64] = useState<Record<number, string>>({});
 
   // Load descriptions from localStorage on mount
   useEffect(() => {
@@ -111,6 +112,16 @@ export function MarketingPromoTab() {
     try {
       const res = await fetch("/api/admin/generate-icons", { method: "POST" });
       if (res.ok) {
+        const data = await res.json();
+        // Use base64 data from response for immediate display
+        const b64: Record<number, string> = {};
+        for (const icon of data.icons) {
+          if (icon.base64) {
+            const size = parseInt(icon.size);
+            b64[size] = icon.base64;
+          }
+        }
+        setIconBase64(b64);
         setRegenerateStatus("success");
         setIconTimestamp(Date.now());
         setTimeout(() => setRegenerateStatus("idle"), 3000);
@@ -126,9 +137,14 @@ export function MarketingPromoTab() {
     }
   };
 
+  const getIconSrc = (size: number) => {
+    if (iconBase64[size]) return `data:image/png;base64,${iconBase64[size]}`;
+    return `/icons/icon${size}.png?t=${iconTimestamp}`;
+  };
+
   const handleDownloadIcon = (size: number) => {
     const link = document.createElement("a");
-    link.href = `/icons/icon${size}.png?t=${iconTimestamp}`;
+    link.href = getIconSrc(size);
     link.download = `icon${size}.png`;
     link.click();
   };
@@ -283,7 +299,7 @@ export function MarketingPromoTab() {
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={`/icons/icon${size}.png?t=${iconTimestamp}`}
+                      src={getIconSrc(size)}
                       alt={`JobFiltr icon ${size}x${size}`}
                       width={size}
                       height={size}
@@ -296,7 +312,7 @@ export function MarketingPromoTab() {
                   <span className="text-white/70 text-sm font-mono">{size}x{size}</span>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => copyImage(`icon-${size}`, `/icons/icon${size}.png?t=${iconTimestamp}`)}
+                      onClick={() => copyImage(`icon-${size}`, getIconSrc(size))}
                       className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                         copiedKey === `icon-${size}`
                           ? "bg-green-500/20 text-green-400"
