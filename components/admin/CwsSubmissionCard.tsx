@@ -315,9 +315,9 @@ async function generateTileCanvas(
     ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
     ctx.fillText(subtitle, textCenterX, titleBlockY + titleSize + titleSubGap);
 
-    // Feature lines - centered below everything
+    // Feature lines - positioned in lower portion with clear gap from subtitle
     const featureGap = Math.round(height * 0.025);
-    const featuresStartY = height * 0.68;
+    const featuresStartY = height * 0.74;
     ctx.textAlign = "center";
     ctx.font = `${featureSize}px system-ui, -apple-system, sans-serif`;
     ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
