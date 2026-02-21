@@ -40,9 +40,9 @@ const itemVariants = {
 };
 
 const DEFAULT_SHORT_DESC =
-  "Job search power tool for LinkedIn and Indeed. Ghost job & scam detection, smart filters, job age badges, and more. Search smarter.";
+  "Your job search, upgraded. Ghost job & scam detection, smart filters, job age badges, and more for LinkedIn and Indeed.";
 
-const DEFAULT_DETAILED_DESC = `JobFiltr - Job Search Power Tool
+const DEFAULT_DETAILED_DESC = `JobFiltr - Your Job Search, Upgraded
 
 JobFiltr is a Chrome extension that filters and analyzes job postings on LinkedIn and Indeed in real time so you only see opportunities worth your time.
 
@@ -66,7 +66,7 @@ SUPPORTED PLATFORMS:
 PRIVACY FIRST:
 Zero tracking. Zero data selling. We analyze job postings, not you. Your search activity stays completely private.
 
-Built by Groundwork Labs for job seekers tired of wading through low-quality listings. Search smarter.`;
+Built by Groundwork Labs for job seekers tired of wading through low-quality listings. Your job search, upgraded.`;
 
 const ICON_SIZES = [128, 48, 16] as const;
 

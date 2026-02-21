@@ -38,7 +38,7 @@ const itemVariants = {
 };
 
 const DEFAULT_MANIFEST_DESC =
-  "Filter ghost jobs, scams & spam on LinkedIn and Indeed. AI-powered detection, smart filters, and community reports.";
+  "Your job search, upgraded. Filter ghost jobs, scams & spam on LinkedIn and Indeed with AI-powered detection and community reports.";
 
 interface StoreScreenshot {
   id: string;

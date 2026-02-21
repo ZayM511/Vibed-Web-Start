@@ -49,7 +49,7 @@ export function JobFiltrHero() {
           </h1>
         </motion.div>
 
-        {/* Subtitle with bullet separator */}
+        {/* Subtitle tagline */}
         <motion.div
           custom={2}
           variants={fadeUpVariants}
@@ -57,15 +57,9 @@ export function JobFiltrHero() {
           animate="visible"
           className="mb-12"
         >
-          <p className="text-lg md:text-xl lg:text-2xl font-semibold tracking-wide inline-flex items-center gap-3 flex-wrap justify-center">
+          <p className="text-lg md:text-xl lg:text-2xl font-semibold tracking-wide">
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-white to-rose-300">
-              Take back control of your job search
-            </span>
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-white to-rose-300">
-              •
-            </span>
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-white to-rose-300">
-              Apply With Confidence
+              Your Job Search, Upgraded
             </span>
           </p>
         </motion.div>

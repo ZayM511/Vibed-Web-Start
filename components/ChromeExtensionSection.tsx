@@ -26,7 +26,7 @@ export function ChromeExtensionSection({ id }: { id?: string }) {
             Get The Browser Extension
           </h2>
           <p className="text-white/60 text-lg max-w-2xl mx-auto">
-            Take back control of your job search with JobFiltr
+            Your job search, upgraded
           </p>
         </motion.div>
 
