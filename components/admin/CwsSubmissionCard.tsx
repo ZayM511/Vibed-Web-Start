@@ -181,66 +181,24 @@ function downloadBase64(base64: string, filename: string) {
   link.click();
 }
 
-// Draw the JobFiltr funnel logo with gradient fill and checkmark
-function drawLogo(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
-  const scale = size / 40; // SVG viewBox is 0 0 40 40
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(scale, scale);
-
-  // Funnel gradient fill
-  const grad = ctx.createLinearGradient(8, 6, 32, 34);
-  grad.addColorStop(0, "#8B5CF6");
-  grad.addColorStop(0.5, "#A78BFA");
-  grad.addColorStop(1, "#FFFFFF");
-
-  // Outer funnel
-  ctx.beginPath();
-  ctx.moveTo(8, 6);
-  ctx.lineTo(32, 6);
-  ctx.lineTo(24, 18);
-  ctx.lineTo(24, 30);
-  ctx.lineTo(16, 34);
-  ctx.lineTo(16, 18);
-  ctx.closePath();
-  ctx.fillStyle = grad;
-  ctx.globalAlpha = 0.9;
-  ctx.fill();
-
-  // Inner highlight
-  ctx.beginPath();
-  ctx.moveTo(12, 8);
-  ctx.lineTo(28, 8);
-  ctx.lineTo(22, 17);
-  ctx.lineTo(22, 26);
-  ctx.lineTo(18, 28);
-  ctx.lineTo(18, 17);
-  ctx.closePath();
-  ctx.fillStyle = "white";
-  ctx.globalAlpha = 0.2;
-  ctx.fill();
-
-  // Checkmark
-  ctx.globalAlpha = 1;
-  ctx.beginPath();
-  ctx.moveTo(17, 14);
-  ctx.lineTo(19, 16);
-  ctx.lineTo(23, 12);
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 2.5;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.stroke();
-
-  ctx.restore();
+// Load an image from a URL and return it as an HTMLImageElement
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
 }
 
-function generateTileCanvas(
+async function generateTileCanvas(
   width: number,
   height: number,
   subtitle: string,
+  logoImg: HTMLImageElement,
   features?: string[]
-): string {
+): Promise<string> {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -248,35 +206,34 @@ function generateTileCanvas(
   const isMarquee = features && features.length > 0;
 
   // --- Background ---
-  // Base fill
   ctx.fillStyle = "#0c0c1a";
   ctx.fillRect(0, 0, width, height);
 
-  // Radial gradient glow
+  // Radial gradient glow (navy blue)
   const glowX = isMarquee ? width * 0.22 : width / 2;
   const glowY = isMarquee ? height * 0.4 : height * 0.35;
   const glowR = Math.max(width, height) * 0.6;
   const radGrad = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, glowR);
-  radGrad.addColorStop(0, "rgba(139, 92, 246, 0.18)");
-  radGrad.addColorStop(0.4, "rgba(139, 92, 246, 0.06)");
+  radGrad.addColorStop(0, "rgba(30, 58, 95, 0.35)");
+  radGrad.addColorStop(0.4, "rgba(30, 58, 95, 0.12)");
   radGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
   ctx.fillStyle = radGrad;
   ctx.fillRect(0, 0, width, height);
 
-  // Secondary subtle glow (bottom-right)
+  // Secondary subtle glow (bottom-right, lighter blue)
   const glow2X = isMarquee ? width * 0.75 : width * 0.7;
   const glow2Y = height * 0.7;
   const glow2R = Math.max(width, height) * 0.4;
   const radGrad2 = ctx.createRadialGradient(glow2X, glow2Y, 0, glow2X, glow2Y, glow2R);
-  radGrad2.addColorStop(0, "rgba(59, 130, 246, 0.08)");
+  radGrad2.addColorStop(0, "rgba(59, 130, 246, 0.10)");
   radGrad2.addColorStop(1, "rgba(0, 0, 0, 0)");
   ctx.fillStyle = radGrad2;
   ctx.fillRect(0, 0, width, height);
 
-  // --- Accent lines ---
+  // --- Accent lines (navy blue gradient) ---
   const lineGrad = ctx.createLinearGradient(0, 0, width, 0);
-  lineGrad.addColorStop(0, "rgba(139, 92, 246, 0.0)");
-  lineGrad.addColorStop(0.3, "rgba(139, 92, 246, 0.7)");
+  lineGrad.addColorStop(0, "rgba(30, 58, 95, 0.0)");
+  lineGrad.addColorStop(0.3, "rgba(30, 58, 95, 0.8)");
   lineGrad.addColorStop(0.7, "rgba(59, 130, 246, 0.7)");
   lineGrad.addColorStop(1, "rgba(59, 130, 246, 0.0)");
   ctx.fillStyle = lineGrad;
@@ -299,11 +256,11 @@ function generateTileCanvas(
   }
 
   if (isMarquee) {
-    // === MARQUEE LAYOUT: Icon left, text right ===
-    const iconSize = Math.round(height * 0.28);
+    // === MARQUEE LAYOUT: Logo left, text right ===
+    const iconSize = Math.round(height * 0.45);
     const iconX = width * 0.12;
     const iconCenterY = height * 0.38;
-    drawLogo(ctx, iconX - iconSize / 2, iconCenterY - iconSize / 2, iconSize);
+    ctx.drawImage(logoImg, iconX - iconSize / 2, iconCenterY - iconSize / 2, iconSize, iconSize);
 
     // Text area starts right of icon
     const textLeft = width * 0.32;
@@ -349,17 +306,17 @@ function generateTileCanvas(
       ctx.fillText(f, width / 2, featuresStartY + i * (featureSize + featureGap));
     });
   } else {
-    // === SMALL TILE LAYOUT: Icon centered above text ===
-    const iconSize = Math.round(height * 0.3);
+    // === SMALL TILE LAYOUT: Logo centered above text ===
+    const iconSize = Math.round(height * 0.38);
     const titleSize = fitFont(Math.round(width / 13), "JobFiltr", true);
     const subtitleSize = fitFont(Math.round(width / 24), subtitle);
 
-    const gap = Math.round(height * 0.04);
+    const gap = Math.round(height * 0.03);
     const totalHeight = iconSize + gap + titleSize + Math.round(gap * 0.5) + subtitleSize;
     let y = (height - totalHeight) / 2;
 
-    // Icon
-    drawLogo(ctx, (width - iconSize) / 2, y, iconSize);
+    // Logo
+    ctx.drawImage(logoImg, (width - iconSize) / 2, y, iconSize, iconSize);
     y += iconSize + gap;
 
     // Title
@@ -448,14 +405,15 @@ export function CwsSubmissionCard() {
     }
   };
 
-  const handleGeneratePromo = () => {
+  const handleGeneratePromo = async () => {
     setGeneratingPromo(true);
     setPromoStatus("idle");
     try {
       const subtitle = "Your Job Search, Upgraded";
+      const logoImg = await loadImage("/jobfiltr-logo-transparent.png");
 
-      const smallBase64 = generateTileCanvas(440, 280, subtitle);
-      const marqueeBase64 = generateTileCanvas(1400, 560, subtitle, [
+      const smallBase64 = await generateTileCanvas(440, 280, subtitle, logoImg);
+      const marqueeBase64 = await generateTileCanvas(1400, 560, subtitle, logoImg, [
         "Ghost Job Detection  ·  Scam & Spam Filters  ·  Community Reports",
         "Smart Keyword Filters  ·  Job Age Badges  ·  LinkedIn & Indeed Support",
       ]);
