@@ -255,15 +255,18 @@ async function generateTileCanvas(
     return size;
   }
 
-  if (isMarquee) {
-    // === MARQUEE LAYOUT: Logo left, text right ===
-    const iconSize = Math.round(height * 0.45);
-    const iconX = width * 0.12;
-    const iconCenterY = height * 0.38;
-    ctx.drawImage(logoImg, iconX - iconSize / 2, iconCenterY - iconSize / 2, iconSize, iconSize);
+  // Helper: create white-to-blue gradient fill for "JobFiltr" title
+  function titleGradient(x: number, y: number, textWidth: number) {
+    const grad = ctx.createLinearGradient(x - textWidth / 2, y, x + textWidth / 2, y);
+    grad.addColorStop(0, "#ffffff");
+    grad.addColorStop(0.4, "#ffffff");
+    grad.addColorStop(1, "#93c5fd");
+    return grad;
+  }
 
-    // Text centered on the canvas
-    const textCenterX = width / 2;
+  if (isMarquee) {
+    // === MARQUEE LAYOUT: Logo left of centered text ===
+    const iconSize = Math.round(height * 0.45);
 
     const titleSize = fitFont(Math.round(width / 14), "JobFiltr", true);
     const subtitleSize = fitFont(Math.round(width / 26), subtitle);
@@ -281,15 +284,28 @@ async function generateTileCanvas(
     });
     featureSize = Math.min(...featureSizes);
 
+    // Measure title width to position logo just to its left
+    ctx.font = `bold ${titleSize}px system-ui, -apple-system, sans-serif`;
+    const titleWidth = ctx.measureText("JobFiltr").width;
+    const textCenterX = width / 2;
+    const titleLeftEdge = textCenterX - titleWidth / 2;
+    const iconGap = Math.round(width * 0.02);
+    const iconCenterX = titleLeftEdge - iconGap - iconSize / 2;
+
     // Title + subtitle block - vertically centered on canvas
     const titleSubGap = Math.round(height * 0.03);
     const titleBlockHeight = titleSize + titleSubGap + subtitleSize;
     const titleBlockY = (height - titleBlockHeight) / 2;
 
+    // Logo - vertically centered with title block
+    const iconCenterY = titleBlockY + titleBlockHeight / 2;
+    ctx.drawImage(logoImg, iconCenterX - iconSize / 2, iconCenterY - iconSize / 2, iconSize, iconSize);
+
+    // Title with gradient
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
     ctx.font = `bold ${titleSize}px system-ui, -apple-system, sans-serif`;
-    ctx.fillStyle = "white";
+    ctx.fillStyle = titleGradient(textCenterX, titleBlockY, titleWidth);
     ctx.fillText("JobFiltr", textCenterX, titleBlockY);
 
     ctx.font = `${subtitleSize}px system-ui, -apple-system, sans-serif`;
@@ -319,11 +335,12 @@ async function generateTileCanvas(
     ctx.drawImage(logoImg, (width - iconSize) / 2, y, iconSize, iconSize);
     y += iconSize + gap;
 
-    // Title
+    // Title with gradient
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
     ctx.font = `bold ${titleSize}px system-ui, -apple-system, sans-serif`;
-    ctx.fillStyle = "white";
+    const smallTitleWidth = ctx.measureText("JobFiltr").width;
+    ctx.fillStyle = titleGradient(width / 2, y, smallTitleWidth);
     ctx.fillText("JobFiltr", width / 2, y);
     y += titleSize + Math.round(gap * 0.5);
 
