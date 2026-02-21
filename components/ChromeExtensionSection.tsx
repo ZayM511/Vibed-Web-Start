@@ -10,7 +10,7 @@ export function ChromeExtensionSection({ id }: { id?: string }) {
   const router = useRouter();
 
   return (
-    <div id={id} className="relative pt-8 pb-24 overflow-hidden">
+    <div id={id} className="relative pt-8 pb-24 overflow-hidden scroll-mt-20">
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-indigo-500/5 to-transparent" />
 

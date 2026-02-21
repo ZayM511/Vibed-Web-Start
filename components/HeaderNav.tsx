@@ -99,13 +99,7 @@ export function HeaderNav() {
                 // If on homepage, scroll to extension section
                 const extensionSection = document.getElementById("extension");
                 if (extensionSection) {
-                  const offset = 80;
-                  const elementPosition = extensionSection.getBoundingClientRect().top;
-                  const offsetPosition = elementPosition + window.pageYOffset - offset;
-                  window.scrollTo({
-                    top: offsetPosition,
-                    behavior: "smooth",
-                  });
+                  extensionSection.scrollIntoView({ behavior: "smooth" });
                 }
               }}
               className="flex items-center gap-2 text-sm text-white/70 hover:text-white transition-colors"
@@ -239,13 +233,7 @@ export function HeaderNav() {
                       // If on homepage, scroll to extension section
                       const extensionSection = document.getElementById("extension");
                       if (extensionSection) {
-                        const offset = 80;
-                        const elementPosition = extensionSection.getBoundingClientRect().top;
-                        const offsetPosition = elementPosition + window.pageYOffset - offset;
-                        window.scrollTo({
-                          top: offsetPosition,
-                          behavior: "smooth",
-                        });
+                        extensionSection.scrollIntoView({ behavior: "smooth" });
                       }
                     }}
                     className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors"
