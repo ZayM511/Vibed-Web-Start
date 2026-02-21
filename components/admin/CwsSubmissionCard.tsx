@@ -191,30 +191,66 @@ function generateTileCanvas(
   ctx.fillRect(0, 0, width, 4);
   ctx.fillRect(0, height - 4, width, 4);
 
-  const centerY = height / 2;
-  const titleSize = Math.round(width / 12);
-  const subtitleSize = Math.round(width / 22);
-  const featureSize = Math.round(width / 28);
+  const padding = Math.round(width * 0.05);
+  const maxTextWidth = width - padding * 2;
+
+  // Helper: fit text within max width by scaling font size down if needed
+  function fitFont(baseSize: number, text: string, bold = false): number {
+    let size = baseSize;
+    const prefix = bold ? "bold " : "";
+    while (size > 10) {
+      ctx.font = `${prefix}${size}px system-ui, -apple-system, sans-serif`;
+      if (ctx.measureText(text).width <= maxTextWidth) break;
+      size -= 1;
+    }
+    return size;
+  }
+
+  let titleSize = Math.round(width / 12);
+  let subtitleSize = Math.round(width / 22);
+  let featureSize = Math.round(width / 28);
+
+  // Fit each text element to available width
+  titleSize = fitFont(titleSize, "JobFiltr", true);
+  subtitleSize = fitFont(subtitleSize, subtitle);
+
+  const featureSizes: number[] = [];
+  if (features && features.length > 0) {
+    features.forEach((f) => {
+      featureSizes.push(fitFont(featureSize, f));
+    });
+    featureSize = Math.min(...featureSizes);
+  }
+
+  // Calculate total content height and center vertically
+  const gap = Math.round(height * 0.04);
+  let totalHeight = titleSize + gap + subtitleSize;
+  if (features && features.length > 0) {
+    totalHeight += gap + features.length * featureSize + (features.length - 1) * Math.round(gap * 0.5);
+  }
+  let y = (height - totalHeight) / 2;
 
   // Title
   ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
+  ctx.textBaseline = "top";
   ctx.font = `bold ${titleSize}px system-ui, -apple-system, sans-serif`;
   ctx.fillStyle = "white";
-  ctx.fillText("JobFiltr", width / 2, centerY - 10);
+  ctx.fillText("JobFiltr", width / 2, y);
+  y += titleSize + gap;
 
   // Subtitle
   ctx.font = `${subtitleSize}px system-ui, -apple-system, sans-serif`;
   ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-  ctx.fillText(subtitle, width / 2, centerY + subtitleSize + 10);
+  ctx.fillText(subtitle, width / 2, y);
+  y += subtitleSize + gap;
 
   // Features
   if (features && features.length > 0) {
     ctx.font = `${featureSize}px system-ui, -apple-system, sans-serif`;
     ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-    const startY = centerY + titleSize + 20;
+    const featureGap = Math.round(gap * 0.5);
     features.forEach((f, i) => {
-      ctx.fillText(f, width / 2, startY + i * (featureSize + 10));
+      ctx.fillText(f, width / 2, y + i * (featureSize + featureGap));
     });
   }
 
@@ -295,12 +331,12 @@ export function CwsSubmissionCard() {
     setGeneratingPromo(true);
     setPromoStatus("idle");
     try {
-      const subtitle = "Your Job Search Power Tool";
+      const subtitle = "Your Job Search, Upgraded";
 
       const smallBase64 = generateTileCanvas(440, 280, subtitle);
       const marqueeBase64 = generateTileCanvas(1400, 560, subtitle, [
         "Ghost Job Detection  |  Scam & Spam Filters  |  Community Reports",
-        "LinkedIn & Indeed  |  Job Age Badges  |  Smart Keyword Filters",
+        "Smart Keyword Filters  |  Job Age Badges  |  LinkedIn & Indeed Support",
       ]);
 
       const timestamp = Date.now();
@@ -695,9 +731,34 @@ export function CwsSubmissionCard() {
                     <p className="text-white text-sm font-medium">Store Icon</p>
                     <p className="text-white/40 text-xs">128 x 128 PNG (from Extension Icons section)</p>
                   </div>
-                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/20">
-                    Ready
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/10"
+                      onClick={() => setRefreshKey(Date.now())}
+                      title="Refresh icon"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/10"
+                      onClick={() => {
+                        const a = document.createElement("a");
+                        a.href = "/icons/icon128.png";
+                        a.download = "icon128.png";
+                        a.click();
+                      }}
+                      title="Download icon"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    <Badge className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/20">
+                      Ready
+                    </Badge>
+                  </div>
                 </div>
               </div>
 
