@@ -295,8 +295,8 @@ function generateTileCanvas(
     const textLeft = width * 0.32;
     const textCenterX = textLeft + (width - textLeft - padding) / 2;
 
-    let titleSize = fitFont(Math.round(width / 14), "JobFiltr", true);
-    let subtitleSize = fitFont(Math.round(width / 26), subtitle);
+    const titleSize = fitFont(Math.round(width / 14), "JobFiltr", true);
+    const subtitleSize = fitFont(Math.round(width / 26), subtitle);
     let featureSize = Math.round(width / 34);
     const featureSizes: number[] = [];
     const featureMaxW = width - padding * 2;
@@ -337,8 +337,8 @@ function generateTileCanvas(
   } else {
     // === SMALL TILE LAYOUT: Icon centered above text ===
     const iconSize = Math.round(height * 0.3);
-    let titleSize = fitFont(Math.round(width / 13), "JobFiltr", true);
-    let subtitleSize = fitFont(Math.round(width / 24), subtitle);
+    const titleSize = fitFont(Math.round(width / 13), "JobFiltr", true);
+    const subtitleSize = fitFont(Math.round(width / 24), subtitle);
 
     const gap = Math.round(height * 0.04);
     const totalHeight = iconSize + gap + titleSize + Math.round(gap * 0.5) + subtitleSize;
