@@ -1,12 +1,15 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useRef } from "react";
+import { motion, useInView } from "framer-motion";
 import { ShieldAlert, Ghost } from "lucide-react";
 import { StatsPulse } from "./StatsPulse";
 import { CountingNumber } from "./ui/counting-number";
 import { SlotMachineNumber } from "./ui/slot-machine-number";
 
 export function HeroStatement() {
+  const statsParaRef = useRef(null);
+  const statsParaInView = useInView(statsParaRef, { once: true, margin: "-100px" });
   const fadeUpVariants = {
     hidden: { opacity: 0, y: 30 },
     visible: (i: number) => ({
@@ -162,16 +165,16 @@ export function HeroStatement() {
           transition={{ duration: 0.8, delay: 0.9 }}
           className="space-y-6"
         >
-          <p className="text-base md:text-lg text-white/50 leading-relaxed max-w-3xl mx-auto">
+          <p ref={statsParaRef} className="text-base md:text-lg text-white/50 leading-relaxed max-w-3xl mx-auto">
             The result?{" "}
             <span className="text-rose-400 font-semibold">
-              <CountingNumber number={67} inView={false} inViewOnce={true} inViewMargin="-100px" className="inline-block" />%
+              <CountingNumber number={67} inView={statsParaInView} className="inline-block" />%
             </span> of job seekers applying to positions that were never really hiring in the first place.{" "}
             <span className="text-amber-400 font-semibold">
-              <CountingNumber number={25} inView={false} inViewOnce={true} inViewMargin="-100px" className="inline-block" />%
+              <CountingNumber number={25} inView={statsParaInView} className="inline-block" />%
             </span> searching for over a year.{" "}
             <span className="text-violet-400 font-semibold">
-              <CountingNumber number={45} inView={false} inViewOnce={true} inViewMargin="-100px" className="inline-block" />%
+              <CountingNumber number={45} inView={statsParaInView} className="inline-block" />%
             </span> of fake postings exist solely for data collection.
           </p>
         </motion.div>
