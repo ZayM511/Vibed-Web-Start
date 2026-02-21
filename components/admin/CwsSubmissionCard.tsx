@@ -262,9 +262,8 @@ async function generateTileCanvas(
     const iconCenterY = height * 0.38;
     ctx.drawImage(logoImg, iconX - iconSize / 2, iconCenterY - iconSize / 2, iconSize, iconSize);
 
-    // Text area centered between icon right edge and canvas right edge
-    const iconRightEdge = iconX + iconSize / 2;
-    const textCenterX = iconRightEdge + (width - iconRightEdge) / 2;
+    // Text centered on the canvas
+    const textCenterX = width / 2;
 
     const titleSize = fitFont(Math.round(width / 14), "JobFiltr", true);
     const subtitleSize = fitFont(Math.round(width / 26), subtitle);
