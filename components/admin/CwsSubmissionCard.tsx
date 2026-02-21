@@ -281,9 +281,10 @@ async function generateTileCanvas(
     });
     featureSize = Math.min(...featureSizes);
 
-    // Title + subtitle block
+    // Title + subtitle block - vertically centered on canvas
     const titleSubGap = Math.round(height * 0.03);
-    const titleBlockY = iconCenterY - (titleSize + titleSubGap + subtitleSize) / 2;
+    const titleBlockHeight = titleSize + titleSubGap + subtitleSize;
+    const titleBlockY = (height - titleBlockHeight) / 2;
 
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
