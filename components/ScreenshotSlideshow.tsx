@@ -158,11 +158,12 @@ export function ScreenshotSlideshow() {
   }, []);
 
   // Auto-advance every 8 seconds, pause when expanded
+  // Including `current` resets the timer whenever the slide changes (manual or auto)
   useEffect(() => {
     if (expanded) return;
     const timer = setInterval(() => paginate(1), 8000);
     return () => clearInterval(timer);
-  }, [paginate, expanded]);
+  }, [paginate, expanded, current]);
 
   // Keyboard navigation
   useEffect(() => {
