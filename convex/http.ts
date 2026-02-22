@@ -529,4 +529,62 @@ http.route({
   }),
 });
 
+// ===== Extension Clerk Auth Endpoint =====
+// Called from /extension-auth page after Clerk authentication.
+// Generates a session token for the extension to use.
+
+http.route({
+  path: "/extension/clerk-auth",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const { email, name, clerkUserId } = await request.json();
+
+      if (!email || !clerkUserId) {
+        return new Response(
+          JSON.stringify({ error: "Email and clerkUserId are required" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+        );
+      }
+
+      const result = await ctx.runAction(internal.extensionAuth.clerkAuth, {
+        email,
+        name: name || undefined,
+        clerkUserId,
+      });
+
+      if (!result.success) {
+        return new Response(
+          JSON.stringify({ error: "Failed to generate session token" }),
+          { status: 500, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          token: result.token,
+          email: result.email,
+          name: result.name,
+          clerkUserId: result.clerkUserId,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+      );
+    } catch (error) {
+      console.error("Extension Clerk auth error:", error);
+      return new Response(
+        JSON.stringify({ error: "Internal server error" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...CORS_HEADERS } }
+      );
+    }
+  }),
+});
+
+http.route({
+  path: "/extension/clerk-auth",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }),
+});
+
 export default http;

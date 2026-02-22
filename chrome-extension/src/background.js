@@ -1065,4 +1065,45 @@ chrome.storage.local.get(['panelState', 'sideBySideEnabled', 'mainBrowserWindowI
   }
 });
 
+// ===== EXTERNAL AUTH: Receive auth tokens from jobfiltr.app =====
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  console.log('JobFiltr: External message received from:', sender.url, message);
+
+  if (message.type === 'AUTH_SUCCESS') {
+    const { token, email, name, clerkUserId } = message;
+
+    if (!token || !email) {
+      sendResponse({ success: false, error: 'Missing token or email' });
+      return;
+    }
+
+    const expiry = Date.now() + (30 * 24 * 60 * 60 * 1000); // 30 days
+    chrome.storage.local.set({
+      authToken: token,
+      userEmail: email,
+      userName: name || '',
+      clerkUserId: clerkUserId || '',
+      authExpiry: expiry,
+      authProvider: 'clerk'
+    }).then(() => {
+      console.log('JobFiltr: Auth stored successfully for', email);
+      sendResponse({ success: true });
+    }).catch(error => {
+      console.error('JobFiltr: Failed to store auth:', error);
+      sendResponse({ success: false, error: error.message });
+    });
+
+    return true; // Keep message channel open for async response
+  }
+
+  if (message.type === 'AUTH_CHECK') {
+    // Allow website to check if extension is installed and auth state
+    chrome.storage.local.get(['authToken', 'userEmail', 'authExpiry']).then(result => {
+      const isAuth = result.authToken && result.authExpiry && Date.now() < result.authExpiry;
+      sendResponse({ installed: true, authenticated: isAuth, email: isAuth ? result.userEmail : null });
+    });
+    return true;
+  }
+});
+
 console.log('JobFiltr background service worker loaded');

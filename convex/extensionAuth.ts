@@ -110,6 +110,58 @@ export const signin = internalAction({
 });
 
 /**
+ * Generate extension session token for a Clerk-authenticated user.
+ * Called from the /extension-auth page after Clerk sign-in.
+ * Uses the extensionUsers table to store a session token keyed by email.
+ */
+export const clerkAuth = internalAction({
+  args: {
+    email: v.string(),
+    name: v.optional(v.string()),
+    clerkUserId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const email = args.email.toLowerCase().trim();
+
+    const token = generateToken();
+    const tokenExpiry = Date.now() + 30 * 24 * 60 * 60 * 1000;
+
+    // Check if extensionUser already exists for this email
+    const existing: any = await ctx.runQuery(internal.extensionAuthHelpers.getUserByEmail, { email });
+
+    if (existing) {
+      // Update token for existing user
+      await ctx.runMutation(internal.extensionAuthHelpers.updateToken, {
+        userId: existing._id,
+        token,
+        tokenExpiry,
+      });
+    } else {
+      // Create new extensionUser (Clerk users don't need passwords)
+      const salt = generateSalt();
+      const dummyHash = crypto.randomBytes(64).toString("hex");
+
+      await ctx.runMutation(internal.extensionAuthHelpers.createUser, {
+        email,
+        passwordHash: dummyHash,
+        salt,
+        name: args.name?.trim(),
+        token,
+        tokenExpiry,
+      });
+    }
+
+    return {
+      success: true,
+      token,
+      email,
+      name: args.name?.trim() || existing?.name || "",
+      clerkUserId: args.clerkUserId,
+    };
+  },
+});
+
+/**
  * Handle Google OAuth sign-in for extension.
  * Creates or updates an extensionUser with a new session token.
  */

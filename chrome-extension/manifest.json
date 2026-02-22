@@ -79,6 +79,13 @@
       "matches": ["https://*.indeed.com/*"]
     }
   ],
+  "externally_connectable": {
+    "matches": [
+      "https://www.jobfiltr.app/*",
+      "https://jobfiltr.app/*",
+      "http://localhost:3000/*"
+    ]
+  },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   }

@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   Home,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -107,6 +108,15 @@ export function HeaderNav() {
               <Download className="h-4 w-4" />
               <span>Extension</span>
             </button>
+
+            {/* Pricing */}
+            <Link
+              href="/pricing"
+              className="flex items-center gap-2 text-sm text-white/70 hover:text-white transition-colors"
+            >
+              <CreditCard className="h-4 w-4" />
+              <span>Pricing</span>
+            </Link>
 
             {/* Contact */}
             <Link
@@ -245,6 +255,21 @@ export function HeaderNav() {
                     </div>
                   </button>
                 </div>
+
+                {/* Pricing */}
+                <Link
+                  href="/pricing"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors"
+                >
+                  <CreditCard className="h-5 w-5 text-white/70" />
+                  <div>
+                    <p className="text-white text-sm font-medium">Pricing</p>
+                    <p className="text-white/50 text-xs">
+                      View plans & features
+                    </p>
+                  </div>
+                </Link>
 
                 {/* Contact */}
                 <Link
