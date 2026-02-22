@@ -272,7 +272,7 @@ export default function PricingPage() {
             className="mt-16 text-center"
           >
             <p className="text-white/60">
-              Start free, upgrade when you're ready. No commitments, cancel anytime.
+              Start free, upgrade when you&apos;re ready. No commitments, cancel anytime.
             </p>
             <p className="text-white/40 text-sm mt-2">
               Need help?{" "}
