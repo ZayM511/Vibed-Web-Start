@@ -132,7 +132,7 @@ export default function PricingPage() {
               Choose Your Plan
             </h1>
             <p className="text-xl text-white/60 max-w-2xl mx-auto">
-              Your job search, upgraded. Filter out ghost jobs, scams, and spam with confidence.
+              Your job search, upgraded. Less noise. More clarity.
             </p>
           </motion.div>
 
@@ -272,7 +272,7 @@ export default function PricingPage() {
             className="mt-16 text-center"
           >
             <p className="text-white/60">
-              All plans include a 30-day money-back guarantee. Cancel anytime.
+              Start free, upgrade when you're ready. No commitments, cancel anytime.
             </p>
             <p className="text-white/40 text-sm mt-2">
               Need help?{" "}
