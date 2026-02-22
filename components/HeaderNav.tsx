@@ -101,6 +101,10 @@ export function HeaderNav() {
                 const extensionSection = document.getElementById("extension");
                 if (extensionSection) {
                   extensionSection.scrollIntoView({ behavior: "smooth" });
+                  // Re-adjust after whileInView animations settle and shift layout
+                  setTimeout(() => {
+                    extensionSection.scrollIntoView({ behavior: "smooth" });
+                  }, 800);
                 }
               }}
               className="flex items-center gap-2 text-sm text-white/70 hover:text-white transition-colors"
@@ -244,6 +248,10 @@ export function HeaderNav() {
                       const extensionSection = document.getElementById("extension");
                       if (extensionSection) {
                         extensionSection.scrollIntoView({ behavior: "smooth" });
+                        // Re-adjust after whileInView animations settle and shift layout
+                        setTimeout(() => {
+                          extensionSection.scrollIntoView({ behavior: "smooth" });
+                        }, 800);
                       }
                     }}
                     className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors"
