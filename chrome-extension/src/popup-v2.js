@@ -3614,11 +3614,20 @@ function performScamSpamAnalysis(jobData) {
   );
 
   // Spam score now includes posting age (weighted at 25%)
-  const spamScore = (
+  let spamScore = (
     Math.min(100, breakdown.mlm) * 0.45 +
     Math.min(100, breakdown.commission) * 0.30 +
     Math.min(100, breakdown.postingAge) * 0.25
   );
+
+  // Apply minimum spam score floors for excessively old postings
+  if (postingAgeResult.daysPosted !== null) {
+    if (postingAgeResult.daysPosted >= 120) {
+      spamScore = Math.max(spamScore, 50); // 4+ months = minimum 50%
+    } else if (postingAgeResult.daysPosted >= 90) {
+      spamScore = Math.max(spamScore, 40); // 3+ months = minimum 40%
+    }
+  }
 
   console.log('[Scanner Debug] Calculated scores:', {
     scamScore,
