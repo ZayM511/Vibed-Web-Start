@@ -20,20 +20,27 @@ export default function ExtensionAuthPage() {
   const { isSignedIn, user, isLoaded } = useUser();
   const [step, setStep] = useState<AuthStep>("signing-in");
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  // Extension ID from URL param — initialized synchronously to avoid race with Clerk auto-sign-in
+  // Extension ID from URL param — persisted in sessionStorage to survive OAuth redirects
   const [extensionId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
-    return new URLSearchParams(window.location.search).get("extId");
+    const params = new URLSearchParams(window.location.search);
+    const urlExtId = params.get("extId");
+    if (urlExtId) {
+      sessionStorage.setItem("jobfiltr-extId", urlExtId);
+      return urlExtId;
+    }
+    return sessionStorage.getItem("jobfiltr-extId");
   });
-
-  // Check URL params for mode
-  useEffect(() => {
+  // Auth mode (signin/signup) — also persisted in sessionStorage for the same reason
+  const [mode, setMode] = useState<"signin" | "signup">(() => {
+    if (typeof window === "undefined") return "signin";
     const params = new URLSearchParams(window.location.search);
     if (params.get("mode") === "signup") {
-      setMode("signup");
+      sessionStorage.setItem("jobfiltr-auth-mode", "signup");
+      return "signup";
     }
-  }, []);
+    return sessionStorage.getItem("jobfiltr-auth-mode") === "signup" ? "signup" : "signin";
+  });
 
   const sendAuthToExtension = useCallback(async () => {
     if (!user) return;
@@ -107,6 +114,8 @@ export default function ExtensionAuthPage() {
       }
 
       setStep("complete");
+      sessionStorage.removeItem("jobfiltr-extId");
+      sessionStorage.removeItem("jobfiltr-auth-mode");
 
     } catch (err) {
       console.error("Extension auth error:", err);
@@ -169,7 +178,7 @@ export default function ExtensionAuthPage() {
             {mode === "signup" ? (
               <SignUp
                 routing="hash"
-                afterSignUpUrl="/extension-auth"
+                forceRedirectUrl={extensionId ? `/extension-auth?extId=${extensionId}` : "/extension-auth"}
                 appearance={{
                   elements: {
                     rootBox: "mx-auto",
@@ -180,7 +189,7 @@ export default function ExtensionAuthPage() {
             ) : (
               <SignIn
                 routing="hash"
-                afterSignInUrl="/extension-auth"
+                forceRedirectUrl={extensionId ? `/extension-auth?extId=${extensionId}` : "/extension-auth"}
                 appearance={{
                   elements: {
                     rootBox: "mx-auto",
