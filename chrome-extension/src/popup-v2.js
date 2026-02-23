@@ -535,6 +535,22 @@ function applyTierRestrictions() {
     if (overlay) overlay.remove();
   }
 
+  // --- LinkedIn Pro banner (re-evaluate after subscription fetch) ---
+  const linkedinProBanner = document.getElementById('linkedinProBanner');
+  if (currentSite === 'linkedin' && isPro) {
+    // Remove upgrade banner if it was shown before subscription status loaded
+    if (linkedinProBanner) linkedinProBanner.remove();
+    // Restore filter controls
+    const fc = document.getElementById('filtersContainer');
+    const ab = document.getElementById('applyFilters');
+    if (fc) { fc.style.opacity = '1'; fc.style.pointerEvents = 'auto'; }
+    if (ab) ab.disabled = false;
+    // Notify content script that user is Pro
+    if (currentTabId) {
+      chrome.tabs.sendMessage(currentTabId, { action: 'setTierRestriction', isPro: true }).catch(() => {});
+    }
+  }
+
   // --- Scan limit display ---
   updateScanLimitDisplay();
 }
@@ -606,9 +622,12 @@ function hideAuthError() {
 // Website auth URL
 const AUTH_BASE_URL = 'https://www.jobfiltr.app/extension-auth';
 
-// Open jobfiltr.app for sign in
+// Open jobfiltr.app for sign in (passes extension ID so website can send auth token back)
 function openWebAuth(mode = 'signin') {
-  const url = mode === 'signup' ? `${AUTH_BASE_URL}?mode=signup` : AUTH_BASE_URL;
+  const extId = chrome.runtime.id;
+  const url = mode === 'signup'
+    ? `${AUTH_BASE_URL}?mode=signup&extId=${extId}`
+    : `${AUTH_BASE_URL}?extId=${extId}`;
   chrome.tabs.create({ url });
 }
 
@@ -1108,6 +1127,10 @@ async function detectCurrentSite() {
     } else {
       // Remove banner if exists and user is Pro or not on LinkedIn
       if (linkedinProBanner) linkedinProBanner.remove();
+      // Notify content script that user is Pro (so it enables filters)
+      if (site === 'linkedin' && isPro && currentTabId) {
+        chrome.tabs.sendMessage(currentTabId, { action: 'setTierRestriction', isPro: true }).catch(() => {});
+      }
     }
 
     // Dim Indeed-extra filters on LinkedIn (salary, early applicant, applied jobs)

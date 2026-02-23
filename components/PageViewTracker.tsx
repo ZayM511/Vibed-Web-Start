@@ -20,6 +20,9 @@ export function PageViewTracker() {
   const { userId } = useAuth();
 
   useEffect(() => {
+    // Skip tracking for automated/dev browsers (e.g. CDP-controlled debug browser)
+    if (navigator.webdriver) return;
+
     // Deduplicate: skip if same path tracked within 5 seconds
     const dedupKey = "jobfiltr-pv-dedup";
     const now = Date.now();

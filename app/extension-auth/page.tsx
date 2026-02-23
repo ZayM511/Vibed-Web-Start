@@ -6,10 +6,9 @@ import { motion } from "framer-motion";
 import { CheckCircle2, Chrome, Loader2 } from "lucide-react";
 import { Footer } from "@/components/Footer";
 
-// The published Chrome Web Store extension ID
-// For development, the extension ID changes with each unpacked load
+// Production extension ID(s) - fallback if no extId passed in URL
 const EXTENSION_IDS: string[] = [
-  // Add your production extension ID here when published:
+  // Add your Chrome Web Store extension ID here when published:
   // "abcdefghijklmnopqrstuvwxyz123456",
 ];
 
@@ -22,6 +21,11 @@ export default function ExtensionAuthPage() {
   const [step, setStep] = useState<AuthStep>("signing-in");
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
+  // Extension ID from URL param — initialized synchronously to avoid race with Clerk auto-sign-in
+  const [extensionId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("extId");
+  });
 
   // Check URL params for mode
   useEffect(() => {
@@ -67,34 +71,41 @@ export default function ExtensionAuthPage() {
       setStep("sending-to-extension");
 
       let sent = false;
+      const authMessage = {
+        type: "AUTH_SUCCESS",
+        token: data.token,
+        email: data.email,
+        name: data.name,
+        clerkUserId: data.clerkUserId,
+      };
 
-      // Try each known extension ID
-      for (const extId of EXTENSION_IDS) {
+      // Try extension ID from URL param first (most reliable — extension passes its own ID)
+      if (extensionId) {
         try {
-          await sendMessageToExtension(extId, {
-            type: "AUTH_SUCCESS",
-            token: data.token,
-            email: data.email,
-            name: data.name,
-            clerkUserId: data.clerkUserId,
-          });
+          await sendMessageToExtension(extensionId, authMessage);
           sent = true;
-          break;
         } catch {
-          // This extension ID didn't work, try next
+          console.log("URL-provided extension ID failed:", extensionId);
         }
       }
 
-      // If no hardcoded IDs worked, try to discover the extension
-      // by attempting to send to a range of possible IDs
-      if (!sent && typeof chrome !== "undefined" && chrome.runtime) {
-        // Extension might be in development mode with a dynamic ID
-        // The extension will be listening, we just need the right ID
-        console.log("No hardcoded extension ID worked. Extension may need to be configured.");
+      // Fall back to hardcoded production IDs
+      if (!sent) {
+        for (const extId of EXTENSION_IDS) {
+          try {
+            await sendMessageToExtension(extId, authMessage);
+            sent = true;
+            break;
+          } catch {
+            // This extension ID didn't work, try next
+          }
+        }
       }
 
-      // Show success regardless - the token was generated
-      // If the extension didn't receive it, user can copy manually or re-auth
+      if (!sent) {
+        console.log("Could not send auth to extension. No valid extension ID.");
+      }
+
       setStep("complete");
 
     } catch (err) {
@@ -102,7 +113,7 @@ export default function ExtensionAuthPage() {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setStep("error");
     }
-  }, [user]);
+  }, [user, extensionId]);
 
   // When user becomes signed in, automatically generate token
   useEffect(() => {

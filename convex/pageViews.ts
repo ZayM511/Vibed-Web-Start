@@ -7,6 +7,27 @@ const FOUNDER_EMAILS = [
   "hello@jobfiltr.app",
 ];
 
+// Convert a UTC timestamp to YYYY-MM-DD in Pacific Time (America/Los_Angeles)
+function toPacificDateString(ts: number): string {
+  return new Date(ts).toLocaleDateString("en-CA", {
+    timeZone: "America/Los_Angeles",
+  });
+}
+
+// Get the UTC timestamp for midnight Pacific Time on a given date
+function getPacificDayStartUTC(dateStr: string): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  // Midnight Pacific = 8 AM UTC (PST) or 7 AM UTC (PDT)
+  // Try both offsets and pick the one that maps back to the correct date
+  for (const offset of [8, 7]) {
+    const candidate = Date.UTC(y, m - 1, d, offset, 0, 0);
+    if (toPacificDateString(candidate) === dateStr) {
+      return candidate;
+    }
+  }
+  return Date.UTC(y, m - 1, d, 8, 0, 0);
+}
+
 // Public mutation — records a single page view (no auth required)
 export const recordPageView = mutation({
   args: {
@@ -35,7 +56,6 @@ export const getDailyPageViewStats = query({
     }
 
     const now = Date.now();
-    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
 
     // Get aggregated stats from dailyPageViewStats table
     const aggregatedStats = await ctx.db
@@ -53,8 +73,9 @@ export const getDailyPageViewStats = query({
     }
 
     // Compute today's stats from raw pageViews (cron hasn't run yet for today)
-    const todayStr = new Date(now).toISOString().split("T")[0];
-    const todayStart = new Date(todayStr).getTime();
+    // Use Pacific Time so each day starts at midnight PST/PDT
+    const todayStr = toPacificDateString(now);
+    const todayStart = getPacificDayStartUTC(todayStr);
 
     const todayViews = await ctx.db
       .query("pageViews")
@@ -69,11 +90,13 @@ export const getDailyPageViewStats = query({
       };
     }
 
-    // Build array for last 30 days
+    // Build array for last 30 Pacific days
     const result: { date: string; totalViews: number; uniqueVisitors: number }[] = [];
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(now - i * 24 * 60 * 60 * 1000);
-      const dateStr = d.toISOString().split("T")[0];
+    const seen = new Set<string>();
+    for (let i = 30; i >= 0; i--) {
+      const dateStr = toPacificDateString(now - i * 24 * 60 * 60 * 1000);
+      if (seen.has(dateStr)) continue;
+      seen.add(dateStr);
       result.push({
         date: dateStr,
         totalViews: statsMap[dateStr]?.totalViews ?? 0,
@@ -81,7 +104,7 @@ export const getDailyPageViewStats = query({
       });
     }
 
-    return result;
+    return result.slice(-30);
   },
 });
 
@@ -92,11 +115,9 @@ export const aggregateDailyStats = internalMutation({
   handler: async (ctx) => {
     const now = Date.now();
 
-    // Calculate yesterday's date range
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split("T")[0];
-    const dayStart = new Date(yesterdayStr).getTime();
+    // Calculate yesterday's date range in Pacific Time
+    const yesterdayStr = toPacificDateString(now - 24 * 60 * 60 * 1000);
+    const dayStart = getPacificDayStartUTC(yesterdayStr);
     const dayEnd = dayStart + 24 * 60 * 60 * 1000;
 
     // Query yesterday's raw page views

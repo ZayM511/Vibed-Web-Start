@@ -4058,6 +4058,7 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 .auth-subtitle {
   font-size: 13px;
   color: var(--text-secondary);
+  text-align: center;
 }
 
 .auth-form {
@@ -4168,6 +4169,7 @@ body.panel-mode.docked-right .pin-btn#pinRightBtn {
 }
 
 .auth-btn-primary {
+  width: 100%;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
   color: white;
   box-shadow: 0 4px 12px var(--accent-glow);

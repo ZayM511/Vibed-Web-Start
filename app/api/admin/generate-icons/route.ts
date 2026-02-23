@@ -23,7 +23,7 @@ export async function POST() {
 
   try {
     const sourcePath = path.join(process.cwd(), "public", "jobfiltr-logo-source.png");
-    const sizes = [128, 48, 16];
+    const sizes = [128, 48, 32, 16];
 
     // Ensure output directories exist
     const publicIconsDir = path.join(process.cwd(), "public", "icons");
