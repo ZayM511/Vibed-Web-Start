@@ -225,7 +225,7 @@ export function UserInsightsTab() {
                       fontSize={10}
                       tickFormatter={(v) => {
                         const d = new Date(v);
-                        return `${d.getMonth() + 1}/${d.getDate()}`;
+                        return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
                       }}
                     />
                     <YAxis stroke="rgba(255,255,255,0.5)" fontSize={12} allowDecimals={false} />
@@ -238,7 +238,7 @@ export function UserInsightsTab() {
                       }}
                       labelFormatter={(label) => {
                         const d = new Date(label);
-                        return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                        return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
                       }}
                     />
                     <Legend />
@@ -405,7 +405,7 @@ export function UserInsightsTab() {
                       fontSize={10}
                       tickFormatter={(v) => {
                         const d = new Date(v);
-                        return `${d.getMonth() + 1}/${d.getDate()}`;
+                        return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
                       }}
                     />
                     <YAxis stroke="rgba(255,255,255,0.5)" fontSize={12} />
@@ -788,7 +788,7 @@ export function UserInsightsTab() {
                       fontSize={10}
                       tickFormatter={(v) => {
                         const d = new Date(v);
-                        return `${d.getMonth() + 1}/${d.getDate()}`;
+                        return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
                       }}
                     />
                     <YAxis stroke="rgba(255,255,255,0.5)" fontSize={12} allowDecimals={false} />
@@ -802,7 +802,7 @@ export function UserInsightsTab() {
                       formatter={(value: number) => [value, "Signups"]}
                       labelFormatter={(label) => {
                         const d = new Date(label);
-                        return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                        return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
                       }}
                     />
                     <Area
