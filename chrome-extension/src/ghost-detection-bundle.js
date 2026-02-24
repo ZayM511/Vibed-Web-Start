@@ -2871,6 +2871,20 @@
   async function analyzeLinkedIn() {
     if (!config?.enabled) return;
 
+    // Require authentication — ghost analysis is a signed-in feature
+    try {
+      const authResult = await new Promise(resolve =>
+        chrome.storage.local.get(['authToken', 'authExpiry'], resolve)
+      );
+      if (!authResult.authToken || !authResult.authExpiry || Date.now() >= authResult.authExpiry) {
+        removeGhostScoreBadges();
+        removeReportedCompanyDetailBadges();
+        return;
+      }
+    } catch (authErr) {
+      return;
+    }
+
     // Check user settings for ghost analysis and community reported warnings
     const ghostSettings = await isGhostAnalysisEnabled();
     console.log('[GhostDetection] Settings state:', ghostSettings);
@@ -2932,6 +2946,20 @@
 
   async function analyzeIndeed(isRetry = false) {
     if (!config?.enabled) return;
+
+    // Require authentication — ghost analysis is a signed-in feature
+    try {
+      const authResult = await new Promise(resolve =>
+        chrome.storage.local.get(['authToken', 'authExpiry'], resolve)
+      );
+      if (!authResult.authToken || !authResult.authExpiry || Date.now() >= authResult.authExpiry) {
+        removeGhostScoreBadges();
+        removeReportedCompanyDetailBadges();
+        return;
+      }
+    } catch (authErr) {
+      return;
+    }
 
     // Check user settings for ghost analysis and community reported warnings
     const ghostSettings = await isGhostAnalysisEnabled();

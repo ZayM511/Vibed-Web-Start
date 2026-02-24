@@ -3012,7 +3012,7 @@ async function detectCurrentJob() {
         console.log('[Scanner] Content script active:', pingResponse.platform, 'at', new Date(pingResponse.timestamp).toISOString());
       }
     } catch (pingError) {
-      console.warn('[Scanner] Content script not responding - may need page refresh');
+      console.log('[Scanner] Content script not responding - may need page refresh');
       // Don't return here, still try to extract in case it's a timing issue
     }
 
@@ -3055,7 +3055,7 @@ async function detectCurrentJob() {
       // Check if content script is not available
       if (msgError.message?.includes('Receiving end does not exist') ||
           msgError.message?.includes('Could not establish connection')) {
-        console.warn('[Scanner] Content script not available - page refresh may be needed');
+        console.log('[Scanner] Content script not available - page refresh may be needed');
         updateDetectedJobInfo(null, 'no_content_script');
       } else {
         console.error('Error sending job extraction message:', msgError);
