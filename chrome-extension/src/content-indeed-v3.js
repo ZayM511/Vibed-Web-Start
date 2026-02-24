@@ -2695,8 +2695,12 @@ function addActiveRecruitingBadge(jobCard, recruitingInfo) {
     badge.innerHTML = `<span style="margin-right: 4px;">${icon}</span>Possibly Stale (${days}d)`;
     badge.title = `This job posting appears to be ${days} days old - may no longer be active`;
   } else {
-    // Don't show badge for uncertain status
-    return;
+    // Grey zone (7-30 days) - show uncertain/possibly recruiting status
+    bgColor = '#fef3c7'; // Light amber
+    textColor = '#92400e'; // Dark amber
+    icon = '~';
+    badge.innerHTML = `<span style="margin-right: 4px;">${icon}</span>Possibly Recruiting (${days}d)`;
+    badge.title = `This job was posted ${days} days ago. It's still relatively fresh but not brand new — consider verifying on the company's website.`;
   }
 
   // Apply solid styles matching Job Age badge
@@ -3709,6 +3713,9 @@ function applyFilters(settings) {
   isFilteringInProgress = true;
 
   filterSettings = settings;
+  // Reset sent-count tracker to ensure FILTER_STATS_UPDATE is always sent
+  // This prevents the popup from showing stale/zero hidden count
+  lastSentHiddenCount = -1;
   // ULTRATHINK: Use local count to prevent global from flashing to 0
   let currentHiddenCount = 0;
 
