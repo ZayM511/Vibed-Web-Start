@@ -69,6 +69,22 @@ setTimeout(() => {
   }
 })();
 
+// Safety timeout: remove flash prevention if cards still unprocessed after 8s
+// Prevents invisible cards if applyFilters() crashes or is delayed
+setTimeout(() => {
+  if (document.body.classList.contains('jobfiltr-linkedin-filter-active')) {
+    const unprocessed = document.querySelectorAll(
+      '.scaffold-layout__list-item:not([data-jobfiltr-processed]),' +
+      '.jobs-search-results__list-item:not([data-jobfiltr-processed]),' +
+      '.job-card-container:not([data-jobfiltr-processed])'
+    );
+    if (unprocessed.length > 0) {
+      console.warn('[JobFiltr] Flash prevention safety timeout - revealing', unprocessed.length, 'unprocessed cards');
+      document.body.classList.remove('jobfiltr-linkedin-filter-active');
+    }
+  }
+}, 8000);
+
 // Logging utility
 function log(message, data = null) {
   const timestamp = new Date().toISOString().split('T')[1].slice(0, 12);
@@ -829,13 +845,14 @@ function extractJobInfo() {
 // - Main filter application with concurrent filtering prevention
 // =============================================================================
 
-// Staffing firm detection patterns
+// Staffing firm detection patterns (specific terms only — avoid broad words like "services", "consulting", "systems")
 const STAFFING_PATTERNS = [
-  /staffing|recruiting|talent|solutions|workforce/i,
-  /\b(tek|pro|consulting|systems|global|services)\b/i,
+  /staffing|recruiting|workforce/i,
   /robert\s*half|randstad|adecco|manpower|kelly\s*services/i,
-  /apex|insight|cybercoders|kforce|modis|judge/i,
-  /teksystems|tek\s*systems|insight\s*global|aerotek|allegis/i
+  /apex\s*(group|systems)|cybercoders|kforce|modis|judge\s*group/i,
+  /teksystems|tek\s*systems|insight\s*global|aerotek|allegis/i,
+  /hays\s*(plc|recruitment)|michael\s*page|page\s*group/i,
+  /expresspros|express\s*employment|spherion|volt\s*information/i
 ];
 
 function isStaffingFirm(jobCard) {
@@ -874,62 +891,66 @@ function isStaffingFirm(jobCard) {
 
 // ===== STAFFING DISPLAY MODE FUNCTIONS =====
 function addStaffingBadge(jobCard) {
-  // Don't add duplicate badges
-  if (jobCard.querySelector('.jobfiltr-staffing-badge')) return;
+  try {
+    // Don't add duplicate badges
+    if (jobCard.querySelector('.jobfiltr-staffing-badge')) return;
 
-  const badge = document.createElement('div');
-  badge.className = 'jobfiltr-staffing-badge';
+    const badge = document.createElement('div');
+    badge.className = 'jobfiltr-staffing-badge';
 
-  badge.innerHTML = `
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0;">
-      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
-      <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-    </svg>
-    <span>Staffing</span>
-  `;
+    badge.innerHTML = `
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0;">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
+        <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <span>Staffing</span>
+    `;
 
-  badge.title = 'This appears to be a staffing/recruiting firm';
+    badge.title = 'This appears to be a staffing/recruiting firm';
 
-  badge.style.cssText = `
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    background: rgba(239, 68, 68, 0.12);
-    border: 1px solid rgba(239, 68, 68, 0.35);
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 500;
-    color: #DC2626;
-    margin-left: 8px;
-    cursor: help;
-    white-space: nowrap;
-    vertical-align: middle;
-  `;
+    badge.style.cssText = `
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #DC2626;
+      margin-left: 8px;
+      cursor: help;
+      white-space: nowrap;
+      vertical-align: middle;
+    `;
 
-  // Find the company name element to insert badge after
-  const companyEl = queryWithFallbacks(jobCard, SELECTORS.cardCompany);
-  if (companyEl && companyEl.parentNode) {
-    companyEl.parentNode.insertBefore(badge, companyEl.nextSibling);
-    return;
+    // Find the company name element to insert badge after
+    const companyEl = queryWithFallbacks(jobCard, SELECTORS.cardCompany);
+    if (companyEl && companyEl.parentNode) {
+      companyEl.parentNode.insertBefore(badge, companyEl.nextSibling);
+      return;
+    }
+
+    // Content-based fallback for new LinkedIn UI (obfuscated classes)
+    // Card <p> structure: [0]=title, [1]=company, [2]=location...
+    const pElements = Array.from(jobCard.querySelectorAll('p'))
+      .filter(p => {
+        const text = p.textContent?.trim();
+        return text && text.length > 1;
+      });
+    if (pElements.length >= 2) {
+      const companyP = pElements[1];
+      companyP.parentNode.insertBefore(badge, companyP.nextSibling);
+      return;
+    }
+
+    // Last resort: prepend to job card
+    jobCard.prepend(badge);
+  } catch (e) {
+    console.error('[JobFiltr] Error adding staffing badge:', e);
   }
-
-  // Content-based fallback for new LinkedIn UI (obfuscated classes)
-  // Card <p> structure: [0]=title, [1]=company, [2]=location...
-  const pElements = Array.from(jobCard.querySelectorAll('p'))
-    .filter(p => {
-      const text = p.textContent?.trim();
-      return text && text.length > 1;
-    });
-  if (pElements.length >= 2) {
-    const companyP = pElements[1];
-    companyP.parentNode.insertBefore(badge, companyP.nextSibling);
-    return;
-  }
-
-  // Last resort: prepend to job card
-  jobCard.prepend(badge);
 }
 
 function applyStaffingDimEffect(jobCard) {
@@ -1917,12 +1938,24 @@ function performGhostAnalysis(jobData) {
   };
 }
 
+// Propagate processed marker to parent scaffold/list items for flash prevention CSS
+// Flash prevention hides .scaffold-layout__list-item with opacity:0, but processing
+// only marks the child .job-card-container. Without this, parent stays invisible.
+function markParentAsProcessed(jobCard) {
+  const parent = jobCard.closest('.scaffold-layout__list-item') ||
+                 jobCard.closest('.jobs-search-results__list-item');
+  if (parent) {
+    parent.setAttribute('data-jobfiltr-processed', 'true');
+  }
+}
+
 // Hide job card
 function hideJobCard(jobCard, reasons) {
   jobCard.style.display = 'none';
   jobCard.dataset.jobfiltrHidden = 'true';
   jobCard.dataset.jobfiltrReasons = reasons.join(', ');
   jobCard.setAttribute('data-jobfiltr-processed', 'true');
+  markParentAsProcessed(jobCard);
 }
 
 // ROBUST: Find job cards using multiple detection strategies
@@ -2337,6 +2370,7 @@ function showJobCard(jobCard) {
   delete jobCard.dataset.jobfiltrHidden;
   delete jobCard.dataset.jobfiltrReasons;
   jobCard.setAttribute('data-jobfiltr-processed', 'true');
+  markParentAsProcessed(jobCard);
 }
 
 // Get all job cards with comprehensive detection
@@ -2428,6 +2462,7 @@ async function applyFilters(settings) {
     log(`Processing ${jobCards.length} job cards`);
 
     for (const jobCard of jobCards) {
+      try {
       let shouldHide = false;
       const reasons = [];
 
@@ -2628,6 +2663,12 @@ async function applyFilters(settings) {
       // Job age badge (even for hidden cards)
       if (settings.showJobAge && jobId) {
         await renderJobAgeBadge(jobCard, jobId);
+      }
+      } catch (cardError) {
+        console.error('[JobFiltr] Error processing card:', cardError);
+        // CRITICAL: Still mark card as processed so flash prevention doesn't hide it
+        jobCard.setAttribute('data-jobfiltr-processed', 'true');
+        markParentAsProcessed(jobCard);
       }
     }
 
@@ -3001,6 +3042,7 @@ async function renderJobAgeBadge(jobCard, jobId) {
   // CRITICAL FIX: Mark card as processed so periodic scan handles it correctly
   // Without this, React re-renders can clear badges and they won't be re-added
   jobCard.setAttribute('data-jobfiltr-processed', 'true');
+  markParentAsProcessed(jobCard);
 }
 
 // Helper: Wait for an element to appear in the DOM with timeout
