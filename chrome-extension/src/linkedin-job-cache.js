@@ -131,15 +131,18 @@
     }
 
     /**
-     * Get job age in days from cached listedAt timestamp
+     * Get job age in days from cached timestamp
+     * Prefers repostedAt over listedAt for reposted jobs
      * @param {string} jobId - LinkedIn job ID
      * @returns {number|null} Age in days (fractional) or null
      */
     getJobAgeFromCache(jobId) {
       const data = this.getJobData(jobId);
-      if (!data || !data.listedAt) return null;
+      // Prefer repostedAt for reposted jobs, fall back to listedAt
+      const timestamp = data?.repostedAt || data?.listedAt;
+      if (!timestamp) return null;
 
-      const listedDate = new Date(data.listedAt);
+      const listedDate = new Date(timestamp);
       if (isNaN(listedDate.getTime())) return null;
 
       const now = new Date();

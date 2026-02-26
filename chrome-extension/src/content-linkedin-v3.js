@@ -641,11 +641,17 @@ async function getJobAge(jobId, jobCard) {
 
 // Extract job age from DOM with comprehensive selectors
 function extractJobAgeFromDOM(jobCard) {
-  // Try time elements with datetime attribute first
+  // Try time elements - prefer text content over datetime attribute
+  // LinkedIn's text reflects the repost date (e.g., "1 week ago") while
+  // the datetime attribute may hold the original listing date
   for (const selector of SELECTORS.cardAge) {
     try {
       const elements = jobCard.querySelectorAll(selector);
       for (const timeEl of elements) {
+        // Try parsing text first (repost-aware)
+        const age = parseJobAge(timeEl.textContent);
+        if (age !== null) return age;
+        // Fallback to datetime attribute
         const datetime = timeEl.getAttribute('datetime');
         if (datetime) {
           const postDate = new Date(datetime);
@@ -655,9 +661,6 @@ function extractJobAgeFromDOM(jobCard) {
             return daysAgo;
           }
         }
-        // Try parsing text
-        const age = parseJobAge(timeEl.textContent);
-        if (age !== null) return age;
       }
     } catch (e) {
       // Invalid selector, skip
@@ -877,36 +880,55 @@ function addStaffingBadge(jobCard) {
   const badge = document.createElement('div');
   badge.className = 'jobfiltr-staffing-badge';
 
-  badge.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0;">
-      <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-        stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  badge.innerHTML = `
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0;">
+      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
+      <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
     </svg>
-    <span class="jobfiltr-staffing-tooltip">Community Reported</span>`;
-
-  badge.style.cssText = `
-    position: absolute !important;
-    top: 32px !important;
-    right: 8px !important;
-    background: #f97316 !important;
-    color: white !important;
-    width: 24px !important;
-    height: 24px !important;
-    border-radius: 6px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    z-index: 10000 !important;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
-    cursor: pointer !important;
-    pointer-events: auto !important;
+    <span>Staffing</span>
   `;
 
-  // Make job card position relative for absolute badge positioning
-  const computedStyle = window.getComputedStyle(jobCard);
-  if (computedStyle.position === 'static') {
-    jobCard.style.position = 'relative';
+  badge.title = 'This appears to be a staffing/recruiting firm';
+
+  badge.style.cssText = `
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #DC2626;
+    margin-left: 8px;
+    cursor: help;
+    white-space: nowrap;
+    vertical-align: middle;
+  `;
+
+  // Find the company name element to insert badge after
+  const companyEl = queryWithFallbacks(jobCard, SELECTORS.cardCompany);
+  if (companyEl && companyEl.parentNode) {
+    companyEl.parentNode.insertBefore(badge, companyEl.nextSibling);
+    return;
   }
 
+  // Content-based fallback for new LinkedIn UI (obfuscated classes)
+  // Card <p> structure: [0]=title, [1]=company, [2]=location...
+  const pElements = Array.from(jobCard.querySelectorAll('p'))
+    .filter(p => {
+      const text = p.textContent?.trim();
+      return text && text.length > 1;
+    });
+  if (pElements.length >= 2) {
+    const companyP = pElements[1];
+    companyP.parentNode.insertBefore(badge, companyP.nextSibling);
+    return;
+  }
+
+  // Last resort: prepend to job card
   jobCard.prepend(badge);
 }
 
@@ -2895,11 +2917,12 @@ function refreshJobCardBadges(jobs) {
   requestAnimationFrame(() => {
     let updated = 0;
     for (const job of jobs) {
-      if (job.id && job.listedAt) {
-        // Calculate days from listedAt timestamp
-        const listedDate = new Date(job.listedAt);
-        if (!isNaN(listedDate.getTime())) {
-          const days = Math.floor((Date.now() - listedDate.getTime()) / (1000 * 60 * 60 * 24));
+      // Prefer repostedAt over listedAt for reposted jobs
+      const effectiveTimestamp = job.repostedAt || job.listedAt;
+      if (job.id && effectiveTimestamp) {
+        const effectiveDate = new Date(effectiveTimestamp);
+        if (!isNaN(effectiveDate.getTime())) {
+          const days = Math.floor((Date.now() - effectiveDate.getTime()) / (1000 * 60 * 60 * 24));
           if (days >= 0 && days <= 365) {
             updateJobCardBadge(job.id, days);
             updated++;

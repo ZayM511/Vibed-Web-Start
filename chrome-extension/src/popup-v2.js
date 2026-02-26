@@ -1091,8 +1091,10 @@ async function detectCurrentSite() {
     }
 
     // LinkedIn platform gating for free users
+    // ONLY gate if subscription status has been fetched (cachedSubscriptionStatus !== null)
+    // Avoid race condition: don't reset filters before we know the user's tier
     const linkedinProBanner = document.getElementById('linkedinProBanner');
-    if (site === 'linkedin' && !isPro) {
+    if (site === 'linkedin' && !isPro && cachedSubscriptionStatus !== null) {
       // Show LinkedIn Pro banner
       if (!linkedinProBanner) {
         const banner = document.createElement('div');

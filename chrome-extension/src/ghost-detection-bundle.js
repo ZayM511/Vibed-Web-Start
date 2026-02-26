@@ -477,19 +477,9 @@
       }
     }
 
-    // 3. Check known staffing agencies
-    const lowerName = companyName.toLowerCase().trim();
-    for (const agency of KNOWN_STAFFING_AGENCIES) {
-      if (lowerName.includes(agency) || agency.includes(lowerName) && lowerName.length >= 3) {
-        return {
-          detected: true,
-          confidence: 0.8,
-          matchType: 'staffing',
-          company: { name: companyName, category: 'staffing', normalized: normalized },
-          message: `${companyName} is a known staffing agency`
-        };
-      }
-    }
+    // 3. Staffing agencies are handled by the content script's staffing filter
+    // (not the community reported system), so skip them here to avoid
+    // showing "Community Reported" badges for staffing firms
 
     return { detected: false, confidence: 0, company: null, message: '' };
   }
