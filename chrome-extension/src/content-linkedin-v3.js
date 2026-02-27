@@ -2837,6 +2837,9 @@ async function applyFilters(settings) {
       addJobAgeToDetailPanel();
     }
 
+    // Fetch age data for promoted cards that lack DOM-based age info
+    fetchPromotedCardAges();
+
     log(`Filtered ${getHiddenJobsCount()} jobs out of ${jobCards.length}`);
 
   } finally {
@@ -3041,6 +3044,9 @@ async function performPeriodicScan() {
     log(`Periodic scan processed ${processedCount} new cards`);
     sendStatsUpdate();
   }
+
+  // Also check for promoted cards that still need age data (e.g., newly loaded cards)
+  fetchPromotedCardAges();
 }
 
 // =============================================================================
@@ -3100,6 +3106,15 @@ function updateJobCardBadge(jobId, days) {
     renderJobAgeBadge(card, jobId);
     log(`Created card badge for job ${jobId}: ${days} days`);
   }
+
+  // Also add Actively Recruiting badge if enabled and applicable
+  if (filterSettings.showActiveRecruiting) {
+    removeActiveRecruitingBadge(card);
+    const recruitingInfo = isActivelyRecruiting(card);
+    if (recruitingInfo && !card.dataset.jobfiltrHidden) {
+      addActiveRecruitingBadge(card, recruitingInfo);
+    }
+  }
 }
 
 // Refresh badges for multiple jobs when API data arrives
@@ -3130,6 +3145,79 @@ function refreshJobCardBadges(jobs) {
       log(`Updated ${updated} job card badges from API data`);
     }
   });
+}
+
+// Fetch age data from Voyager API for promoted cards that lack DOM-based age info
+// LinkedIn intentionally omits posting age from promoted card DOM, so we fetch it directly
+// from the API which always includes listedAt/repostedAt timestamps
+async function fetchPromotedCardAges() {
+  if (!filterSettings.showJobAge && !filterSettings.showActiveRecruiting) return;
+
+  const jobCards = getAllJobCards();
+  const promotedWithoutAge = [];
+
+  for (const card of jobCards) {
+    if (!isSponsored(card)) continue;
+    if (card.querySelector('.jobfiltr-age-badge')) continue;
+    if (card.dataset.jobfiltrAge) continue;
+    const jobId = extractJobId(card);
+    if (!jobId || jobId.startsWith('content-')) continue;
+    promotedWithoutAge.push({ card, jobId });
+  }
+
+  if (promotedWithoutAge.length === 0) return;
+  log(`Fetching age data for ${promotedWithoutAge.length} promoted cards via API`);
+
+  // Extract CSRF token from JSESSIONID cookie (required for Voyager API)
+  const csrfToken = document.cookie.match(/JSESSIONID="?([^";]+)/)?.[1] || '';
+  if (!csrfToken) {
+    log('No CSRF token found, cannot fetch promoted card ages');
+    return;
+  }
+
+  for (const { card, jobId } of promotedWithoutAge) {
+    try {
+      const response = await fetch(
+        `https://www.linkedin.com/voyager/api/jobs/jobPostings/${jobId}`,
+        {
+          headers: {
+            'csrf-token': csrfToken,
+            'accept': 'application/vnd.linkedin.normalized+json+2.1'
+          },
+          credentials: 'include'
+        }
+      );
+      if (!response.ok) continue;
+
+      const data = await response.json();
+      const entity = data.data || data;
+      let effectiveTimestamp = entity.repostedAt || entity.listedAt;
+
+      // Fallback: check included entities (LinkedIn normalized response format)
+      if (!effectiveTimestamp && data.included) {
+        for (const inc of data.included) {
+          if (inc.listedAt && (inc.$type || '').toLowerCase().includes('job')) {
+            effectiveTimestamp = inc.repostedAt || inc.listedAt;
+            break;
+          }
+        }
+      }
+
+      if (effectiveTimestamp) {
+        const days = Math.floor((Date.now() - effectiveTimestamp) / (1000 * 60 * 60 * 24));
+        if (days >= 0 && days <= 365) {
+          card.dataset.jobfiltrAge = days.toString();
+          updateJobCardBadge(jobId, days);
+          log(`Promoted card ${jobId}: ${days} days old (from API)`);
+        }
+      }
+
+      // Small delay between requests to avoid rate limiting
+      await new Promise(r => setTimeout(r, 200));
+    } catch (err) {
+      log(`Failed to fetch age for promoted card ${jobId}:`, err.message);
+    }
+  }
 }
 
 // Render job age badge on job card
