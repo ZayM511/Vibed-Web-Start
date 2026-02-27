@@ -926,10 +926,10 @@ function addStaffingBadge(jobCard) {
       vertical-align: middle;
     `;
 
-    // Find the company name element to insert badge after
+    // Find the company name element and insert badge INSIDE it (same line as company name)
     const companyEl = queryWithFallbacks(jobCard, SELECTORS.cardCompany);
-    if (companyEl && companyEl.parentNode) {
-      companyEl.parentNode.insertBefore(badge, companyEl.nextSibling);
+    if (companyEl) {
+      companyEl.appendChild(badge);
       return;
     }
 
@@ -942,7 +942,7 @@ function addStaffingBadge(jobCard) {
       });
     if (pElements.length >= 2) {
       const companyP = pElements[1];
-      companyP.parentNode.insertBefore(badge, companyP.nextSibling);
+      companyP.appendChild(badge);
       return;
     }
 
@@ -1452,36 +1452,188 @@ function isEarlyApplicant(jobCard) {
 
 // Community-reported companies list (Jan 2026) - subset for card detection
 const REPORTED_COMPANIES_CARD = [
+  // A
+  { name: 'AbbVie', normalized: 'abbvie', category: 'ghost' },
   { name: 'Accenture', normalized: 'accenture', category: 'ghost' },
+  { name: 'Accruent', normalized: 'accruent', category: 'ghost' },
+  { name: 'AECOM', normalized: 'aecom', category: 'ghost' },
+  { name: 'Affinipay', normalized: 'affinipay', category: 'ghost' },
+  { name: 'Age of Learning', normalized: 'age of learning', category: 'ghost' },
+  { name: 'Aha!', normalized: 'aha', aliases: ['aha'], category: 'ghost' },
+  { name: 'Apotex', normalized: 'apotex', category: 'ghost' },
+  { name: 'Arrowstreet Capital', normalized: 'arrowstreet capital', category: 'ghost' },
+  { name: 'Ascendion', normalized: 'ascendion', category: 'ghost' },
+  { name: 'Assigncorp', normalized: 'assigncorp', category: 'ghost' },
+  { name: 'Atlas Health', normalized: 'atlas health', category: 'ghost' },
+  { name: 'Atlassian', normalized: 'atlassian', category: 'ghost' },
+  { name: 'Aya Healthcare', normalized: 'aya healthcare', category: 'ghost' },
+
+  // B
+  { name: 'Balfour Beatty', normalized: 'balfour beatty', aliases: ['balfour beaty'], category: 'ghost' },
   { name: 'Bank of America', normalized: 'bank of america', aliases: ['bofa', 'bankofamerica'], category: 'ghost' },
+  { name: 'Beyond Trust', normalized: 'beyond trust', aliases: ['beyondtrust'], category: 'ghost' },
+  { name: 'Biorender', normalized: 'biorender', category: 'ghost' },
+  { name: 'Bobsled', normalized: 'bobsled', category: 'ghost' },
+  { name: 'Booksource', normalized: 'booksource', category: 'ghost' },
+  { name: 'Boston Scientific', normalized: 'boston scientific', category: 'ghost' },
+  { name: 'Burt Intelligence', normalized: 'burt intelligence', category: 'ghost' },
+  { name: 'Business Wire', normalized: 'business wire', category: 'ghost' },
+
+  // C
+  { name: 'CACI', normalized: 'caci', category: 'ghost' },
+  { name: "Caesar's", normalized: 'caesars', aliases: ['caesars', 'caesars entertainment'], category: 'ghost' },
+  { name: 'Cardinal Health', normalized: 'cardinal health', category: 'ghost' },
+  { name: 'Cedars Sinai', normalized: 'cedars sinai', aliases: ['cedarssinai'], category: 'ghost' },
+  { name: 'ChenMed', normalized: 'chenmed', category: 'ghost' },
+  { name: 'Clari', normalized: 'clari', category: 'ghost' },
+  { name: 'ClearWater', normalized: 'clearwater', aliases: ['clearwater analytics'], category: 'ghost' },
+  { name: 'Clover', normalized: 'clover', category: 'ghost' },
+  { name: 'Code and Theory', normalized: 'code and theory', category: 'ghost' },
   { name: 'Comcast', normalized: 'comcast', category: 'ghost' },
+  { name: 'Contra', normalized: 'contra', category: 'ghost' },
+  { name: 'Cotiviti', normalized: 'cotiviti', category: 'ghost' },
+  { name: 'Credit Acceptance', normalized: 'credit acceptance', category: 'ghost' },
+  { name: 'Crocs', normalized: 'crocs', category: 'ghost' },
+  { name: 'Crossover', normalized: 'crossover', category: 'ghost' },
   { name: 'CVS', normalized: 'cvs', aliases: ['cvs health', 'cvs pharmacy'], category: 'ghost' },
+
+  // D
+  { name: 'DCBL', normalized: 'dcbl', category: 'ghost' },
   { name: 'Dice', normalized: 'dice', aliases: ['dicecom'], category: 'spam' },
   { name: 'DoorDash', normalized: 'doordash', category: 'ghost' },
+
+  // E
+  { name: 'Earnin', normalized: 'earnin', category: 'ghost' },
+  { name: 'Embraer', normalized: 'embraer', category: 'ghost' },
+  { name: 'Evidation', normalized: 'evidation', category: 'ghost' },
+  { name: 'Excellence Services LLC', normalized: 'excellence services', category: 'ghost' },
   { name: 'EY', normalized: 'ey', aliases: ['ernst young', 'ernst  young'], category: 'ghost' },
+
+  // F
+  { name: 'Fanatics', normalized: 'fanatics', category: 'ghost' },
+  { name: 'Files.com', normalized: 'filescom', aliases: ['filescom'], category: 'ghost' },
+  { name: 'FiServe', normalized: 'fiserve', aliases: ['fiserv'], category: 'ghost' },
+  { name: 'FloQast', normalized: 'floqast', category: 'ghost' },
+  { name: 'Fluency', normalized: 'fluency', category: 'ghost' },
+  { name: 'FluentStream', normalized: 'fluentstream', category: 'ghost' },
+
+  // G
   { name: 'GE Healthcare', normalized: 'ge healthcare', aliases: ['ge health', 'general electric healthcare'], category: 'ghost' },
+  { name: 'Genworth', normalized: 'genworth', category: 'ghost' },
+  { name: 'Golden Hippo', normalized: 'golden hippo', category: 'ghost' },
+  { name: 'GoodRX', normalized: 'goodrx', aliases: ['goodrx'], category: 'ghost' },
+  { name: 'Greendot', normalized: 'greendot', aliases: ['green dot'], category: 'ghost' },
+
+  // H
+  { name: 'Harbor Freight Tools', normalized: 'harbor freight tools', aliases: ['harbor freight'], category: 'ghost' },
+  { name: 'Health Edge', normalized: 'health edge', aliases: ['healthedge'], category: 'ghost' },
+  { name: 'HireMeFast LLC', normalized: 'hiremefast', category: 'scam' },
   { name: 'HubSpot', normalized: 'hubspot', category: 'ghost' },
+
+  // J-K
   { name: 'JP Morgan Chase', normalized: 'jp morgan chase', aliases: ['jpmorgan', 'jp morgan', 'chase', 'jpmorganchase'], category: 'ghost' },
   { name: 'Kforce', normalized: 'kforce', category: 'ghost' },
+  { name: "King's Hawaiian", normalized: 'kings hawaiian', aliases: ['kings hawaiian'], category: 'ghost' },
+  { name: 'Klaviyo', normalized: 'klaviyo', category: 'ghost' },
+  { name: 'Kraft & Kennedy', normalized: 'kraft  kennedy', aliases: ['kraft kennedy'], category: 'ghost' },
+
+  // L
+  { name: 'Leidos', normalized: 'leidos', category: 'ghost' },
   { name: 'LinkedIn', normalized: 'linkedin', category: 'ghost' },
+  { name: 'Lumenalta', normalized: 'lumenalta', category: 'ghost' },
+
+  // M
+  { name: 'Magistrate', normalized: 'magistrate', category: 'ghost' },
+  { name: 'Mandai', normalized: 'mandai', category: 'ghost' },
+  { name: 'Matterport', normalized: 'matterport', category: 'ghost' },
+  { name: 'Medix', normalized: 'medix', category: 'ghost' },
   { name: 'Meta', normalized: 'meta', aliases: ['facebook', 'fb'], category: 'ghost' },
   { name: 'Microsoft', normalized: 'microsoft', category: 'ghost' },
+  { name: 'Molina Health', normalized: 'molina health', aliases: ['molina healthcare'], category: 'ghost' },
+  { name: 'Motion Recruitment', normalized: 'motion recruitment', category: 'ghost' },
+  { name: 'Mozilla', normalized: 'mozilla', category: 'ghost' },
+
+  // N
+  { name: 'NBC News', normalized: 'nbc news', category: 'ghost' },
+  { name: 'NBC Universal', normalized: 'nbc universal', aliases: ['nbcuniversal'], category: 'ghost' },
+  { name: 'NV5', normalized: 'nv5', category: 'ghost' },
+
+  // O
+  { name: 'Oneforma', normalized: 'oneforma', category: 'ghost' },
+  { name: 'OneTrust', normalized: 'onetrust', category: 'ghost' },
   { name: 'Oracle', normalized: 'oracle', category: 'ghost' },
+  { name: 'Origin', normalized: 'origin', category: 'ghost' },
+  { name: 'Oscar Health', normalized: 'oscar health', category: 'ghost' },
+
+  // P
+  { name: 'Paradox.ai', normalized: 'paradoxai', aliases: ['paradox ai', 'paradoxai'], category: 'ghost' },
   { name: 'PayPal', normalized: 'paypal', category: 'ghost' },
+  { name: 'Polly', normalized: 'polly', category: 'ghost' },
+  { name: 'Posit', normalized: 'posit', category: 'ghost' },
+  { name: 'Prize Picks', normalized: 'prize picks', aliases: ['prizepicks'], category: 'ghost' },
   { name: 'Progressive Insurance', normalized: 'progressive insurance', aliases: ['progressive'], category: 'ghost' },
+  { name: 'Publicis Health', normalized: 'publicis health', category: 'ghost' },
+
+  // R
+  { name: 'Raptive', normalized: 'raptive', category: 'ghost' },
+  { name: 'Resmed', normalized: 'resmed', aliases: ['res med'], category: 'ghost' },
+  { name: 'Robert Half', normalized: 'robert half', category: 'ghost' },
+
+  // S
   { name: 'Salesforce', normalized: 'salesforce', category: 'ghost' },
+  { name: 'Seetec', normalized: 'seetec', category: 'ghost' },
   { name: 'ServiceNow', normalized: 'servicenow', category: 'ghost' },
+  { name: 'Signify Health', normalized: 'signify health', category: 'ghost' },
+  { name: 'SmithRX', normalized: 'smithrx', category: 'ghost' },
+  { name: 'SoCal Edison', normalized: 'socal edison', aliases: ['southern california edison', 'sce'], category: 'ghost' },
+  { name: 'SoCal Gas', normalized: 'socal gas', aliases: ['southern california gas', 'socalgas'], category: 'ghost' },
+  { name: 'Softrams', normalized: 'softrams', category: 'ghost' },
+  { name: 'Sonder', normalized: 'sonder', category: 'ghost' },
   { name: 'Spotify', normalized: 'spotify', category: 'ghost' },
+  { name: 'Stickermule', normalized: 'stickermule', aliases: ['sticker mule'], category: 'ghost' },
+  { name: 'Sundays for Dogs', normalized: 'sundays for dogs', category: 'ghost' },
+  { name: 'Sunnova', normalized: 'sunnova', category: 'ghost' },
+  { name: 'Swooped', normalized: 'swooped', category: 'scam' },
+
+  // T
+  { name: 'Tabby', normalized: 'tabby', category: 'ghost' },
+  { name: 'Talentify.io', normalized: 'talentifyio', aliases: ['talentify'], category: 'spam' },
+  { name: 'Techie Talent', normalized: 'techie talent', category: 'scam' },
+  { name: 'TekSystems', normalized: 'teksystems', aliases: ['tek systems'], category: 'ghost' },
+  { name: 'Terrabis', normalized: 'terrabis', category: 'ghost' },
   { name: 'Tesla', normalized: 'tesla', category: 'ghost' },
+  { name: 'Thermo Fisher', normalized: 'thermo fisher', aliases: ['thermo fisher scientific', 'thermofisher'], category: 'ghost' },
+  { name: 'Tickets.Com', normalized: 'ticketscom', aliases: ['ticketscom', 'tickets com'], category: 'ghost' },
+  { name: 'Tixr', normalized: 'tixr', category: 'ghost' },
+  { name: 'Toast', normalized: 'toast', category: 'ghost' },
+
+  // U
   { name: 'Uber', normalized: 'uber', category: 'ghost' },
+  { name: 'UCLA Health', normalized: 'ucla health', category: 'ghost' },
+  { name: 'ULine', normalized: 'uline', aliases: ['uline'], category: 'ghost' },
+  { name: 'Underdog', normalized: 'underdog', category: 'ghost' },
+  { name: 'Underdog Sports', normalized: 'underdog sports', category: 'ghost' },
   { name: 'UnitedHealth Group', normalized: 'unitedhealth group', aliases: ['unitedhealth', 'optum'], category: 'ghost' },
+  { name: 'Unisys', normalized: 'unisys', category: 'ghost' },
+
+  // V
+  { name: 'Vertafore', normalized: 'vertafore', category: 'ghost' },
   { name: 'Visa', normalized: 'visa', category: 'ghost' },
+  { name: 'VXI', normalized: 'vxi', category: 'ghost' },
+
+  // W-Z
   { name: 'Walmart', normalized: 'walmart', category: 'ghost' },
+  { name: 'Webstaurant', normalized: 'webstaurant', aliases: ['webstaurant store', 'webstaruant'], category: 'ghost' },
   { name: 'Wells Fargo', normalized: 'wells fargo', category: 'ghost' },
   { name: 'Workday', normalized: 'workday', category: 'ghost' },
+  { name: 'Wrike', normalized: 'wrike', category: 'ghost' },
+  { name: 'Yahoo News', normalized: 'yahoo news', aliases: ['yahoo'], category: 'ghost' },
   { name: 'Zendesk', normalized: 'zendesk', category: 'ghost' },
   { name: 'Zillow', normalized: 'zillow', category: 'ghost' },
   { name: 'Zoom', normalized: 'zoom', aliases: ['zoom video', 'zoom communications'], category: 'ghost' },
+
+  // Special cases with numbers/symbols
+  { name: '1-800-Pack-Rat', normalized: '1800packrat', aliases: ['1 800 pack rat', '1800packrat', '1 800 pack a rat', '1800 pack rat'], category: 'ghost' },
 ];
 
 // Build lookup map for O(1) matching
