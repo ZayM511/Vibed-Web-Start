@@ -690,19 +690,11 @@ function extractJobAgeFromDOM(jobCard) {
 
 // Get combined text from job card for filtering
 function getJobCardText(jobCard) {
-  // CRITICAL FIX: Always use the full card text for keyword matching
-  // Keywords may appear anywhere in the card (title, company, location, description snippet, skills, etc.)
-  // Only extracting specific fields (title/company/location) would miss many keyword matches
-  const fullText = jobCard.textContent?.trim().toLowerCase() || '';
-
-  // For debugging: also check specific elements
-  const titleEl = queryWithFallbacks(jobCard, SELECTORS.cardTitle);
-  const title = titleEl?.textContent?.trim().toLowerCase() || '';
-  const companyEl = queryWithFallbacks(jobCard, SELECTORS.cardCompany);
-  const company = companyEl?.textContent?.trim().toLowerCase() || '';
-
-  // Return full text for comprehensive keyword matching
-  // This ensures keywords in job snippets, skills, and other parts are matched
+  // Clone the card and remove JobFiltr-injected elements to prevent badge text
+  // (e.g., "Staffing", "Community Reported") from contaminating keyword matching
+  const clone = jobCard.cloneNode(true);
+  clone.querySelectorAll('[class*="jobfiltr"]').forEach(el => el.remove());
+  const fullText = clone.textContent?.trim().toLowerCase() || '';
   return fullText;
 }
 
@@ -2103,7 +2095,8 @@ function markParentAsProcessed(jobCard) {
 
 // Hide job card
 function hideJobCard(jobCard, reasons) {
-  jobCard.style.display = 'none';
+  // Use !important to override LinkedIn's CSS which forces display:flex !important
+  jobCard.style.setProperty('display', 'none', 'important');
   jobCard.dataset.jobfiltrHidden = 'true';
   jobCard.dataset.jobfiltrReasons = reasons.join(', ');
   jobCard.setAttribute('data-jobfiltr-processed', 'true');
@@ -2518,7 +2511,8 @@ function countDivsWithPattern(pattern) {
 
 // Show job card
 function showJobCard(jobCard) {
-  jobCard.style.display = '';
+  // Remove display override (removeProperty clears !important too)
+  jobCard.style.removeProperty('display');
   delete jobCard.dataset.jobfiltrHidden;
   delete jobCard.dataset.jobfiltrReasons;
   jobCard.setAttribute('data-jobfiltr-processed', 'true');
@@ -2738,8 +2732,10 @@ async function applyFilters(settings) {
         }
       }
 
-      // Filter 8: Exclude Keywords
-      if (settings.filterExcludeKeywords && settings.excludeKeywords?.length > 0 && !shouldHide) {
+      // Filter 8: Exclude Keywords - ALWAYS check (no !shouldHide guard)
+      // Exclude must run even if card is already hidden by another filter,
+      // so the reason is captured and exclude is never skipped
+      if (settings.filterExcludeKeywords && settings.excludeKeywords?.length > 0) {
         if (matchesExcludeKeywords(jobCard, settings.excludeKeywords)) {
           shouldHide = true;
           reasons.push('Excluded keywords');
@@ -2811,6 +2807,9 @@ async function applyFilters(settings) {
         showJobCard(jobCard);
         removeBenefitsBadge(jobCard);
       }
+
+      // Store job ID fingerprint so periodic scan can detect recycled cards
+      jobCard.dataset.jobfiltrProcessedJobId = jobId || '';
 
       // Job age badge (even for hidden cards)
       if (settings.showJobAge && jobId) {
@@ -2912,8 +2911,10 @@ async function performPeriodicScan() {
   let processedCount = 0;
 
   for (const jobCard of jobCards) {
-    // Skip already processed cards
-    if (jobCard.dataset.jobfiltrProcessed) continue;
+    // Skip already processed cards - but detect recycled/stale cards via job ID fingerprint
+    const currentJobId = extractJobId(jobCard);
+    const processedJobId = jobCard.dataset.jobfiltrProcessedJobId;
+    if (jobCard.dataset.jobfiltrProcessed && processedJobId === currentJobId && currentJobId) continue;
 
     // Quick filter checks for new cards
     let shouldHide = false;
@@ -2966,8 +2967,8 @@ async function performPeriodicScan() {
       }
     }
 
-    // CRITICAL FIX: Exclude Keywords filter (was missing - caused jobs to reappear)
-    if (filterSettings.filterExcludeKeywords && filterSettings.excludeKeywords?.length > 0 && !shouldHide) {
+    // Exclude Keywords filter - ALWAYS check (no !shouldHide guard)
+    if (filterSettings.filterExcludeKeywords && filterSettings.excludeKeywords?.length > 0) {
       if (matchesExcludeKeywords(jobCard, filterSettings.excludeKeywords)) {
         shouldHide = true;
         reasons.push('Excluded keywords');
@@ -3014,6 +3015,9 @@ async function performPeriodicScan() {
       showJobCard(jobCard);
     }
 
+    // Store job ID fingerprint so next scan can detect recycled cards
+    jobCard.dataset.jobfiltrProcessedJobId = currentJobId || '';
+
     // Community-reported companies detection (orange highlight)
     if (filterSettings.showCommunityReportedWarnings !== false) {
       const reportResult = checkReportedCompanyFromCard(jobCard);
@@ -3023,9 +3027,8 @@ async function performPeriodicScan() {
     }
 
     // Add age badge if needed
-    const jobId = extractJobId(jobCard);
-    if (filterSettings.showJobAge && jobId) {
-      await renderJobAgeBadge(jobCard, jobId);
+    if (filterSettings.showJobAge && currentJobId) {
+      await renderJobAgeBadge(jobCard, currentJobId);
     }
 
     // Remove any existing benefits badges (feature removed)
