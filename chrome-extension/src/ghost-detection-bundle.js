@@ -610,12 +610,14 @@
       `;
     } else {
       // LinkedIn/default styling - matches ghost and age badge height (min-height: 67px)
+      // min-width matches Ghost Job Analysis badge width for consistent appearance
       badge.style.cssText = `
         display: inline-flex;
         align-items: center;
         gap: 8px;
         padding: 9px 13px;
         min-height: 67px;
+        min-width: 228px;
         box-sizing: border-box;
         background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
         border: 2px solid #f97316;
