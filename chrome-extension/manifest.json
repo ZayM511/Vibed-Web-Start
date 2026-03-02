@@ -48,19 +48,19 @@
   "content_scripts": [
     {
       "matches": ["https://*.linkedin.com/*"],
-      "js": ["src/linkedin-feature-flags.js", "src/linkedin-job-cache.js", "src/linkedin-badge-manager.js", "src/content-linkedin-v3.js", "src/ghost-detection-bundle.js"],
+      "js": ["src/storage-utils.js", "src/linkedin-feature-flags.js", "src/linkedin-job-cache.js", "src/linkedin-badge-manager.js", "src/content-linkedin-v3.js", "src/ghost-detection-bundle.js"],
       "css": ["styles/content.css"],
       "run_at": "document_idle"
     },
     {
       "matches": ["https://*.indeed.com/*"],
-      "js": ["src/content-indeed-v3.js", "src/ghost-detection-bundle.js"],
+      "js": ["src/storage-utils.js", "src/content-indeed-v3.js", "src/ghost-detection-bundle.js"],
       "css": ["styles/content.css"],
       "run_at": "document_idle"
     },
     {
       "matches": ["https://*.google.com/search*"],
-      "js": ["src/content-google-jobs.js"],
+      "js": ["src/storage-utils.js", "src/content-google-jobs.js"],
       "css": ["styles/content.css"],
       "run_at": "document_idle"
     }

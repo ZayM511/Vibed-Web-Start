@@ -189,6 +189,12 @@ async function checkAuthState() {
     // Check if token exists and hasn't expired
     if (authToken && authExpiry && Date.now() < authExpiry) {
       currentUser = { email: userEmail, name: userName, token: authToken };
+      // Clear email cache and migrate global data to this user's scoped keys
+      JobFiltrStorage.clearUserEmailCache();
+      const migration = await JobFiltrStorage.migrateGlobalToUser();
+      if (migration.migrated && migration.keys?.length > 0) {
+        console.log('[JobFiltr] Migrated global data to user scope:', migration.keys);
+      }
       showAuthenticatedUI();
       return true;
     } else {
@@ -635,6 +641,7 @@ function openWebAuth(mode = 'signin') {
 async function signOut() {
   try {
     await chrome.storage.local.remove(['authToken', 'userEmail', 'userName', 'authExpiry', 'clerkUserId', 'authProvider']);
+    JobFiltrStorage.clearUserEmailCache();
     currentUser = null;
 
     // Close dropdown
@@ -1350,10 +1357,10 @@ async function loadFilterSettings() {
       result = await chrome.storage.session.get('filterSettings');
       if (!result.filterSettings) {
         // Fallback: first time after upgrade/downgrade, read from local
-        result = await chrome.storage.local.get('filterSettings');
+        result = await JobFiltrStorage.getUserStorage('filterSettings');
       }
     } else {
-      result = await chrome.storage.local.get('filterSettings');
+      result = await JobFiltrStorage.getUserStorage('filterSettings');
     }
     filterSettings = result.filterSettings || {};
 
@@ -1479,7 +1486,7 @@ async function loadFilterSettings() {
 async function resetFiltersToDefault() {
   // Clear filter settings from storage
   filterSettings = {};
-  await chrome.storage.local.set({ filterSettings: {} });
+  await JobFiltrStorage.setUserStorage({ filterSettings: {} });
 
   // Reset all checkboxes to unchecked
   document.getElementById('filterStaffing').checked = false;
@@ -1949,12 +1956,12 @@ async function saveFilterSettings() {
   // Free users: save to session storage (resets on browser close)
   // Pro users: save to local storage (persists forever)
   if (isPro) {
-    await chrome.storage.local.set({ filterSettings });
+    await JobFiltrStorage.setUserStorage({ filterSettings });
     console.log('%c[JobFiltr Popup] Settings saved to chrome.storage.local (Pro - persistent)', 'background: #9C27B0; color: white; padding: 2px 6px;');
   } else {
     await chrome.storage.session.set({ filterSettings });
     // Also save to local so content scripts can read (they'll get latest on next page load)
-    await chrome.storage.local.set({ filterSettings });
+    await JobFiltrStorage.setUserStorage({ filterSettings });
     console.log('%c[JobFiltr Popup] Settings saved to chrome.storage.session (Free - session only)', 'background: #FF9800; color: white; padding: 2px 6px;');
   }
 }
@@ -2305,7 +2312,7 @@ let activeTemplateId = null; // Track currently applied template
 
 async function loadTemplates() {
   try {
-    const result = await chrome.storage.local.get(TEMPLATES_STORAGE_KEY);
+    const result = await JobFiltrStorage.getUserStorage(TEMPLATES_STORAGE_KEY);
     templates = result[TEMPLATES_STORAGE_KEY] || [];
     renderTemplates();
   } catch (error) {
@@ -2317,7 +2324,7 @@ async function loadTemplates() {
 
 async function saveTemplates() {
   try {
-    await chrome.storage.local.set({ [TEMPLATES_STORAGE_KEY]: templates });
+    await JobFiltrStorage.setUserStorage({ [TEMPLATES_STORAGE_KEY]: templates });
   } catch (error) {
     console.error('Error saving templates:', error);
   }
@@ -2673,7 +2680,7 @@ document.getElementById('templatesToggle')?.addEventListener('click', () => {
   section.classList.toggle('collapsed');
 
   // Save preference
-  chrome.storage.local.set({
+  JobFiltrStorage.setUserStorage({
     templatesCollapsed: section.classList.contains('collapsed')
   });
 });
@@ -2681,7 +2688,7 @@ document.getElementById('templatesToggle')?.addEventListener('click', () => {
 // Load templates collapsed state
 async function loadTemplatesCollapsedState() {
   try {
-    const result = await chrome.storage.local.get('templatesCollapsed');
+    const result = await JobFiltrStorage.getUserStorage('templatesCollapsed');
     if (result.templatesCollapsed) {
       document.getElementById('templatesSection')?.classList.add('collapsed');
     }
@@ -3978,7 +3985,7 @@ document.getElementById('notificationClose')?.addEventListener('click', hideNoti
 
 async function saveScanToHistory(result) {
   try {
-    const history = await chrome.storage.local.get('scanHistory');
+    const history = await JobFiltrStorage.getUserStorage('scanHistory');
     const scanHistory = history.scanHistory || [];
 
     scanHistory.unshift({
@@ -3993,7 +4000,7 @@ async function saveScanToHistory(result) {
       scanHistory.pop();
     }
 
-    await chrome.storage.local.set({ scanHistory });
+    await JobFiltrStorage.setUserStorage({ scanHistory });
     loadScanHistory();
   } catch (error) {
     console.error('Error saving scan to history:', error);
@@ -4002,7 +4009,7 @@ async function saveScanToHistory(result) {
 
 async function loadScanHistory() {
   try {
-    const history = await chrome.storage.local.get('scanHistory');
+    const history = await JobFiltrStorage.getUserStorage('scanHistory');
     const scanHistory = history.scanHistory || [];
 
     const historyList = document.getElementById('historyList');
@@ -4080,10 +4087,10 @@ async function loadScanHistory() {
       historyItem.querySelector('.history-item-delete').addEventListener('click', async (e) => {
         e.stopPropagation();
         const idx = parseInt(e.currentTarget.dataset.index);
-        const history = await chrome.storage.local.get('scanHistory');
+        const history = await JobFiltrStorage.getUserStorage('scanHistory');
         const scanHistory = history.scanHistory || [];
         scanHistory.splice(idx, 1);
-        await chrome.storage.local.set({ scanHistory });
+        await JobFiltrStorage.setUserStorage({ scanHistory });
         loadScanHistory();
       });
 
@@ -4104,7 +4111,7 @@ document.getElementById('newScan').addEventListener('click', () => {
 // Clear History Button
 document.getElementById('clearHistory').addEventListener('click', async () => {
   if (confirm('Are you sure you want to clear all scan history?')) {
-    await chrome.storage.local.set({ scanHistory: [] });
+    await JobFiltrStorage.setUserStorage({ scanHistory: [] });
     loadScanHistory();
   }
 });
@@ -4115,7 +4122,7 @@ let savedJobs = [];
 // Load saved jobs from storage
 async function loadSavedJobs() {
   try {
-    const result = await chrome.storage.local.get('savedJobs');
+    const result = await JobFiltrStorage.getUserStorage('savedJobs');
     savedJobs = result.savedJobs || [];
     renderSavedJobs();
   } catch (error) {
@@ -4127,7 +4134,7 @@ async function loadSavedJobs() {
 // Save jobs to storage
 async function saveSavedJobsToStorage() {
   try {
-    await chrome.storage.local.set({ savedJobs });
+    await JobFiltrStorage.setUserStorage({ savedJobs });
     renderSavedJobs();
   } catch (error) {
     console.error('Error saving jobs to storage:', error);
@@ -4288,7 +4295,7 @@ document.getElementById('saveJobButton')?.addEventListener('click', async () => 
 document.getElementById('clearSavedJobs')?.addEventListener('click', async () => {
   if (confirm('Are you sure you want to clear all saved jobs?')) {
     savedJobs = [];
-    await chrome.storage.local.set({ savedJobs: [] });
+    await JobFiltrStorage.setUserStorage({ savedJobs: [] });
     renderSavedJobs();
     if (currentJobData) {
       updateSaveJobButton(false);
@@ -4492,7 +4499,7 @@ async function initializeDocuments() {
 // Load documents from storage
 async function loadDocuments() {
   try {
-    const result = await chrome.storage.local.get('userDocuments');
+    const result = await JobFiltrStorage.getUserStorage('userDocuments');
     if (result.userDocuments) {
       documents = result.userDocuments;
     }
@@ -4504,7 +4511,7 @@ async function loadDocuments() {
 // Save documents to storage
 async function saveDocuments() {
   try {
-    await chrome.storage.local.set({ userDocuments: documents });
+    await JobFiltrStorage.setUserStorage({ userDocuments: documents });
     updateStorageInfo();
   } catch (error) {
     console.error('Error saving documents:', error);
@@ -5072,7 +5079,7 @@ async function handleCloudSyncToggle(event) {
       statusElement.textContent = 'Synced to cloud';
 
       // Save sync preference
-      await chrome.storage.local.set({ cloudSyncEnabled: true });
+      await JobFiltrStorage.setUserStorage({ cloudSyncEnabled: true });
     } catch (error) {
       console.error('Error syncing to cloud:', error);
       statusElement.textContent = 'Sync failed';
@@ -5080,7 +5087,7 @@ async function handleCloudSyncToggle(event) {
     }
   } else {
     statusElement.textContent = 'Local only';
-    await chrome.storage.local.set({ cloudSyncEnabled: false });
+    await JobFiltrStorage.setUserStorage({ cloudSyncEnabled: false });
   }
 }
 
@@ -5094,9 +5101,10 @@ async function syncDocumentsToCloud() {
 // Load cloud sync preference
 async function loadCloudSyncPreference() {
   try {
-    const result = await chrome.storage.local.get(['cloudSyncEnabled', 'authToken']);
+    const syncResult = await JobFiltrStorage.getUserStorage('cloudSyncEnabled');
+    const { authToken } = await chrome.storage.local.get('authToken');
 
-    if (result.cloudSyncEnabled && result.authToken) {
+    if (syncResult.cloudSyncEnabled && authToken) {
       document.getElementById('cloudSyncToggle').checked = true;
       document.getElementById('syncStatus').textContent = 'Synced to cloud';
     }
@@ -5302,7 +5310,7 @@ async function initializeTodoList() {
 // Load todos from storage
 async function loadTodos() {
   try {
-    const result = await chrome.storage.local.get('userTodos');
+    const result = await JobFiltrStorage.getUserStorage('userTodos');
     if (result.userTodos) {
       todos = result.userTodos;
     }
@@ -5314,7 +5322,7 @@ async function loadTodos() {
 // Save todos to storage
 async function saveTodos() {
   try {
-    await chrome.storage.local.set({ userTodos: todos });
+    await JobFiltrStorage.setUserStorage({ userTodos: todos });
   } catch (error) {
     console.error('Error saving todos:', error);
   }

@@ -3,6 +3,38 @@
 // Default Convex URL
 const DEFAULT_CONVEX_URL = 'https://reminiscent-goldfish-690.convex.cloud';
 
+// Per-user storage scoping for background service worker
+// (Cannot import storage-utils.js in module service worker, so inline the logic)
+const BG_USER_SCOPED_KEYS = new Set([
+  'filterSettings', 'jobfiltr_templates', 'userDocuments',
+  'savedJobs', 'scanHistory', 'userTodos',
+  'cloudSyncEnabled', 'templatesCollapsed'
+]);
+
+async function bgGetScopedKey(baseKey) {
+  if (!BG_USER_SCOPED_KEYS.has(baseKey)) return baseKey;
+  const { userEmail } = await chrome.storage.local.get('userEmail');
+  return userEmail ? `${baseKey}__${userEmail}` : baseKey;
+}
+
+async function bgMigrateGlobalToUser(email) {
+  if (!email) return;
+  const flagKey = `_migration_v1__${email}`;
+  const flag = await chrome.storage.local.get(flagKey);
+  if (flag[flagKey]) return;
+  for (const key of BG_USER_SCOPED_KEYS) {
+    const scoped = `${key}__${email}`;
+    const existing = await chrome.storage.local.get(scoped);
+    if (existing[scoped] !== undefined) continue;
+    const global = await chrome.storage.local.get(key);
+    if (global[key] === undefined) continue;
+    await chrome.storage.local.set({ [scoped]: global[key] });
+    await chrome.storage.local.remove(key);
+  }
+  await chrome.storage.local.set({ [flagKey]: Date.now() });
+  console.log('[JobFiltr BG] Migration complete for', email);
+}
+
 // Panel window management
 let panelWindowId = null;
 const PANEL_WIDTH = 380;
@@ -1106,8 +1138,10 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
       clerkUserId: clerkUserId || '',
       authExpiry: expiry,
       authProvider: 'clerk'
-    }).then(() => {
+    }).then(async () => {
       console.log('JobFiltr: Auth stored successfully for', email);
+      // Trigger per-user data migration on first login after update
+      await bgMigrateGlobalToUser(email);
       sendResponse({ success: true });
     }).catch(error => {
       console.error('JobFiltr: Failed to store auth:', error);

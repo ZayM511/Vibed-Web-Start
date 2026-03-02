@@ -58,7 +58,7 @@ setTimeout(() => {
 // Flash Prevention - runs immediately before DOM renders
 (async function initFlashPrevention() {
   try {
-    const result = await chrome.storage.local.get(['filterSettings']);
+    const result = await JobFiltrStorage.getUserStorage('filterSettings');
     const settings = result.filterSettings || {};
     if (settings.hideStaffing || settings.hideSponsored || settings.filterPostingAge) {
       document.body.classList.add('jobfiltr-linkedin-filter-active');
@@ -3864,10 +3864,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // CRITICAL FIX: Save settings to storage so they persist across URL changes
     // Without this, loadAndApplyFilters() would overwrite in-memory settings with stale storage data
-    chrome.storage.local.set({ filterSettings: message.settings }).then(() => {
+    JobFiltrStorage.setUserStorage({ filterSettings: message.settings }).then(() => {
       log('APPLY_FILTERS: Saved settings to storage (including keywords)');
       // Verify what was actually saved
-      chrome.storage.local.get('filterSettings').then(result => {
+      JobFiltrStorage.getUserStorage('filterSettings').then(result => {
         console.log('%c[APPLY_FILTERS] Verified storage after save:', 'background: #2196F3; color: white; padding: 2px 6px;');
         console.log('  includeKeywords in storage:', JSON.stringify(result.filterSettings?.includeKeywords));
         console.log('  excludeKeywords in storage:', JSON.stringify(result.filterSettings?.excludeKeywords));
@@ -4101,7 +4101,7 @@ async function loadAndApplyFilters() {
     }
 
     console.log('%c[loadAndApplyFilters] Loading settings from storage...', 'background: #FF9800; color: white; padding: 2px 6px;');
-    const result = await chrome.storage.local.get('filterSettings');
+    const result = await JobFiltrStorage.getUserStorage('filterSettings');
 
     // DIAGNOSTIC: Log exactly what we loaded
     console.log('%c[loadAndApplyFilters] Storage result:', 'background: #FF9800; color: white; padding: 2px 6px;');
@@ -4249,7 +4249,7 @@ async function init() {
   // This ensures filters work even in edge cases
   if (Object.keys(filterSettings).length === 0) {
     try {
-      const result = await chrome.storage.local.get('filterSettings');
+      const result = await JobFiltrStorage.getUserStorage('filterSettings');
       if (result.filterSettings && Object.keys(result.filterSettings).length > 0) {
         log('Fallback: Loading filters from storage');
         // Use user settings with defaults for undefined values only

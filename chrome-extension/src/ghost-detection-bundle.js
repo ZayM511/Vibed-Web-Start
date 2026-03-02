@@ -1136,26 +1136,18 @@
       return { enabled: true, showCommunityWarnings: true }; // Default to enabled if can't check
     }
 
-    return new Promise((resolve) => {
-      try {
-        chrome.storage.local.get('filterSettings', (result) => {
-          if (chrome.runtime.lastError) {
-            console.error('[GhostDetection] Error checking filter settings:', chrome.runtime.lastError);
-            resolve({ enabled: true, showCommunityWarnings: true });
-            return;
-          }
-          const filterSettings = result.filterSettings || {};
-          // Default to true if not set
-          const enabled = filterSettings.enableGhostAnalysis !== false;
-          // Community-reported warnings checkbox (controls spam/ghost company warning badge)
-          const showCommunityWarnings = filterSettings.showCommunityReportedWarnings !== false;
-          resolve({ enabled, showCommunityWarnings });
-        });
-      } catch (e) {
-        console.error('[GhostDetection] Failed to check filter settings:', e);
-        resolve({ enabled: true, showCommunityWarnings: true });
-      }
-    });
+    try {
+      const result = await JobFiltrStorage.getUserStorage('filterSettings');
+      const filterSettings = result.filterSettings || {};
+      // Default to true if not set
+      const enabled = filterSettings.enableGhostAnalysis !== false;
+      // Community-reported warnings checkbox (controls spam/ghost company warning badge)
+      const showCommunityWarnings = filterSettings.showCommunityReportedWarnings !== false;
+      return { enabled, showCommunityWarnings };
+    } catch (e) {
+      console.error('[GhostDetection] Failed to check filter settings:', e);
+      return { enabled: true, showCommunityWarnings: true };
+    }
   }
 
   async function getCachedScore(jobId) {

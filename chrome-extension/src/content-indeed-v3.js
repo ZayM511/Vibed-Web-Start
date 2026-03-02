@@ -13,7 +13,7 @@ let isFilteringInProgress = false; // Prevent concurrent filter runs
 // This runs before any DOM processing to hide cards before they render
 (async function initFlashPrevention() {
   try {
-    const result = await chrome.storage.local.get(['filterSettings']);
+    const result = await JobFiltrStorage.getUserStorage('filterSettings');
     if (result.filterSettings?.visaOnly) {
       document.body.classList.add('jobfiltr-visa-filter-active');
       console.log('[JobFiltr] Flash prevention: Visa filter active, hiding unprocessed cards');
@@ -4224,7 +4224,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'APPLY_FILTERS') {
     // Save settings to storage so they persist across page refreshes and navigation
-    chrome.storage.local.set({ filterSettings: message.settings }).then(() => {
+    JobFiltrStorage.setUserStorage({ filterSettings: message.settings }).then(() => {
       log('APPLY_FILTERS: Saved settings to storage');
     }).catch(err => {
       log('APPLY_FILTERS: Failed to save to storage:', err);
@@ -4939,7 +4939,7 @@ async function loadAndApplyFilters() {
       return;
     }
 
-    const result = await chrome.storage.local.get('filterSettings');
+    const result = await JobFiltrStorage.getUserStorage('filterSettings');
     if (result.filterSettings && Object.keys(result.filterSettings).length > 0) {
       filterSettings = result.filterSettings;
       log('Auto-loaded saved filter settings');
