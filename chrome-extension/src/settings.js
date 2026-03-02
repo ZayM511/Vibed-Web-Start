@@ -69,6 +69,20 @@ initTheme();
 initAuth();
 loadSettings();
 
+// Re-check auth when options page tab is focused (handles tab reuse by openOptionsPage)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    initAuth();
+  }
+});
+
+// Re-check auth when auth tokens change in storage (sign-in/sign-out while page is open)
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && (changes.authToken || changes.userEmail || changes.authExpiry)) {
+    initAuth();
+  }
+});
+
 // Set MRR chart year to current year immediately
 const mrrYearEl = document.getElementById('mrrChartYear');
 if (mrrYearEl) mrrYearEl.textContent = new Date().getFullYear();
