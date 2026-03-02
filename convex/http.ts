@@ -587,4 +587,197 @@ http.route({
   }),
 });
 
+// ===== Extension Document Sync Routes =====
+
+http.route({
+  path: "/extension/documents/upload-url",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const { token } = await request.json();
+      const user = await ctx.runQuery(internal.extensionAuthHelpers.getUserByToken, { token });
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+        });
+      }
+      const uploadUrl = await ctx.runMutation(internal.extensionDocuments.generateUploadUrl, {});
+      return new Response(JSON.stringify({ uploadUrl }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      });
+    } catch (error) {
+      console.error("Error generating upload URL:", error);
+      return new Response(JSON.stringify({ error: "Failed to generate upload URL" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      });
+    }
+  }),
+});
+
+http.route({
+  path: "/extension/documents/upload-url",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }),
+});
+
+http.route({
+  path: "/extension/documents/create",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const { token, storageId, fileName, fileSize, fileFormat, fileType, createdAt } = await request.json();
+      const user = await ctx.runQuery(internal.extensionAuthHelpers.getUserByToken, { token });
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+        });
+      }
+      const userId = `ext:${user._id}`;
+      const documentId = await ctx.runMutation(internal.extensionDocuments.createDocument, {
+        userId,
+        storageId,
+        fileName,
+        fileSize,
+        fileFormat,
+        fileType,
+        createdAt: createdAt || undefined,
+      });
+      return new Response(JSON.stringify({ documentId }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      });
+    } catch (error) {
+      console.error("Error creating document:", error);
+      return new Response(JSON.stringify({ error: "Failed to create document" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      });
+    }
+  }),
+});
+
+http.route({
+  path: "/extension/documents/create",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }),
+});
+
+http.route({
+  path: "/extension/documents/list",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const { token } = await request.json();
+      const user = await ctx.runQuery(internal.extensionAuthHelpers.getUserByToken, { token });
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+        });
+      }
+      const userId = `ext:${user._id}`;
+      const documents = await ctx.runQuery(internal.extensionDocuments.getUserDocuments, { userId });
+      return new Response(JSON.stringify({ documents }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      });
+    } catch (error) {
+      console.error("Error listing documents:", error);
+      return new Response(JSON.stringify({ error: "Failed to list documents" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      });
+    }
+  }),
+});
+
+http.route({
+  path: "/extension/documents/list",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }),
+});
+
+http.route({
+  path: "/extension/documents/download-url",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const { token, storageId } = await request.json();
+      const user = await ctx.runQuery(internal.extensionAuthHelpers.getUserByToken, { token });
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+        });
+      }
+      const url = await ctx.runQuery(internal.extensionDocuments.getDocumentUrl, { storageId });
+      return new Response(JSON.stringify({ url }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      });
+    } catch (error) {
+      console.error("Error getting download URL:", error);
+      return new Response(JSON.stringify({ error: "Failed to get download URL" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      });
+    }
+  }),
+});
+
+http.route({
+  path: "/extension/documents/download-url",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }),
+});
+
+http.route({
+  path: "/extension/documents/delete",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const { token, documentId } = await request.json();
+      const user = await ctx.runQuery(internal.extensionAuthHelpers.getUserByToken, { token });
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+        });
+      }
+      const userId = `ext:${user._id}`;
+      await ctx.runMutation(internal.extensionDocuments.deleteDocument, { userId, documentId });
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      });
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      return new Response(JSON.stringify({ error: "Failed to delete document" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      });
+    }
+  }),
+});
+
+http.route({
+  path: "/extension/documents/delete",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }),
+});
+
 export default http;

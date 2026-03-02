@@ -33,6 +33,18 @@ export const createUser = internalMutation({
   },
 });
 
+export const getUserByToken = internalQuery({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("extensionUsers")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .first();
+    if (!user || (user.tokenExpiry && user.tokenExpiry < Date.now())) return null;
+    return user;
+  },
+});
+
 export const updateToken = internalMutation({
   args: {
     userId: v.id("extensionUsers"),

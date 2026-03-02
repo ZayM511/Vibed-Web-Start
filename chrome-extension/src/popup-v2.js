@@ -508,37 +508,56 @@ function applyTierRestrictions() {
     }
   }
 
-  // --- Documents Tab (Pro only) ---
-  const documentsContent = document.getElementById('documentsContent');
-  if (!isPro && documentsContent) {
-    // Add a Pro overlay if not already there
-    if (!documentsContent.querySelector('.pro-overlay')) {
-      const overlay = document.createElement('div');
-      overlay.className = 'pro-overlay';
-      overlay.style.cssText = `
-        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.4); backdrop-filter: blur(3px);
-        display: flex; flex-direction: column; align-items: center;
-        justify-content: center; z-index: 10; border-radius: 8px;
-        cursor: pointer;
-      `;
-      overlay.innerHTML = `
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style="margin-bottom: 8px;">
-          <rect x="3" y="11" width="18" height="11" rx="2" stroke="#f59e0b" stroke-width="2"/>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span style="color: #f59e0b; font-weight: 700; font-size: 14px;">Pro Feature</span>
-        <span style="color: #94a3b8; font-size: 11px; margin-top: 4px;">Tap to learn more</span>
-      `;
-      overlay.addEventListener('click', () => {
-        showUpgradePrompt('Documents', 'Store your resumes, cover letters, and portfolio files. Upgrade to Pro to unlock document storage.');
-      });
-      documentsContent.style.position = 'relative';
-      documentsContent.appendChild(overlay);
-    }
-  } else if (isPro && documentsContent) {
-    const overlay = documentsContent.querySelector('.pro-overlay');
-    if (overlay) overlay.remove();
+  // --- Documents Tab: Pro-only sections (Todo list stays free for all) ---
+  const syncToggleSection = document.querySelector('.sync-toggle-section');
+  const resumesCategory = document.getElementById('resumesCategory');
+  const coverLettersCategory = document.getElementById('coverLettersCategory');
+  const portfolioCategory = document.getElementById('portfolioCategory');
+  const storageInfo = document.querySelector('.storage-info');
+  const proDocSections = [syncToggleSection, resumesCategory, coverLettersCategory, portfolioCategory, storageInfo];
+
+  if (!isPro) {
+    proDocSections.forEach(section => {
+      if (!section) return;
+      section.style.opacity = '0.4';
+      section.style.pointerEvents = 'none';
+      section.style.filter = 'blur(1px)';
+      section.style.position = 'relative';
+      // Add Pro badge if not already there
+      if (!section.querySelector('.pro-lock-badge')) {
+        const badge = document.createElement('span');
+        badge.className = 'pro-lock-badge';
+        badge.style.cssText = `
+          position: absolute; top: 8px; right: 8px; background: linear-gradient(135deg, #f59e0b, #eab308);
+          color: #000; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+          pointer-events: auto; cursor: pointer; z-index: 5;
+        `;
+        badge.textContent = 'PRO';
+        badge.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showUpgradePrompt('Documents', 'Store your resumes, cover letters, and portfolio files. Upgrade to Pro to unlock document storage.');
+        });
+        section.appendChild(badge);
+      }
+    });
+    // Disable upload buttons and sync toggle
+    ['addResumeBtn', 'addCoverLetterBtn', 'addPortfolioBtn', 'cloudSyncToggle'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = true;
+    });
+  } else {
+    proDocSections.forEach(section => {
+      if (!section) return;
+      section.style.opacity = '1';
+      section.style.pointerEvents = 'auto';
+      section.style.filter = 'none';
+      const badge = section.querySelector('.pro-lock-badge');
+      if (badge) badge.remove();
+    });
+    ['addResumeBtn', 'addCoverLetterBtn', 'addPortfolioBtn', 'cloudSyncToggle'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = false;
+    });
   }
 
   // --- LinkedIn Pro banner (re-evaluate after subscription fetch) ---
@@ -4447,6 +4466,17 @@ const DOCUMENT_LIMITS = {
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
 
+// Cloud sync category mappings
+const CATEGORY_TO_FILE_TYPE = { resumes: 'resume', coverLetters: 'cover_letter', portfolio: 'portfolio' };
+const FILE_TYPE_TO_CATEGORY = { resume: 'resumes', cover_letter: 'coverLetters', portfolio: 'portfolio' };
+
+// Check if cloud sync is currently active
+async function isCloudSyncActive() {
+  const syncResult = await JobFiltrStorage.getUserStorage('cloudSyncEnabled');
+  const { authToken } = await chrome.storage.local.get('authToken');
+  return !!(syncResult.cloudSyncEnabled && authToken);
+}
+
 // Accepted file types per category
 const ACCEPTED_FILE_TYPES = {
   resumes: {
@@ -4635,6 +4665,19 @@ async function handleFileSelect(event) {
     await saveDocuments();
     renderDocuments(category);
     updateDocumentCount(category);
+
+    // Auto-upload to cloud if sync is active
+    if (await isCloudSyncActive()) {
+      try {
+        const { authToken } = await chrome.storage.local.get('authToken');
+        const cloudDocId = await uploadDocumentToCloud(authToken, doc, category);
+        doc.cloudDocId = cloudDocId;
+        await saveDocuments();
+      } catch (error) {
+        console.error('[CloudSync] Auto-upload failed:', error);
+        // Local doc is saved; cloud sync will retry next time
+      }
+    }
 
   } catch (error) {
     console.error('Error uploading file:', error);
@@ -5000,12 +5043,19 @@ async function deleteCurrentDoc() {
   if (!confirm(`Are you sure you want to delete "${currentPreviewDoc.name}"?`)) return;
 
   const category = currentPreviewDoc.category;
+  const cloudDocId = currentPreviewDoc.cloudDocId;
+
   documents[category] = documents[category].filter(d => d.id !== currentPreviewDoc.id);
 
   await saveDocuments();
   renderDocuments(category);
   updateDocumentCount(category);
   closePreviewModal();
+
+  // Delete from cloud if sync is active and doc was synced
+  if (cloudDocId && await isCloudSyncActive()) {
+    deleteDocumentFromCloud(cloudDocId);
+  }
 }
 
 // Drag and drop handlers
@@ -5074,7 +5124,8 @@ async function handleCloudSyncToggle(event) {
     statusElement.textContent = 'Syncing...';
 
     try {
-      // Sync documents to cloud (placeholder for actual implementation)
+      // Pull cloud docs first, then push local docs
+      await loadDocumentsFromCloud();
       await syncDocumentsToCloud();
       statusElement.textContent = 'Synced to cloud';
 
@@ -5091,11 +5142,200 @@ async function handleCloudSyncToggle(event) {
   }
 }
 
-// Sync documents to cloud (placeholder)
+// Upload a single document to cloud via 3-step Convex file storage flow
+async function uploadDocumentToCloud(authToken, doc, category) {
+  const fileType = CATEGORY_TO_FILE_TYPE[category];
+
+  // Step 1: Get upload URL
+  const urlResp = await fetch(`${CONVEX_SITE_URL}/extension/documents/upload-url`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: authToken }),
+  });
+  if (!urlResp.ok) {
+    const err = await urlResp.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to get upload URL');
+  }
+  const { uploadUrl } = await urlResp.json();
+
+  // Step 2: Decode base64 data URL to binary and PUT to upload URL
+  const base64Part = doc.data.split(',')[1];
+  const binaryStr = atob(base64Part);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) {
+    bytes[i] = binaryStr.charCodeAt(i);
+  }
+  const blob = new Blob([bytes], { type: doc.type || 'application/pdf' });
+
+  const uploadResp = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': blob.type },
+    body: blob,
+  });
+  if (!uploadResp.ok) throw new Error('Failed to upload file blob');
+  const { storageId } = await uploadResp.json();
+
+  // Step 3: Create document record
+  const createResp = await fetch(`${CONVEX_SITE_URL}/extension/documents/create`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token: authToken,
+      storageId,
+      fileName: doc.name,
+      fileSize: doc.size,
+      fileFormat: doc.type || 'application/pdf',
+      fileType,
+      createdAt: doc.createdAt,
+    }),
+  });
+  if (!createResp.ok) {
+    const err = await createResp.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to create document record');
+  }
+  const { documentId } = await createResp.json();
+  return documentId;
+}
+
+// Sync all local documents (without cloudDocId) to cloud
 async function syncDocumentsToCloud() {
-  // This would integrate with Convex backend
-  // For now, just simulate a sync
-  return new Promise(resolve => setTimeout(resolve, 1000));
+  const { authToken } = await chrome.storage.local.get('authToken');
+  if (!authToken) return;
+
+  for (const category of ['resumes', 'coverLetters', 'portfolio']) {
+    for (const doc of documents[category]) {
+      if (doc.cloudDocId) continue; // Already synced
+      try {
+        const cloudDocId = await uploadDocumentToCloud(authToken, doc, category);
+        doc.cloudDocId = cloudDocId;
+      } catch (error) {
+        console.error(`[CloudSync] Failed to upload ${doc.name}:`, error);
+        // Skip failed doc, next sync will retry
+      }
+    }
+  }
+  // Save updated cloudDocId references
+  await saveDocuments();
+}
+
+// Load documents from cloud and merge with local
+async function loadDocumentsFromCloud() {
+  const { authToken } = await chrome.storage.local.get('authToken');
+  if (!authToken) return;
+
+  try {
+    const listResp = await fetch(`${CONVEX_SITE_URL}/extension/documents/list`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: authToken }),
+    });
+
+    if (listResp.status === 401) {
+      // Token expired — disable sync
+      document.getElementById('cloudSyncToggle').checked = false;
+      document.getElementById('syncStatus').textContent = 'Please sign in again';
+      await JobFiltrStorage.setUserStorage({ cloudSyncEnabled: false });
+      return;
+    }
+
+    if (!listResp.ok) throw new Error('Failed to list cloud documents');
+    const { documents: cloudDocs } = await listResp.json();
+
+    // Build a set of all local cloudDocIds for deduplication
+    const localCloudIds = new Set();
+    for (const category of ['resumes', 'coverLetters', 'portfolio']) {
+      for (const doc of documents[category]) {
+        if (doc.cloudDocId) localCloudIds.add(doc.cloudDocId);
+      }
+    }
+
+    let anyAdded = false;
+
+    for (const cloudDoc of cloudDocs) {
+      if (localCloudIds.has(cloudDoc._id)) continue; // Already exists locally
+
+      const category = FILE_TYPE_TO_CATEGORY[cloudDoc.fileType];
+      if (!category) continue;
+
+      // Check limit
+      if (documents[category].length >= DOCUMENT_LIMITS[category]) continue;
+
+      try {
+        // Get download URL
+        const urlResp = await fetch(`${CONVEX_SITE_URL}/extension/documents/download-url`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: authToken, storageId: cloudDoc.storageId }),
+        });
+        if (!urlResp.ok) continue;
+        const { url } = await urlResp.json();
+        if (!url) continue;
+
+        // Download file
+        const fileResp = await fetch(url);
+        if (!fileResp.ok) continue;
+        const fileBlob = await fileResp.blob();
+
+        // Convert to base64 data URL
+        const base64Data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(fileBlob);
+        });
+
+        // Determine fileType for display
+        let displayFileType = 'pdf';
+        if (cloudDoc.fileFormat && cloudDoc.fileFormat.startsWith('image/')) {
+          displayFileType = 'image';
+        } else if (cloudDoc.fileFormat && (cloudDoc.fileFormat.includes('excel') || cloudDoc.fileFormat.includes('spreadsheet'))) {
+          displayFileType = 'excel';
+        }
+
+        // Create local doc object
+        const localDoc = {
+          id: Date.now().toString() + Math.random().toString(36).slice(2, 8),
+          name: cloudDoc.fileName,
+          size: cloudDoc.fileSize,
+          type: cloudDoc.fileFormat,
+          fileType: displayFileType,
+          data: base64Data,
+          thumbnail: displayFileType === 'image' ? base64Data : null,
+          createdAt: cloudDoc.uploadedAt || Date.now(),
+          cloudDocId: cloudDoc._id,
+        };
+
+        documents[category].push(localDoc);
+        anyAdded = true;
+      } catch (error) {
+        console.error(`[CloudSync] Failed to download ${cloudDoc.fileName}:`, error);
+        // Skip failed doc, continue with rest
+      }
+    }
+
+    if (anyAdded) {
+      await saveDocuments();
+      renderAllDocuments();
+    }
+  } catch (error) {
+    console.error('[CloudSync] Error loading cloud documents:', error);
+  }
+}
+
+// Delete a document from cloud
+async function deleteDocumentFromCloud(cloudDocId) {
+  const { authToken } = await chrome.storage.local.get('authToken');
+  if (!authToken || !cloudDocId) return;
+
+  try {
+    await fetch(`${CONVEX_SITE_URL}/extension/documents/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: authToken, documentId: cloudDocId }),
+    });
+  } catch (error) {
+    console.error('[CloudSync] Failed to delete cloud document:', error);
+  }
 }
 
 // Load cloud sync preference
@@ -5107,6 +5347,8 @@ async function loadCloudSyncPreference() {
     if (syncResult.cloudSyncEnabled && authToken) {
       document.getElementById('cloudSyncToggle').checked = true;
       document.getElementById('syncStatus').textContent = 'Synced to cloud';
+      // Pull latest from cloud on popup open
+      loadDocumentsFromCloud().catch(err => console.error('[CloudSync] Background sync error:', err));
     }
   } catch (error) {
     console.error('Error loading sync preference:', error);

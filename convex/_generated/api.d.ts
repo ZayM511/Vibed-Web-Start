@@ -19,6 +19,7 @@ import type * as email from "../email.js";
 import type * as extensionApi from "../extensionApi.js";
 import type * as extensionAuth from "../extensionAuth.js";
 import type * as extensionAuthHelpers from "../extensionAuthHelpers.js";
+import type * as extensionDocuments from "../extensionDocuments.js";
 import type * as extensionErrors from "../extensionErrors.js";
 import type * as featureCache from "../featureCache.js";
 import type * as featureExtraction from "../featureExtraction.js";
@@ -63,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   extensionApi: typeof extensionApi;
   extensionAuth: typeof extensionAuth;
   extensionAuthHelpers: typeof extensionAuthHelpers;
+  extensionDocuments: typeof extensionDocuments;
   extensionErrors: typeof extensionErrors;
   featureCache: typeof featureCache;
   featureExtraction: typeof featureExtraction;

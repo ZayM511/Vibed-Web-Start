@@ -35,6 +35,7 @@ if (Test-Path "settings.html") {
 # Active source files only (no backups, old versions, or dead code)
 $activeSourceFiles = @(
     "background.js",
+    "storage-utils.js",
     "content-linkedin-v3.js",
     "content-indeed-v3.js",
     "content-google-jobs.js",
