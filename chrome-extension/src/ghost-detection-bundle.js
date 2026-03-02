@@ -899,6 +899,22 @@
     return '';
   }
 
+  // Scoped version of getText() — searches within a specific container
+  function getTextFrom(container, selector) {
+    if (!container) return getText(selector);
+    const selectors = selector.split(',').map(s => s.trim());
+    for (const sel of selectors) {
+      try {
+        const el = container.querySelector(sel);
+        if (el?.textContent?.trim()) return el.textContent.trim();
+      } catch (e) {
+        // Invalid selector, try next
+      }
+    }
+    // Fallback to document-wide search
+    return getText(selector);
+  }
+
   // Specialized function to extract posting date with multiple strategies
   function extractPostedDate() {
     // Strategy 1: Try direct selectors for posted date
@@ -2881,6 +2897,12 @@
       const container = document.querySelector(INDEED_SELECTORS.jobDetail);
       if (!container) return null;
 
+      // Scope extraction to the detail panel (right side) to avoid
+      // picking up company names from job cards in the left panel
+      const detailPanel = document.querySelector(
+        '#jobsearch-ViewjobPaneWrapper, .jobsearch-JobComponent, #viewJobSSRRoot'
+      );
+
       // FIX: Generate truly unique job IDs to prevent score collisions
       // Priority order: URL params > DOM data attributes > content hash > unique counter
       const params = new URLSearchParams(window.location.search);
@@ -2896,10 +2918,10 @@
         }
       }
 
-      // Extract job data first so we can use it for ID generation if needed
-      const title = getText(INDEED_SELECTORS.title);
-      const company = getText(INDEED_SELECTORS.company);
-      const location = getText(INDEED_SELECTORS.location);
+      // Extract job data from detail panel (scoped) to get the correct job's info
+      const title = getTextFrom(detailPanel, INDEED_SELECTORS.title);
+      const company = getTextFrom(detailPanel, INDEED_SELECTORS.company);
+      const location = getTextFrom(detailPanel, INDEED_SELECTORS.location);
 
       // If still no ID, create a content-based hash for consistent identification
       if (!id) {
@@ -3336,6 +3358,13 @@
   if (isExtensionContextValid()) {
     try {
       chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        // Allow popup to query community reported status for Scanner scoring
+        if (message.type === 'CHECK_REPORTED_COMPANY' && message.companyName) {
+          const result = detectReportedCompany(message.companyName);
+          sendResponse(result);
+          return true;
+        }
+
         if (message.type === 'APPLY_FILTERS' && message.settings) {
           const enableGhost = message.settings.enableGhostAnalysis !== false;
           const showCommunity = message.settings.showCommunityReportedWarnings !== false;

@@ -3278,7 +3278,7 @@ document.getElementById('scanButton').addEventListener('click', async () => {
     // This ensures we use our comprehensive pattern matching and scoring
     console.log('[Scanner] Analyzing job for scam/spam indicators:', currentJobData.title);
     console.log('[Scanner DEBUG] Calling performScamSpamAnalysis with description length:', currentJobData.description?.length || 0);
-    const scanResult = performScamSpamAnalysis(currentJobData);
+    const scanResult = await performScamSpamAnalysis(currentJobData);
     console.log('[Scanner DEBUG] Analysis result:', JSON.stringify(scanResult, null, 2));
 
     // Ensure minimum scan time for UX (gives impression of thorough analysis)
@@ -3556,7 +3556,7 @@ function calculatePostingAgeRisk(postedDate) {
 }
 
 // Main scam/spam analysis function
-function performScamSpamAnalysis(jobData) {
+async function performScamSpamAnalysis(jobData) {
   console.log('[Scanner Debug] ===== STARTING SCAM/SPAM ANALYSIS =====');
   console.log('[Scanner Debug] Job data received:', {
     title: jobData.title,
@@ -3657,6 +3657,44 @@ function performScamSpamAnalysis(jobData) {
     }
   }
 
+  // ===== STEP 3.5: Check community reported status via content script =====
+  if (jobData.company) {
+    try {
+      let tabId = currentTabId;
+      if (!tabId) {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        tabId = tab?.id;
+      }
+      if (tabId) {
+        const communityReported = await chrome.tabs.sendMessage(tabId, {
+          type: 'CHECK_REPORTED_COMPANY',
+          companyName: jobData.company
+        });
+        if (communityReported?.detected) {
+          const reportCategory = communityReported.company?.category;
+          if (reportCategory === 'scam') {
+            scamScore = Math.max(scamScore, 60);
+            spamScore = Math.max(spamScore, 40);
+          } else if (reportCategory === 'spam') {
+            spamScore = Math.max(spamScore, 55);
+          } else if (reportCategory === 'ghost') {
+            spamScore = Math.max(spamScore, 30);
+          }
+          matchedPatterns.push({
+            category: 'communityReported',
+            weight: 0.7,
+            tier: reportCategory === 'scam' ? 'high' : 'medium',
+            desc: `Community reported: ${communityReported.company?.name} (${reportCategory})`
+          });
+          console.log('[Scanner] Community reported company detected:', communityReported.company?.name, reportCategory);
+        }
+      }
+    } catch (e) {
+      // Content script not available — skip community check
+      console.log('[Scanner] Could not check community reported status:', e.message);
+    }
+  }
+
   console.log('[Scanner Debug] Calculated scores:', {
     scamScore,
     spamScore,
@@ -3711,8 +3749,8 @@ function performScamSpamAnalysis(jobData) {
 }
 
 // Legacy function name for backward compatibility (calls new implementation)
-function performLocalGhostAnalysis(jobData) {
-  return performScamSpamAnalysis(jobData);
+async function performLocalGhostAnalysis(jobData) {
+  return await performScamSpamAnalysis(jobData);
 }
 
 // Helper function to parse posting age from date string
