@@ -1254,6 +1254,20 @@ async function initFounderTierToggle() {
         if (subResponse.ok) {
           const subStatus = await subResponse.json();
           await chrome.storage.local.set({ cachedSubscriptionStatus: subStatus });
+          // Background service worker will auto-notify LinkedIn tabs via storage change listener
+        }
+
+        // Also directly notify all active LinkedIn tabs of the tier change
+        try {
+          const tabs = await chrome.tabs.query({ url: '*://*.linkedin.com/*' });
+          for (const tab of tabs) {
+            chrome.tabs.sendMessage(tab.id, {
+              action: 'setTierRestriction',
+              isPro: newTier === 'pro'
+            }).catch(() => {});
+          }
+        } catch (e) {
+          console.error('[Settings] Error notifying LinkedIn tabs:', e);
         }
       }
     } catch (error) {
@@ -1263,11 +1277,27 @@ async function initFounderTierToggle() {
 
   // Refresh button
   if (tierRefreshBtn) {
-    tierRefreshBtn.addEventListener('click', () => {
+    tierRefreshBtn.addEventListener('click', async () => {
       tierRefreshBtn.classList.add('spinning');
-      setTimeout(() => {
-        window.location.reload();
-      }, 300);
+      // Re-fetch and cache subscription status so content scripts pick it up
+      try {
+        const { userEmail } = await chrome.storage.local.get(['userEmail']);
+        if (userEmail) {
+          const subResponse = await fetch(`${CONVEX_SITE_URL}/extension/subscription-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: userEmail })
+          });
+          if (subResponse.ok) {
+            const subStatus = await subResponse.json();
+            await chrome.storage.local.set({ cachedSubscriptionStatus: subStatus });
+            // Background service worker will auto-notify LinkedIn tabs via storage change listener
+          }
+        }
+      } catch (e) {
+        console.error('[Settings] Error refreshing status:', e);
+      }
+      setTimeout(() => window.location.reload(), 300);
     });
   }
 }

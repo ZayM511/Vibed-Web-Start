@@ -4068,6 +4068,38 @@ async function loadAndApplyFilters() {
   }
 
   try {
+    // Check tier restriction BEFORE applying any filters
+    // This prevents free users from getting pro features on LinkedIn page load
+    try {
+      const { cachedSubscriptionStatus, userEmail } = await chrome.storage.local.get([
+        'cachedSubscriptionStatus', 'userEmail'
+      ]);
+
+      if (cachedSubscriptionStatus) {
+        const userIsPro = cachedSubscriptionStatus.plan === 'pro' && cachedSubscriptionStatus.isActive;
+        window._jobfiltrTierRestricted = !userIsPro;
+        log('Tier restriction set from cache:', window._jobfiltrTierRestricted ? 'FREE' : 'PRO');
+      } else if (userEmail) {
+        // No cache — fetch subscription status directly from API
+        const CONVEX_SITE_URL = 'https://reminiscent-goldfish-690.convex.site';
+        const response = await fetch(`${CONVEX_SITE_URL}/extension/subscription-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: userEmail })
+        });
+        if (response.ok) {
+          const status = await response.json();
+          const userIsPro = status.plan === 'pro' && status.isActive;
+          window._jobfiltrTierRestricted = !userIsPro;
+          await chrome.storage.local.set({ cachedSubscriptionStatus: status });
+          log('Tier restriction fetched from API:', window._jobfiltrTierRestricted ? 'FREE' : 'PRO');
+        }
+      }
+    } catch (tierError) {
+      log('Could not check tier restriction:', tierError.message);
+      // Don't block filter loading — if we can't check, default to allowing filters
+    }
+
     console.log('%c[loadAndApplyFilters] Loading settings from storage...', 'background: #FF9800; color: white; padding: 2px 6px;');
     const result = await chrome.storage.local.get('filterSettings');
 

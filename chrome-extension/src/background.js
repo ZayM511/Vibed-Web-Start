@@ -41,6 +41,27 @@ chrome.runtime.onInstalled.addListener((details) => {
   });
 });
 
+// Listen for subscription status changes and propagate tier restriction to LinkedIn tabs
+// This is the central propagation mechanism — ANY code path that updates cachedSubscriptionStatus
+// in chrome.storage.local will automatically trigger tier enforcement on all LinkedIn tabs
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && changes.cachedSubscriptionStatus) {
+    const newStatus = changes.cachedSubscriptionStatus.newValue;
+    if (newStatus) {
+      const isPro = newStatus.plan === 'pro' && newStatus.isActive;
+      console.log('[Background] Subscription status changed, notifying LinkedIn tabs. isPro:', isPro);
+      chrome.tabs.query({ url: '*://*.linkedin.com/*' }).then((tabs) => {
+        for (const tab of tabs) {
+          chrome.tabs.sendMessage(tab.id, {
+            action: 'setTierRestriction',
+            isPro: isPro
+          }).catch(() => {}); // Tab may not have content script loaded
+        }
+      }).catch(() => {});
+    }
+  }
+});
+
 // Listen for tab updates to detect job pages
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   console.log(`Tab ${tabId} updated:`, changeInfo.status, tab?.url?.substring(0, 50));
