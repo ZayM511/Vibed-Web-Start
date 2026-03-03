@@ -4,28 +4,19 @@
   "version": "2.0.0",
   "description": "Your job search, upgraded. Ghost job & scam detection, smart filters, job age badges, and more for LinkedIn and Indeed.",
   "permissions": [
-    "activeTab",
     "storage",
     "unlimitedStorage",
     "tabs",
     "scripting",
     "contextMenus",
     "notifications",
-    "system.display",
-    "identity"
+    "system.display"
   ],
   "options_page": "settings.html",
   "host_permissions": [
     "https://*.linkedin.com/*",
-    "https://*.indeed.com/*",
-    "https://*.google.com/*",
-    "https://www.googleapis.com/*",
-    "https://accounts.google.com/*"
+    "https://*.indeed.com/*"
   ],
-  "oauth2": {
-    "client_id": "295355167540-v88sakht36t1sq49jn364alhuut1uthh.apps.googleusercontent.com",
-    "scopes": ["openid", "email", "profile"]
-  },
   "action": {
     "default_popup": "popup-v2.html",
     "default_icon": {
@@ -55,12 +46,6 @@
     {
       "matches": ["https://*.indeed.com/*"],
       "js": ["src/storage-utils.js", "src/content-indeed-v3.js", "src/ghost-detection-bundle.js"],
-      "css": ["styles/content.css"],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": ["https://*.google.com/search*"],
-      "js": ["src/storage-utils.js", "src/content-google-jobs.js"],
       "css": ["styles/content.css"],
       "run_at": "document_idle"
     }

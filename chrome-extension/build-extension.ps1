@@ -38,7 +38,6 @@ $activeSourceFiles = @(
     "storage-utils.js",
     "content-linkedin-v3.js",
     "content-indeed-v3.js",
-    "content-google-jobs.js",
     "ghost-detection-bundle.js",
     "linkedin-feature-flags.js",
     "linkedin-job-cache.js",

@@ -67,8 +67,7 @@ chrome.runtime.onInstalled.addListener((details) => {
     contexts: ['page', 'selection'],
     documentUrlPatterns: [
       '*://*.linkedin.com/jobs/*',
-      '*://*.indeed.com/*',
-      '*://*.google.com/search*'
+      '*://*.indeed.com/*'
     ]
   });
 });
@@ -465,8 +464,7 @@ async function getActiveJobTab() {
   // Helper to check if URL is a supported job site
   const isJobSiteUrl = (url) => {
     if (!url) return false;
-    return url.includes('linkedin.com') || url.includes('indeed.com') ||
-           (url.includes('google.com') && url.includes('search'));
+    return url.includes('linkedin.com') || url.includes('indeed.com');
   };
 
   try {
