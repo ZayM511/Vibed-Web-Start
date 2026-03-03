@@ -14,4 +14,5 @@ export const FOUNDER_EMAILS = [
   "isaiah.e.malone@gmail.com",
   "zaydozier17@gmail.com",
   "support@jobfiltr.app",
+  "hello@jobfiltr.app",
 ];
