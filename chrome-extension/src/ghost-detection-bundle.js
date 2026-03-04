@@ -940,6 +940,23 @@
       } catch (e) { /* skip */ }
     }
 
+    // Strategy 1.5: Content-based span detection (new LinkedIn UI)
+    // Proven approach from addJobAgeToDetailPanel — scan right-panel spans
+    // New LinkedIn UI doesn't use class-based selectors; age text is in plain spans
+    try {
+      const allSpans = document.querySelectorAll('span');
+      for (const span of allSpans) {
+        const text = span.textContent?.trim();
+        if (text && /^(Reposted\s+)?\d+\s*(second|minute|hour|day|week|month)s?\s*ago$/i.test(text)) {
+          const rect = span.getBoundingClientRect();
+          if (rect.width > 0 && rect.x > 500) {
+            console.log('[GhostDetection] Found age via span detection:', text);
+            return text.toLowerCase();
+          }
+        }
+      }
+    } catch (e) { /* skip */ }
+
     // Strategy 2: Look for time element with datetime attribute
     const timeEl = document.querySelector('.jobs-details time[datetime], .scaffold-layout__detail time[datetime]');
     if (timeEl) {

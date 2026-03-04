@@ -657,6 +657,10 @@ async function getJobAge(jobId, jobCard) {
 
 // Extract job age from DOM with comprehensive selectors
 function extractJobAgeFromDOM(jobCard) {
+  // Track datetime attribute as a last-resort fallback
+  // datetime may hold the ORIGINAL listing date while visible text shows the repost date
+  let datetimeAge = null;
+
   // Try time elements - prefer text content over datetime attribute
   // LinkedIn's text reflects the repost date (e.g., "1 week ago") while
   // the datetime attribute may hold the original listing date
@@ -664,17 +668,19 @@ function extractJobAgeFromDOM(jobCard) {
     try {
       const elements = jobCard.querySelectorAll(selector);
       for (const timeEl of elements) {
-        // Try parsing text first (repost-aware)
+        // Try parsing text first (repost-aware) — immediate return
         const age = parseJobAge(timeEl.textContent);
         if (age !== null) return age;
-        // Fallback to datetime attribute
-        const datetime = timeEl.getAttribute('datetime');
-        if (datetime) {
-          const postDate = new Date(datetime);
-          const now = new Date();
-          const daysAgo = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
-          if (!isNaN(daysAgo) && daysAgo >= 0 && daysAgo <= 365) {
-            return daysAgo;
+        // Store datetime as fallback only (may be original listing date, not repost)
+        if (datetimeAge === null) {
+          const datetime = timeEl.getAttribute('datetime');
+          if (datetime) {
+            const postDate = new Date(datetime);
+            const now = new Date();
+            const daysAgo = Math.floor((now - postDate) / (1000 * 60 * 60 * 24));
+            if (!isNaN(daysAgo) && daysAgo >= 0 && daysAgo <= 365) {
+              datetimeAge = daysAgo;
+            }
           }
         }
       }
@@ -683,9 +689,12 @@ function extractJobAgeFromDOM(jobCard) {
     }
   }
 
-  // Fallback: parse full card text
-  const fullText = jobCard.textContent;
-  return parseJobAge(fullText);
+  // Prefer full card text (shows repost date user sees) over datetime attr (may show original date)
+  const fullTextAge = parseJobAge(jobCard.textContent);
+  if (fullTextAge !== null) return fullTextAge;
+
+  // Last resort: datetime attribute (better than nothing)
+  return datetimeAge;
 }
 
 // Get combined text from job card for filtering
@@ -791,6 +800,22 @@ function extractJobInfo() {
               if (child.querySelector('a[href*="/company/"]')) continue;
               title = text.replace(/\s+/g, ' ');
             }
+          }
+        }
+      }
+    }
+
+    // Span-based postedDate fallback for new LinkedIn UI
+    // Uses the same proven approach as addJobAgeToDetailPanel — scan right-panel spans
+    if (!postedDate) {
+      const spans = document.querySelectorAll('span');
+      for (const span of spans) {
+        const text = span.textContent?.trim();
+        if (text && /^(Reposted\s+)?\d+\s*(second|minute|hour|day|week|month)s?\s*ago$/i.test(text)) {
+          const rect = span.getBoundingClientRect();
+          if (rect.width > 0 && rect.x > 500) {
+            postedDate = text;
+            break;
           }
         }
       }
@@ -3603,7 +3628,19 @@ async function addJobAgeToDetailPanel() {
 
       // Update the corresponding job card badge in the list
       updateJobCardBadge(jobId, days);
-      log(`Propagated age ${days} days from detail panel to card for job ${jobId}`);
+
+      // Also update the job cache so future Layer 2 lookups get the corrected age
+      // Without this, re-rendered cards would revert to the stale listedAt value
+      if (window.linkedInJobCache?.initialized) {
+        const existingData = window.linkedInJobCache.getJobData(jobId) || {};
+        const correctedTimestamp = Date.now() - (days * 24 * 60 * 60 * 1000);
+        await window.linkedInJobCache.setJobData(jobId, {
+          ...existingData,
+          repostedAt: correctedTimestamp
+        });
+      }
+
+      log(`Propagated age ${days} days from detail panel to card and cache for job ${jobId}`);
     }
   } catch (err) {
     console.error('[JobFiltr] addJobAgeToDetailPanel error:', err);
