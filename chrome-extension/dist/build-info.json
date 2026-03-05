@@ -1,8 +1,8 @@
 {
-  "commitMessage": "feat: Add build metadata to extension package and admin page",
-  "commit": "9c17cc9",
-  "cacheVersion": "18",
+  "cacheVersion": "19",
+  "commit": "176204f",
+  "commitFull": "176204f17575ed1e4a82a2ed33eef2b620e8b7a2",
+  "buildTime": "2026-03-05T23:40:41Z",
   "manifestVersion": "2.0.0",
-  "commitFull": "9c17cc9454724e46822779985e2d5ade17790409",
-  "buildTime": "2026-03-05T17:11:14Z"
+  "commitMessage": "fix: LinkedIn badge race conditions - debounce analysis, scope date extraction, fix prefix mismatch"
 }
