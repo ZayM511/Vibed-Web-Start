@@ -1345,8 +1345,11 @@
       description: vagueness > 0.6 ? 'Vague and generic' : vagueness > 0.3 ? 'Some vague elements' : 'Specific and detailed',
     });
 
-    const hasSalary = /\$[\d,]+/.test(job.description) || !!job.salary;
-    const isVagueSalary = /competitive|DOE|negotiable/i.test(job.description);
+    const hasDollarAmount = /\$[\d,]+/.test(job.description) || /\$[\d,]+/.test(job.salary || '');
+    const hasSalary = hasDollarAmount || !!job.salary;
+    const isVagueSalary = !hasDollarAmount && /competitive|DOE|negotiable/i.test(
+      (job.description || '') + ' ' + (job.salary || '')
+    );
     const salaryRisk = !hasSalary ? 0.6 : isVagueSalary ? 0.4 : 0;
 
     signals.push({
@@ -1923,7 +1926,7 @@
   // ============================================
 
   // Cache version - increment when algorithm changes to invalidate old cached scores
-  const CACHE_VERSION = 15; // v15: Use web accessible resource to extract mosaic age data (bypasses CSP)
+  const CACHE_VERSION = 16; // v16: Fix salary transparency false positive + add 30-day floor score
 
   async function analyzeJob(job) {
     const cached = await getCachedScore(job.id);
@@ -1966,6 +1969,10 @@
       } else if (days >= 45) {
         // 6+ weeks old = minimum 35 (low_risk leaning medium)
         overall = Math.max(overall, 35);
+      } else if (days >= 30) {
+        // 1 month old = minimum 25 (low_risk)
+        overall = Math.max(overall, 25);
+        console.log('[GhostDetection] Floor applied: 30+ days old');
       }
     }
 
