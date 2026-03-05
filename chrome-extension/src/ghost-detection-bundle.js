@@ -918,7 +918,11 @@
   }
 
   // Specialized function to extract posting date with multiple strategies
-  function extractPostedDate() {
+  // scopeContainer: optional DOM element to scope searches to (e.g., detail panel)
+  // Prevents picking up age text from left-panel job cards during SPA transitions
+  function extractPostedDate(scopeContainer) {
+    const searchRoot = scopeContainer || document;
+
     // Strategy 1: Try direct selectors for posted date
     const dateSelectors = [
       '.job-details-jobs-unified-top-card__posted-date',
@@ -930,7 +934,7 @@
 
     for (const sel of dateSelectors) {
       try {
-        const el = document.querySelector(sel);
+        const el = searchRoot.querySelector(sel);
         if (el) {
           const text = el.textContent?.trim()?.toLowerCase() || '';
           // Check if it looks like a posting date
@@ -946,7 +950,7 @@
     // Proven approach from addJobAgeToDetailPanel — scan right-panel spans
     // New LinkedIn UI doesn't use class-based selectors; age text is in plain spans
     try {
-      const allSpans = document.querySelectorAll('span');
+      const allSpans = searchRoot.querySelectorAll('span');
       for (const span of allSpans) {
         const text = span.textContent?.trim();
         if (text && /^(Reposted\s+)?\d+\s*(second|minute|hour|day|week|month)s?\s*ago$/i.test(text)) {
@@ -960,7 +964,8 @@
     } catch (e) { /* skip */ }
 
     // Strategy 2: Look for time element with datetime attribute
-    const timeEl = document.querySelector('.jobs-details time[datetime], .scaffold-layout__detail time[datetime]');
+    const timeEl = searchRoot.querySelector('.jobs-details time[datetime], .scaffold-layout__detail time[datetime]') ||
+                   searchRoot.querySelector('time[datetime]');
     if (timeEl) {
       const datetime = timeEl.getAttribute('datetime');
       if (datetime) {
@@ -974,11 +979,11 @@
     }
 
     // Strategy 3: Search for "X days/weeks/months ago" pattern in the detail area
-    let detailArea = document.querySelector('.jobs-details, .scaffold-layout__detail');
+    let detailArea = searchRoot.querySelector('.jobs-details, .scaffold-layout__detail');
 
     // Fallback for new LinkedIn UI: search the right panel metadata
     if (!detailArea) {
-      const allPs = [...document.querySelectorAll('p')];
+      const allPs = [...searchRoot.querySelectorAll('p')];
       for (const p of allPs) {
         const rect = p.getBoundingClientRect();
         if (rect.x > 500 && rect.width > 0 && /\bago\b/i.test(p.textContent) && p.textContent.includes('·')) {
@@ -1928,7 +1933,7 @@
   // ============================================
 
   // Cache version - increment when algorithm changes to invalidate old cached scores
-  const CACHE_VERSION = 18; // v18: Community reported floor + scoped LinkedIn extraction
+  const CACHE_VERSION = 19; // v19: Fix LinkedIn race conditions - debounce analysis, scope date extraction, prefix mismatch fix
 
   async function analyzeJob(job) {
     const cached = await getCachedScore(job.id);
@@ -2855,6 +2860,15 @@
 
       if (!container) return null;
 
+      // DOM readiness check: if detail panel is still loading/transitioning, bail out
+      // LinkedIn shows loading indicators or minimal content during SPA transitions
+      const isLoading = container.querySelector('.artdeco-loader, .jobs-ghost-fade-shimmer') ||
+                        container.querySelector('[aria-busy="true"]');
+      if (isLoading) {
+        console.log('[GhostDetection] Detail panel still loading, will retry');
+        return null;
+      }
+
       const urlMatch = window.location.href.match(/\/jobs\/view\/(\d+)/);
       const currentJobIdParam = new URLSearchParams(window.location.search).get('currentJobId');
       const id = urlMatch ? urlMatch[1] : (currentJobIdParam || `${Date.now()}`);
@@ -2919,8 +2933,8 @@
         return null;
       }
 
-      // Use enhanced posted date extraction
-      const postedDate = extractPostedDate() || getTextFrom(container, LINKEDIN_SELECTORS.posted) || null;
+      // Use enhanced posted date extraction, scoped to detail panel container
+      const postedDate = extractPostedDate(container) || getTextFrom(container, LINKEDIN_SELECTORS.posted) || null;
 
       const job = {
         id: `linkedin_${id}`,
@@ -3247,6 +3261,7 @@
   // ============================================
 
   let ghostBadgeReinjectionTimer = null;
+  let analyzeLinkedInTimer = null; // Debounce timer for analyzeLinkedIn calls
   // Cache last ghost badge HTML for fast re-injection
   let lastGhostBadgeHTML = null;
   let lastGhostBadgeStyle = null;
@@ -3264,7 +3279,12 @@
           currentJobId = jobId;
           lastGhostBadgeHTML = null; // Clear cache on job change
           lastAnalyzedJobId = null; // Allow periodic retry for new job
-          setTimeout(analyzeLinkedIn, 500);
+          // Clear stale badges immediately so user doesn't see wrong info during transition
+          removeGhostScoreBadges();
+          removeReportedCompanyDetailBadges();
+          // Debounce: cancel any pending analysis and wait for DOM to settle (1200ms)
+          clearTimeout(analyzeLinkedInTimer);
+          analyzeLinkedInTimer = setTimeout(analyzeLinkedIn, 1200);
         } else if (jobId && jobId === currentJobId) {
           // Badge persistence: fast re-inject from cache if badge removed by LinkedIn re-render
           if (lastGhostBadgeHTML && !document.querySelector('.jobfiltr-ghost-score')) {
@@ -3333,7 +3353,7 @@
     }
 
     // No cached badge = analysis hasn't succeeded yet for this job. Retry.
-    if (jobId !== lastAnalyzedJobId) {
+    if (`linkedin_${jobId}` !== lastAnalyzedJobId) {
       // Reset currentJob so analyzeLinkedIn doesn't skip with "same job" check
       currentJob = null;
       console.log('[GhostDetection] Periodic retry: no ghost badge, retrying analysis for', jobId);
@@ -3420,11 +3440,15 @@
           // Request fresh mosaic data on SPA navigation
           injectMosaicExtractor();
           requestMosaicAges();
+          setTimeout(() => analyzeIndeed(), 500);
+        } else if (isLinkedIn()) {
+          // Debounce LinkedIn analysis: clear stale badges and wait for DOM to settle
+          removeGhostScoreBadges();
+          removeReportedCompanyDetailBadges();
+          lastGhostBadgeHTML = null;
+          clearTimeout(analyzeLinkedInTimer);
+          analyzeLinkedInTimer = setTimeout(analyzeLinkedIn, 1200);
         }
-        setTimeout(() => {
-          if (isLinkedIn()) analyzeLinkedIn();
-          else if (isIndeed()) analyzeIndeed();
-        }, 500);
       }
     }
   }, 1000);
