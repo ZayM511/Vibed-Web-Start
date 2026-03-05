@@ -1,8 +1,8 @@
 {
-  "commitFull": "122e60f119e7c394e62d40743cc68d2d77f0fbe0",
-  "buildTime": "2026-03-05T17:10:40Z",
+  "commitMessage": "feat: Add build metadata to extension package and admin page",
+  "commit": "9c17cc9",
   "cacheVersion": "18",
-  "commitMessage": "chore: Bump cache version to v18 to invalidate stale ghost scores",
-  "commit": "122e60f",
-  "manifestVersion": "2.0.0"
+  "manifestVersion": "2.0.0",
+  "commitFull": "9c17cc9454724e46822779985e2d5ade17790409",
+  "buildTime": "2026-03-05T17:11:14Z"
 }
