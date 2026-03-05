@@ -900,8 +900,8 @@
   }
 
   // Scoped version of getText() — searches within a specific container
-  function getTextFrom(container, selector) {
-    if (!container) return getText(selector);
+  function getTextFrom(container, selector, strict = false) {
+    if (!container) return strict ? '' : getText(selector);
     const selectors = selector.split(',').map(s => s.trim());
     for (const sel of selectors) {
       try {
@@ -911,7 +911,9 @@
         // Invalid selector, try next
       }
     }
-    // Fallback to document-wide search
+    // In strict mode, don't fall back to document-wide search
+    // (prevents picking up company names from left-panel job cards)
+    if (strict) return '';
     return getText(selector);
   }
 
@@ -2942,10 +2944,15 @@
         }
       }
 
-      // Extract job data from detail panel (scoped) to get the correct job's info
+      // Extract job data from detail panel (scoped, strict) to get the correct job's info
+      // Strict mode prevents falling back to document-wide search which could pick up
+      // company names from job cards in the left panel during panel transitions
       const title = getTextFrom(detailPanel, INDEED_SELECTORS.title);
-      const company = getTextFrom(detailPanel, INDEED_SELECTORS.company);
+      const company = getTextFrom(detailPanel, INDEED_SELECTORS.company, true);
       const location = getTextFrom(detailPanel, INDEED_SELECTORS.location);
+
+      // If company can't be found in the detail panel, it's still loading — return null to trigger retry
+      if (!company) return null;
 
       // If still no ID, create a content-based hash for consistent identification
       if (!id) {
@@ -3112,7 +3119,16 @@
     }
 
     const job = extractIndeedJob();
-    if (!job || (!isRetry && job.id === currentJob?.id)) return;
+    if (!job) {
+      // Detail panel not ready (company not found) — schedule retry
+      if (!isRetry && indeedRetryCount < MAX_INDEED_RETRIES) {
+        indeedRetryCount++;
+        console.log(`[GhostDetection] Indeed extraction incomplete, retry ${indeedRetryCount}/${MAX_INDEED_RETRIES} in 1s`);
+        setTimeout(() => analyzeIndeed(true), 1000);
+      }
+      return;
+    }
+    if (!isRetry && job.id === currentJob?.id) return;
 
     currentJob = job;
     console.log('[GhostDetection] Analyzing Indeed job:', job.title, '@', job.company, 'ID:', job.id, isRetry ? '(retry)' : '');
@@ -3235,6 +3251,7 @@
         const jobId = params.get('vjk') || params.get('jk');
         if (jobId && jobId !== currentJobId) {
           currentJobId = jobId;
+          indeedRetryCount = 0; // Reset retry counter for new job
           setTimeout(analyzeIndeed, 500);
         }
       }
