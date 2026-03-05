@@ -1928,7 +1928,7 @@
   // ============================================
 
   // Cache version - increment when algorithm changes to invalidate old cached scores
-  const CACHE_VERSION = 16; // v16: Fix salary transparency false positive + add 30-day floor score
+  const CACHE_VERSION = 17; // v17: Scope LinkedIn extraction to detail panel + community reported floor fallback
 
   async function analyzeJob(job) {
     const cached = await getCachedScore(job.id);
@@ -2012,6 +2012,25 @@
       } else if (reportCategory === 'ghost') {
         overall = Math.max(overall, 50); // Minimum MEDIUM for ghost reporters
         console.log('[GhostDetection] Floor applied: Ghost company reported');
+      } else {
+        // Any other community-reported category gets at least 50
+        overall = Math.max(overall, 50);
+        console.log('[GhostDetection] Floor applied: Community reported company');
+      }
+    } else {
+      // Fallback: check with detectReportedCompany() in case COMMUNITY_REPORTED_DB
+      // is out of sync with REPORTED_COMPANIES (which drives the badge display)
+      const fallbackReport = detectReportedCompany(job.company);
+      if (fallbackReport.detected) {
+        const cat = fallbackReport.company?.category;
+        if (cat === 'scam') {
+          overall = Math.max(overall, 80);
+        } else if (cat === 'spam') {
+          overall = Math.max(overall, 65);
+        } else {
+          overall = Math.max(overall, 50);
+        }
+        console.log('[GhostDetection] Floor applied via badge detection fallback:', cat);
       }
     }
 
@@ -2822,7 +2841,14 @@
           h.textContent.trim().startsWith('About the job')
         );
         if (aboutJob) {
-          container = document.body;
+          // Try to find the detail panel section that contains "About the job"
+          // Walk up from the heading to find a reasonable scope (avoid document.body)
+          let scope = aboutJob.parentElement;
+          while (scope && scope !== document.body && scope.getBoundingClientRect().width < 400) {
+            scope = scope.parentElement;
+          }
+          // Use the right-side panel if found, otherwise fall back to body
+          container = (scope && scope !== document.body) ? scope : document.body;
           console.log('[GhostDetection] Using content-based fallback for new LinkedIn UI');
         }
       }
@@ -2833,13 +2859,14 @@
       const currentJobIdParam = new URLSearchParams(window.location.search).get('currentJobId');
       const id = urlMatch ? urlMatch[1] : (currentJobIdParam || `${Date.now()}`);
 
-      // Try standard selectors first
-      let title = getText(LINKEDIN_SELECTORS.title);
-      let company = getText(LINKEDIN_SELECTORS.company);
-      let location = getText(LINKEDIN_SELECTORS.location);
-      let description = getText(LINKEDIN_SELECTORS.description);
+      // Scope extraction to the detail panel container to avoid picking up
+      // data from job cards in the left panel during panel transitions
+      let title = getTextFrom(container, LINKEDIN_SELECTORS.title);
+      let company = getTextFrom(container, LINKEDIN_SELECTORS.company, true);
+      let location = getTextFrom(container, LINKEDIN_SELECTORS.location);
+      let description = getTextFrom(container, LINKEDIN_SELECTORS.description);
 
-      const applicantText = getText(LINKEDIN_SELECTORS.applicants);
+      const applicantText = getTextFrom(container, LINKEDIN_SELECTORS.applicants);
       const applicantMatch = applicantText.match(/(\d+)/);
 
       // Content-based fallback extraction for new UI
@@ -2886,8 +2913,14 @@
         }
       }
 
+      // If company can't be found in the detail panel, it's still loading — return null to trigger retry
+      if (!company) {
+        console.log('[GhostDetection] LinkedIn company not found in detail panel, will retry');
+        return null;
+      }
+
       // Use enhanced posted date extraction
-      const postedDate = extractPostedDate() || getText(LINKEDIN_SELECTORS.posted) || null;
+      const postedDate = extractPostedDate() || getTextFrom(container, LINKEDIN_SELECTORS.posted) || null;
 
       const job = {
         id: `linkedin_${id}`,
@@ -3043,7 +3076,12 @@
     }
 
     const job = extractLinkedInJob();
-    if (!job || job.id === currentJob?.id) return;
+    if (!job) {
+      // Detail panel not ready (company not found) — the periodic setInterval will retry
+      console.log('[GhostDetection] LinkedIn extraction incomplete, periodic retry will handle');
+      return;
+    }
+    if (job.id === currentJob?.id) return;
 
     currentJob = job;
     lastAnalyzedJobId = job.id; // Mark this job as analyzed to prevent infinite retries
