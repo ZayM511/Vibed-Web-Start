@@ -1928,7 +1928,7 @@
   // ============================================
 
   // Cache version - increment when algorithm changes to invalidate old cached scores
-  const CACHE_VERSION = 17; // v17: Scope LinkedIn extraction to detail panel + community reported floor fallback
+  const CACHE_VERSION = 18; // v18: Community reported floor + scoped LinkedIn extraction
 
   async function analyzeJob(job) {
     const cached = await getCachedScore(job.id);
