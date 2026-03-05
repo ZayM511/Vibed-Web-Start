@@ -78,6 +78,28 @@ if (Test-Path "fonts") {
 }
 
 Write-Host "[4/4] Creating ZIP package..." -ForegroundColor Yellow
+
+# Generate build metadata
+$buildTime = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+$gitCommit = (git rev-parse --short HEAD 2>$null) ?? "unknown"
+$gitCommitFull = (git rev-parse HEAD 2>$null) ?? "unknown"
+$gitMessage = (git log -1 --pretty=%s 2>$null) ?? "unknown"
+$manifestVersion = (Get-Content "manifest.json" | ConvertFrom-Json).version
+$cacheVersion = [regex]::Match((Get-Content "src\ghost-detection-bundle.js" -Raw), 'CACHE_VERSION\s*=\s*(\d+)').Groups[1].Value
+
+$buildInfo = @{
+    buildTime = $buildTime
+    commit = $gitCommit
+    commitFull = $gitCommitFull
+    commitMessage = $gitMessage
+    manifestVersion = $manifestVersion
+    cacheVersion = $cacheVersion
+} | ConvertTo-Json
+
+$buildInfo | Out-File -FilePath "temp-build\build-info.json" -Encoding utf8
+$buildInfo | Out-File -FilePath "dist\build-info.json" -Encoding utf8
+Write-Host "  + build-info.json (commit: $gitCommit, cache: v$cacheVersion)" -ForegroundColor DarkGray
+
 Compress-Archive -Path "temp-build\*" -DestinationPath "dist\jobfiltr-extension.zip" -Force
 
 # Clean up

@@ -82,18 +82,34 @@ export function MarketingPromoTab() {
   const [detailedDesc, setDetailedDesc] = useState(DEFAULT_DETAILED_DESC);
   const [detailedDescEditing, setDetailedDescEditing] = useState(false);
 
+  // Extension build info state
+  const [buildInfo, setBuildInfo] = useState<{
+    exists: boolean;
+    sizeKB?: number;
+    buildTime?: string;
+    commit?: string;
+    commitMessage?: string;
+    manifestVersion?: string;
+    cacheVersion?: string;
+  } | null>(null);
+
   // Icon regeneration state
   const [regenerating, setRegenerating] = useState(false);
   const [regenerateStatus, setRegenerateStatus] = useState<"idle" | "success" | "error">("idle");
   const [iconTimestamp, setIconTimestamp] = useState(Date.now());
   const [iconBase64, setIconBase64] = useState<Record<number, string>>({});
 
-  // Load descriptions from localStorage on mount
+  // Load descriptions from localStorage and fetch build info on mount
   useEffect(() => {
     const savedShort = localStorage.getItem("jobfiltr-short-desc");
     const savedDetailed = localStorage.getItem("jobfiltr-detailed-desc");
     if (savedShort) setShortDesc(savedShort);
     if (savedDetailed) setDetailedDesc(savedDetailed);
+
+    fetch("/api/admin/extension-info")
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => { if (data) setBuildInfo(data); })
+      .catch(() => {});
   }, []);
 
   const handleShortDescSave = () => {
@@ -204,8 +220,46 @@ export function MarketingPromoTab() {
                 <Download className="mr-2 h-4 w-4" />
                 Download Extension ZIP
               </Button>
-              <span className="text-white/40 text-sm">jobfiltr-extension.zip</span>
+              <span className="text-white/40 text-sm">
+                jobfiltr-extension.zip
+                {buildInfo?.sizeKB ? ` (${Math.round(buildInfo.sizeKB / 1024 * 100) / 100} MB)` : ""}
+              </span>
             </div>
+
+            {/* Build info */}
+            {buildInfo?.exists && buildInfo.commit && (
+              <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-3 space-y-1.5">
+                <div className="flex items-center gap-2 text-emerald-400 text-xs font-medium uppercase tracking-wide">
+                  <Package className="h-3 w-3" />
+                  Deployed Build
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                  <div className="text-white/50">Commit:</div>
+                  <div className="font-mono text-white/80">{buildInfo.commit}</div>
+                  {buildInfo.commitMessage && (
+                    <>
+                      <div className="text-white/50">Message:</div>
+                      <div className="text-white/70 truncate">{buildInfo.commitMessage}</div>
+                    </>
+                  )}
+                  {buildInfo.buildTime && (
+                    <>
+                      <div className="text-white/50">Built:</div>
+                      <div className="text-white/70">
+                        {new Date(buildInfo.buildTime).toLocaleString()}
+                      </div>
+                    </>
+                  )}
+                  <div className="text-white/50">Version:</div>
+                  <div className="text-white/70">
+                    v{buildInfo.manifestVersion}
+                    {buildInfo.cacheVersion && (
+                      <span className="text-white/40 ml-2">(cache v{buildInfo.cacheVersion})</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Build command */}
             <div className="rounded-lg bg-white/5 p-4 space-y-2">
