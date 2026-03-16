@@ -1079,10 +1079,21 @@ async function detectCurrentSite() {
     console.log(`[detectCurrentSite] tab=${tab ? tab.url : 'null'}`);
 
     if (!tab || !tab.url) {
-      console.log('[detectCurrentSite] No valid tab found');
-      currentSite = null;
-      updateSiteStatus(null);
-      return null;
+      // FIX 4: In panel mode, retry with broader URL query if safeGetActiveJobTab failed
+      if (isPanelMode) {
+        console.log('[detectCurrentSite] Panel mode fallback: querying all job site tabs');
+        const jobTabs = await chrome.tabs.query({ url: ['*://*.linkedin.com/*', '*://*.indeed.com/*'] });
+        if (jobTabs.length > 0) {
+          tab = jobTabs[0];
+          console.log('[detectCurrentSite] Panel mode fallback found tab:', tab.url);
+        }
+      }
+      if (!tab || !tab.url) {
+        console.log('[detectCurrentSite] No valid tab found');
+        currentSite = null;
+        updateSiteStatus(null);
+        return null;
+      }
     }
 
     const url = tab.url;
@@ -1101,6 +1112,11 @@ async function detectCurrentSite() {
 
     currentSite = site;
     updateSiteStatus(site);
+
+    // FIX 2: Refresh hidden count from content script whenever site is detected
+    if (site) {
+      refreshHiddenCount();
+    }
 
     // Enable/disable filters based on site
     const filtersContainer = document.getElementById('filtersContainer');
@@ -1391,11 +1407,12 @@ async function loadFilterSettings() {
     console.log('  excludeKeywords:', JSON.stringify(filterSettings.excludeKeywords));
 
     // Apply saved settings to UI
-    document.getElementById('filterStaffing').checked = filterSettings.hideStaffing || false;
+    // FIX B2: Use ?? instead of || to preserve falsy values (empty string, 0, false)
+    document.getElementById('filterStaffing').checked = filterSettings.hideStaffing ?? false;
     // Staffing display mode (default to 'hide')
-    const staffingMode = filterSettings.staffingDisplayMode || 'hide';
+    const staffingMode = filterSettings.staffingDisplayMode ?? 'hide';
     document.getElementById('staffingDisplayMode').value = staffingMode;
-    document.getElementById('filterSponsored').checked = filterSettings.hideSponsored || false;
+    document.getElementById('filterSponsored').checked = filterSettings.hideSponsored ?? false;
 
     // Initialize sponsored stats section
     const sponsoredStats = document.getElementById('sponsoredStats');
@@ -1408,34 +1425,34 @@ async function loadFilterSettings() {
       }
     }
 
-    document.getElementById('filterEarlyApplicant').checked = filterSettings.filterEarlyApplicant || false;
+    document.getElementById('filterEarlyApplicant').checked = filterSettings.filterEarlyApplicant ?? false;
     // Request early applicant count from content script for initial preview
     if (filterSettings.filterEarlyApplicant) {
       requestEarlyApplicantCount();
     }
 
     // True Remote Accuracy settings
-    document.getElementById('filterTrueRemote').checked = filterSettings.trueRemoteAccuracy || false;
+    document.getElementById('filterTrueRemote').checked = filterSettings.trueRemoteAccuracy ?? false;
     document.getElementById('excludeHybrid').checked = filterSettings.excludeHybrid !== false; // Default true
     document.getElementById('excludeOnsite').checked = filterSettings.excludeOnsite !== false; // Default true
     document.getElementById('excludeInOffice').checked = filterSettings.excludeInOffice !== false; // Default true
     document.getElementById('excludeInPerson').checked = filterSettings.excludeInPerson !== false; // Default true
     document.getElementById('showWorkTypeUnclear').checked = filterSettings.showWorkTypeUnclear !== false; // Default true
 
-    document.getElementById('filterIncludeKeywords').checked = filterSettings.filterIncludeKeywords || false;
-    document.getElementById('filterExcludeKeywords').checked = filterSettings.filterExcludeKeywords || false;
-    document.getElementById('filterExcludeCompanies').checked = filterSettings.filterExcludeCompanies || false;
-    document.getElementById('filterSalary').checked = filterSettings.filterSalary || false;
-    document.getElementById('minSalary').value = filterSettings.minSalary || '';
-    document.getElementById('maxSalary').value = filterSettings.maxSalary || '';
-    document.getElementById('salaryPeriod').value = filterSettings.salaryPeriod || 'yearly';
-    document.getElementById('hideNoSalary').checked = filterSettings.hideNoSalary || false;
-    document.getElementById('normalizePartTime').checked = filterSettings.normalizePartTime || false;
-    document.getElementById('filterActiveRecruiting').checked = filterSettings.showActiveRecruiting || false;
-    document.getElementById('filterJobAge').checked = filterSettings.showJobAge || false;
-    document.getElementById('filterApplied').checked = filterSettings.hideApplied || false;
-    document.getElementById('filterUrgentlyHiring').checked = filterSettings.filterUrgentlyHiring || false;
-    document.getElementById('filterVisa').checked = filterSettings.visaOnly || false;
+    document.getElementById('filterIncludeKeywords').checked = filterSettings.filterIncludeKeywords ?? false;
+    document.getElementById('filterExcludeKeywords').checked = filterSettings.filterExcludeKeywords ?? false;
+    document.getElementById('filterExcludeCompanies').checked = filterSettings.filterExcludeCompanies ?? false;
+    document.getElementById('filterSalary').checked = filterSettings.filterSalary ?? false;
+    document.getElementById('minSalary').value = filterSettings.minSalary ?? '';
+    document.getElementById('maxSalary').value = filterSettings.maxSalary ?? '';
+    document.getElementById('salaryPeriod').value = filterSettings.salaryPeriod ?? 'yearly';
+    document.getElementById('hideNoSalary').checked = filterSettings.hideNoSalary ?? false;
+    document.getElementById('normalizePartTime').checked = filterSettings.normalizePartTime ?? false;
+    document.getElementById('filterActiveRecruiting').checked = filterSettings.showActiveRecruiting ?? false;
+    document.getElementById('filterJobAge').checked = filterSettings.showJobAge ?? false;
+    document.getElementById('filterApplied').checked = filterSettings.hideApplied ?? false;
+    document.getElementById('filterUrgentlyHiring').checked = filterSettings.filterUrgentlyHiring ?? false;
+    document.getElementById('filterVisa').checked = filterSettings.visaOnly ?? false;
 
     // Show/blur Urgently Hiring filter based on site (Indeed only)
     // On LinkedIn: show as blurred/unavailable instead of hiding
@@ -1477,12 +1494,12 @@ async function loadFilterSettings() {
 
     // Early Applicant Display Mode
     if (document.getElementById('earlyApplicantDisplayMode')) {
-      document.getElementById('earlyApplicantDisplayMode').value = filterSettings.earlyApplicantDisplayMode || 'hide';
+      document.getElementById('earlyApplicantDisplayMode').value = filterSettings.earlyApplicantDisplayMode ?? 'hide';
     }
 
     // Job Posting Age Filter
-    document.getElementById('filterPostingAge').checked = filterSettings.filterPostingAge || false;
-    document.getElementById('postingAgeRange').value = filterSettings.postingAgeRange || '1w';
+    document.getElementById('filterPostingAge').checked = filterSettings.filterPostingAge ?? false;
+    document.getElementById('postingAgeRange').value = filterSettings.postingAgeRange ?? '1w';
 
     // Ghost Job Analysis Settings (default enabled)
     const enableGhostAnalysis = filterSettings.enableGhostAnalysis !== false; // Default true
@@ -1491,9 +1508,9 @@ async function loadFilterSettings() {
     document.getElementById('showCommunityReportedWarnings').checked = showCommunityReportedWarnings;
 
     // Load keywords and companies
-    includeKeywords = filterSettings.includeKeywords || [];
-    excludeKeywords = filterSettings.excludeKeywords || [];
-    excludeCompanies = filterSettings.excludeCompanies || [];
+    includeKeywords = filterSettings.includeKeywords ?? [];
+    excludeKeywords = filterSettings.excludeKeywords ?? [];
+    excludeCompanies = filterSettings.excludeCompanies ?? [];
     renderKeywordChips();
 
   } catch (error) {
@@ -2005,11 +2022,32 @@ async function saveAndApplyFilters() {
 
     if (tabId && currentSite) {
       console.log('%c[JobFiltr Popup] Auto-applying filters to tab', 'background: #4CAF50; color: white; padding: 2px 6px;', tabId);
-      await chrome.tabs.sendMessage(tabId, {
-        type: 'APPLY_FILTERS',
-        settings: filterSettings,
-        site: currentSite
-      });
+      try {
+        await chrome.tabs.sendMessage(tabId, {
+          type: 'APPLY_FILTERS',
+          settings: filterSettings,
+          site: currentSite
+        });
+      } catch (sendErr) {
+        // FIX 1b: If primary tab fails, try other matching tabs
+        if (sendErr.message?.includes('Receiving end does not exist')) {
+          const urlPattern = currentSite === 'indeed' ? '*://*.indeed.com/*' : '*://*.linkedin.com/*';
+          const allTabs = await chrome.tabs.query({ url: urlPattern });
+          for (const otherTab of allTabs) {
+            if (otherTab.id === tabId) continue;
+            try {
+              await chrome.tabs.sendMessage(otherTab.id, {
+                type: 'APPLY_FILTERS',
+                settings: filterSettings,
+                site: currentSite
+              });
+              currentTabId = otherTab.id;
+              console.log('[JobFiltr Popup] Auto-apply succeeded on alternate tab:', otherTab.id);
+              break;
+            } catch (e) { continue; }
+          }
+        }
+      }
     }
   } catch (error) {
     // Silently ignore - content script may not be loaded yet
@@ -2044,6 +2082,51 @@ function updateFilterStats() {
   let activeCount = mainFilters.filter(key => filterSettings[key] === true).length;
 
   document.getElementById('activeFiltersCount').textContent = activeCount;
+}
+
+// FIX 2: Refresh hidden jobs count by querying the content script directly
+// UX U2: Also display filter attribution breakdown
+async function refreshHiddenCount() {
+  // FIX B4: Always get fresh tab ID
+  let tabId;
+  if (isPanelMode) {
+    const tab = await safeGetActiveJobTab();
+    tabId = tab?.id;
+  } else {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    tabId = tab?.id;
+  }
+  if (!tabId) return;
+  try {
+    const response = await chrome.tabs.sendMessage(tabId, { type: 'GET_PAGE_INFO' });
+    if (response && typeof response.hiddenCount === 'number') {
+      document.getElementById('hiddenJobsCount').textContent = response.hiddenCount;
+      // UX U2: Update reasons breakdown display
+      updateReasonsBreakdown(response.reasonsBreakdown);
+    }
+  } catch (e) {
+    // Content script not available - show 0 rather than stale value
+    console.log('[refreshHiddenCount] Content script not reachable:', e.message);
+    document.getElementById('hiddenJobsCount').textContent = '0';
+    updateReasonsBreakdown(null);
+  }
+}
+
+// UX U2: Display filter attribution breakdown
+function updateReasonsBreakdown(breakdown) {
+  const container = document.getElementById('reasonsBreakdown');
+  if (!container) return;
+  if (!breakdown || Object.keys(breakdown).length === 0) {
+    container.innerHTML = '';
+    container.classList.add('hidden');
+    return;
+  }
+  // Sort by count descending
+  const sorted = Object.entries(breakdown).sort((a, b) => b[1] - a[1]);
+  container.innerHTML = sorted.map(([reason, count]) =>
+    `<div class="reason-item"><span class="reason-label">${reason}</span><span class="reason-count">${count}</span></div>`
+  ).join('');
+  container.classList.remove('hidden');
 }
 
 // ===== KEYWORDS MANAGEMENT =====
@@ -2704,6 +2787,85 @@ document.getElementById('templatesToggle')?.addEventListener('click', () => {
   });
 });
 
+// ===== QUICK SETUP PRESETS (U1) =====
+const PRESETS = {
+  'entry-level': {
+    filterExcludeKeywords: true,
+    excludeKeywords: ['senior', 'lead', 'principal', 'staff', '10+ years', '8+ years', '7+ years'],
+    filterSalary: true,
+    minSalary: '40000',
+    maxSalary: '90000',
+    salaryPeriod: 'yearly',
+    enableGhostAnalysis: true,
+    showCommunityReportedWarnings: true,
+    showJobAge: true
+  },
+  'senior-tech': {
+    filterExcludeKeywords: true,
+    excludeKeywords: ['junior', 'intern', 'internship', 'entry level', 'associate', 'coordinator'],
+    filterSalary: true,
+    minSalary: '120000',
+    maxSalary: '',
+    salaryPeriod: 'yearly',
+    enableGhostAnalysis: true,
+    showCommunityReportedWarnings: true,
+    showJobAge: true
+  },
+  'remote-only': {
+    trueRemoteAccuracy: true,
+    excludeHybrid: true,
+    excludeOnsite: true,
+    excludeInOffice: true,
+    excludeInPerson: true,
+    showWorkTypeUnclear: true,
+    enableGhostAnalysis: true,
+    showCommunityReportedWarnings: true,
+    showJobAge: true
+  },
+  'anti-ghost': {
+    enableGhostAnalysis: true,
+    showCommunityReportedWarnings: true,
+    showJobAge: true,
+    filterPostingAge: true,
+    postingAgeRange: '2w',
+    hideStaffing: true,
+    staffingDisplayMode: 'flag'
+  }
+};
+
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const presetName = btn.dataset.preset;
+    const preset = PRESETS[presetName];
+    if (!preset) return;
+
+    // Merge preset into current filter settings
+    filterSettings = { ...filterSettings, ...preset };
+
+    // Handle keyword arrays — replace, don't merge
+    if (preset.excludeKeywords) {
+      excludeKeywords = [...preset.excludeKeywords];
+      filterSettings.excludeKeywords = excludeKeywords;
+    }
+    if (preset.includeKeywords) {
+      includeKeywords = [...preset.includeKeywords];
+      filterSettings.includeKeywords = includeKeywords;
+    }
+
+    // Save and reload UI
+    await saveAndApplyFilters();
+    await loadFilterSettings();
+
+    // Visual feedback
+    btn.style.background = 'var(--accent)';
+    btn.style.color = 'white';
+    setTimeout(() => {
+      btn.style.background = '';
+      btn.style.color = '';
+    }, 800);
+  });
+});
+
 // Load templates collapsed state
 async function loadTemplatesCollapsedState() {
   try {
@@ -2865,47 +3027,85 @@ document.getElementById('applyFilters').addEventListener('click', async () => {
       }, 2000);
 
       updateFilterStats();
+      // FIX 2: Refresh hidden count after filters are applied (with delay for processing)
+      setTimeout(() => refreshHiddenCount(), 1500);
     } catch (msgError) {
-      // Handle content script not available - try to inject and retry
+      // Handle content script not available - try other tabs first, then inject
       if (msgError.message?.includes('Receiving end does not exist')) {
-        console.warn('Content script not loaded, attempting to inject...');
+        console.warn('Content script not reachable on tab', tabId, '- trying other tabs for', currentSite);
 
-        // Show loading feedback
-        btn.innerHTML = '⏳ Loading scripts...';
-        btn.style.background = 'var(--primary)';
+        // FIX 1: Try sending to ALL matching tabs before injecting scripts
+        const urlPattern = currentSite === 'indeed' ? '*://*.indeed.com/*' : '*://*.linkedin.com/*';
+        let sentToOtherTab = false;
+        try {
+          const allTabs = await chrome.tabs.query({ url: urlPattern });
+          for (const otherTab of allTabs) {
+            if (otherTab.id === tabId) continue; // Skip the one that already failed
+            try {
+              const messagePayload = {
+                type: 'APPLY_FILTERS',
+                settings: filterSettings,
+                site: currentSite
+              };
+              await chrome.tabs.sendMessage(otherTab.id, messagePayload);
+              console.log('Successfully sent APPLY_FILTERS to alternate tab:', otherTab.id, otherTab.url);
+              currentTabId = otherTab.id; // Update to working tab
+              sentToOtherTab = true;
 
-        // Try to inject content scripts
-        const injected = await injectContentScripts(tabId, currentSite);
-
-        if (injected) {
-          try {
-            // Retry sending the message
-            await sendApplyFilters();
-
-            // Show success feedback
-            btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Filters Applied!';
-            btn.style.background = 'var(--success)';
-
-            setTimeout(() => {
-              btn.innerHTML = originalText;
-              btn.style.background = '';
-            }, 2000);
-
-            updateFilterStats();
-            return;
-          } catch (retryError) {
-            console.error('Failed to apply filters after injection:', retryError);
+              // Show success feedback
+              btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Filters Applied!';
+              btn.style.background = 'var(--success)';
+              setTimeout(() => { btn.innerHTML = originalText; btn.style.background = ''; }, 2000);
+              updateFilterStats();
+              // Refresh hidden count from the working tab after a short delay
+              setTimeout(() => refreshHiddenCount(), 1500);
+              return;
+            } catch (e) { continue; }
           }
+        } catch (queryError) {
+          console.warn('Failed to query tabs:', queryError);
         }
 
-        // Injection failed or retry failed
-        btn.innerHTML = '⚠ Please refresh the page';
-        btn.style.background = 'var(--error)';
+        if (!sentToOtherTab) {
+          console.warn('No other tabs responded, attempting to inject scripts...');
 
-        setTimeout(() => {
-          btn.innerHTML = originalText;
-          btn.style.background = '';
-        }, 3000);
+          // Show loading feedback
+          btn.innerHTML = '⏳ Loading scripts...';
+          btn.style.background = 'var(--primary)';
+
+          // Try to inject content scripts
+          const injected = await injectContentScripts(tabId, currentSite);
+
+          if (injected) {
+            try {
+              // Retry sending the message
+              await sendApplyFilters();
+
+              // Show success feedback
+              btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Filters Applied!';
+              btn.style.background = 'var(--success)';
+
+              setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.style.background = '';
+              }, 2000);
+
+              updateFilterStats();
+              return;
+            } catch (retryError) {
+              console.error('Failed to apply filters after injection:', retryError);
+            }
+          }
+
+          // Injection failed or retry failed
+          btn.innerHTML = '⚠ Please refresh the page';
+          btn.style.background = 'var(--error)';
+
+          setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.style.background = '';
+          }, 3000);
+        }
       } else {
         throw msgError;
       }
@@ -3014,16 +3214,15 @@ async function initializeScanner() {
 
 async function detectCurrentJob() {
   try {
-    // In panel mode, use the stored currentTabId or get from background
-    let tabId = currentTabId;
-    if (!tabId) {
-      if (isPanelMode) {
-        const tab = await safeGetActiveJobTab();
-        tabId = tab?.id;
-      } else {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        tabId = tab?.id;
-      }
+    // FIX B4: Always query fresh active tab instead of using stale currentTabId
+    // This prevents "Not on supported site" when user switches tabs
+    let tabId;
+    if (isPanelMode) {
+      const tab = await safeGetActiveJobTab();
+      tabId = tab?.id;
+    } else {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      tabId = tab?.id;
     }
 
     if (!tabId) {
@@ -3161,14 +3360,14 @@ function updateDetectedJobInfo(data, failureReason = null) {
     document.getElementById('detectedCompany').textContent = 'Not detected';
     document.getElementById('detectedLocation').textContent = 'Not detected';
 
-    // Show helpful message based on failure reason
-    let urlMessage = 'Not on a job posting page';
+    // UX U4: Show helpful message based on failure reason
+    let urlMessage = 'Navigate to a job listing on Indeed or LinkedIn';
     if (failureReason === 'no_content_script') {
-      urlMessage = 'Please refresh the page';
+      urlMessage = 'Page needs refresh — extension not loaded yet';
     } else if (failureReason === 'no_tab') {
-      urlMessage = 'Visit LinkedIn or Indeed';
+      urlMessage = 'Open Indeed or LinkedIn job listings to scan';
     } else if (failureReason === 'error') {
-      urlMessage = 'Detection error - try refreshing';
+      urlMessage = 'Detection error — try refreshing the page';
     }
     document.getElementById('detectedUrl').textContent = urlMessage;
 

@@ -7,12 +7,17 @@ $extensionPath = "C:\Users\isaia\OneDrive\Documents\2025 Docs\Claude Copy\Vibed-
 Stop-Process -Name chrome -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 3
 
-# Launch Chrome with remote debugging
+# Launch Chrome with remote debugging + stealth flags to bypass Cloudflare bot detection
 & $chromePath `
     --user-data-dir="$userDataDir" `
     --profile-directory="Default" `
     --remote-debugging-port=9222 `
     --load-extension="$extensionPath" `
+    --disable-blink-features=AutomationControlled `
+    --no-first-run `
+    --no-default-browser-check `
+    --disable-background-timer-throttling `
+    --disable-backgrounding-occluded-windows `
     --start-maximized `
     "https://www.linkedin.com/jobs/search/?keywords=software%20engineer"
 

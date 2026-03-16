@@ -132,14 +132,15 @@
 
     /**
      * Get job age in days from cached timestamp
-     * Prefers repostedAt over listedAt for reposted jobs
+     * Prefers listedAt (original listing) over repostedAt — the true age of the posting
      * @param {string} jobId - LinkedIn job ID
      * @returns {number|null} Age in days (fractional) or null
      */
     getJobAgeFromCache(jobId) {
       const data = this.getJobData(jobId);
-      // Prefer repostedAt for reposted jobs, fall back to listedAt
-      const timestamp = data?.repostedAt || data?.listedAt;
+      // Prefer listedAt (original listing date) over repostedAt (repost date)
+      // A job listed 200 days ago and reposted 1 day ago is still a 200-day-old listing
+      const timestamp = data?.listedAt || data?.repostedAt;
       if (!timestamp) return null;
 
       const listedDate = new Date(timestamp);

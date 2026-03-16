@@ -140,10 +140,10 @@ When implementing features that require API keys:
 Connect to the existing Chrome debug session at `http://localhost:9222`
 
 The debug browser is pre-configured with:
-- JobFiltr extension loaded (unpacked from C:\Users\isaia\OneDrive\Documents\2025 Docs\Claude Copy\Vibed-Web-Start-1\chrome-extension)
+- JobFiltr extension auto-loaded via `--load-extension` flag
 - LinkedIn authenticated (for beta testing)
 - Indeed authenticated (primary platform)
-- No automation detection flags
+- Stealth flags enabled (`--disable-blink-features=AutomationControlled`) to bypass Cloudflare bot detection
 
 ### How to Connect
 
@@ -166,10 +166,20 @@ Tell me to wait, then instruct the user to launch it manually:
 - Login sessions  
 - Clean automation fingerprint
 
+### Stealth Navigation (Required for Indeed)
+
+When navigating to Indeed or other Cloudflare-protected sites, ALWAYS use the `initScript` parameter on `navigate_page` to inject stealth overrides:
+
+```
+initScript: "Object.defineProperty(navigator, 'webdriver', { get: () => undefined });"
+```
+
+This prevents CDP connection fingerprinting that Cloudflare can detect even with the launch flags.
+
 ### Testing Workflow
 
 1. Connect to debug browser on port 9222
-2. Navigate to Indeed or LinkedIn job listings
+2. Navigate to Indeed or LinkedIn job listings (use `initScript` for stealth)
 3. Verify JobFiltr UI elements are injected
 4. Test filter functionality
 5. Take screenshots to verify state
@@ -186,9 +196,9 @@ Tell me to wait, then instruct the user to launch it manually:
 - ❌ Using `puppeteer.launch()` or `playwright.launch()`
 - ❌ Attempting to log into LinkedIn programmatically
 - ❌ Calling `browser.close()` (kills the debug session)
-- ✅ Using `puppeteer.connect()` or CDP connection
+- ✅ Using Chrome DevTools MCP tools (navigate_page, take_screenshot, evaluate_script, etc.)
 - ✅ Using existing authenticated sessions
-- ✅ Calling `browser.disconnect()` to detach cleanly
+- ✅ Using `initScript` parameter for stealth on Cloudflare-protected sites
 
 ## Browser Automation Rules
 

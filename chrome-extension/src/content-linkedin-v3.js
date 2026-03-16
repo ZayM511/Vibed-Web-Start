@@ -813,7 +813,7 @@ function extractJobInfo() {
         const text = span.textContent?.trim();
         if (text && /^(Reposted\s+)?\d+\s*(second|minute|hour|day|week|month)s?\s*ago$/i.test(text)) {
           const rect = span.getBoundingClientRect();
-          if (rect.width > 0 && rect.x > 500) {
+          if (rect.width > 0 && rect.x > (window.innerWidth * 0.35)) {
             postedDate = text;
             break;
           }
@@ -842,7 +842,7 @@ function extractJobInfo() {
         const text = span.textContent?.trim();
         if (text && /^[A-Z][a-z]+,\s*[A-Z]{2}$/.test(text)) {
           const rect = span.getBoundingClientRect();
-          if (rect.x > 500) { // Right panel
+          if (rect.x > (window.innerWidth * 0.35)) { // Right panel
             location = text;
             break;
           }
@@ -886,7 +886,7 @@ function isStaffingFirm(jobCard) {
   // Check the full card text for staffing company names
   const fullText = jobCard.textContent?.toLowerCase() || '';
 
-  // Only check for specific staffing company names to avoid false positives
+  // Check for specific staffing company names
   const specificStaffingNames = [
     /robert\s*half/i,
     /randstad/i,
@@ -900,10 +900,26 @@ function isStaffingFirm(jobCard) {
     /cybercoders/i,
     /kforce/i,
     /modis/i,
-    /apex\s*(group|systems)/i
+    /apex\s*(group|systems)/i,
+    /lensa/i,
+    /quik\s*hire/i,
+    /beeline/i,
+    /yoh/i,
+    /aquent/i,
+    /creative\s*circle/i
   ];
 
-  return specificStaffingNames.some(pattern => pattern.test(fullText));
+  if (specificStaffingNames.some(pattern => pattern.test(fullText))) {
+    return true;
+  }
+
+  // FIX 5: Also apply generic staffing patterns to full card text
+  // This catches companies with "Staffing", "Recruiting", "Workforce" in their name
+  if (STAFFING_PATTERNS.some(pattern => pattern.test(fullText))) {
+    return true;
+  }
+
+  return false;
 }
 
 // ===== STAFFING DISPLAY MODE FUNCTIONS =====
@@ -1288,7 +1304,23 @@ const NON_REMOTE_PATTERNS = {
 };
 
 function detectNonRemoteIndicators(jobCard, settings) {
-  const text = getJobCardText(jobCard);
+  let text = getJobCardText(jobCard);
+
+  // FIX B3: Also check detail panel containers for work arrangement keywords
+  // LinkedIn's newer UI puts location/work-type in badge-style elements
+  const detailSelectors = [
+    '.job-details-fit-level-preferences',
+    '.job-details-preferences-and-skills',
+    '.job-details-jobs-unified-top-card__job-insight',
+    '.job-details-jobs-unified-top-card__workplace-type'
+  ];
+  for (const selector of detailSelectors) {
+    const el = document.querySelector(selector);
+    if (el?.textContent?.trim()) {
+      text += ' ' + el.textContent.trim().toLowerCase();
+    }
+  }
+
   let detected = false;
 
   if (settings.excludeHybrid !== false) {
@@ -2865,10 +2897,47 @@ async function applyFilters(settings) {
     // Fetch age data for promoted cards that lack DOM-based age info
     fetchPromotedCardAges();
 
-    log(`Filtered ${getHiddenJobsCount()} jobs out of ${jobCards.length}`);
+    const hiddenCount = getHiddenJobsCount();
+    log(`Filtered ${hiddenCount} jobs out of ${jobCards.length}`);
+
+    // UX U3: Show empty state banner when all cards are hidden
+    showOrHideLinkedInEmptyState(jobCards.length, hiddenCount);
 
   } finally {
     isFilteringInProgress = false;
+  }
+}
+
+// ===== EMPTY STATE BANNER (U3) =====
+function showOrHideLinkedInEmptyState(totalCards, hiddenCount) {
+  const existingBanner = document.querySelector('.jobfiltr-empty-state');
+  if (hiddenCount > 0 && hiddenCount >= totalCards) {
+    if (!existingBanner) {
+      const banner = document.createElement('div');
+      banner.className = 'jobfiltr-empty-state';
+      banner.style.cssText = 'padding: 24px; margin: 16px 0; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid rgba(79, 172, 254, 0.3); border-radius: 12px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;';
+      banner.innerHTML = `
+        <div style="font-size: 28px; margin-bottom: 8px;">🔍</div>
+        <div style="color: #4facfe; font-size: 15px; font-weight: 600; margin-bottom: 6px;">JobFiltr hid all ${totalCards} jobs on this page</div>
+        <div style="color: #a0aec0; font-size: 13px; margin-bottom: 14px;">Try adjusting your filters to see more results</div>
+        <button class="jobfiltr-show-all-btn" style="background: rgba(79, 172, 254, 0.15); border: 1px solid rgba(79, 172, 254, 0.4); color: #4facfe; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s;">Show All Jobs</button>
+      `;
+      const jobsList = document.querySelector('.jobs-search-results-list, .scaffold-layout__list');
+      if (jobsList) {
+        jobsList.parentNode.insertBefore(banner, jobsList);
+      }
+      const showAllBtn = banner.querySelector('.jobfiltr-show-all-btn');
+      if (showAllBtn) {
+        showAllBtn.addEventListener('click', () => {
+          resetFilters();
+          banner.remove();
+        });
+        showAllBtn.addEventListener('mouseenter', () => { showAllBtn.style.background = 'rgba(79, 172, 254, 0.3)'; });
+        showAllBtn.addEventListener('mouseleave', () => { showAllBtn.style.background = 'rgba(79, 172, 254, 0.15)'; });
+      }
+    }
+  } else {
+    if (existingBanner) existingBanner.remove();
   }
 }
 
@@ -3441,9 +3510,9 @@ async function addJobAgeToDetailPanel() {
   const thisCallId = ++detailPanelBadgeCallId;
 
   try {
-    // Try to get job ID from URL
-    const urlMatch = window.location.href.match(/currentJobId=(\d+)|\/jobs\/view\/(\d+)/);
-    const jobId = urlMatch?.[1] || urlMatch?.[2];
+    // FIX B7: Expanded regex to handle more LinkedIn URL patterns
+    const urlMatch = window.location.href.match(/currentJobId=(\d+)|\/jobs\/view\/(\d+)|\/jobs\/[^/]+\/(\d+)/);
+    const jobId = urlMatch?.[1] || urlMatch?.[2] || urlMatch?.[3];
 
     // If a CURRENT badge already exists for this job, don't flash by removing/re-adding
     const existingBadge = document.querySelector('.jobfiltr-detail-age-badge');
@@ -3462,6 +3531,7 @@ async function addJobAgeToDetailPanel() {
 
     // CONTENT-BASED DETECTION FIRST: Right-panel span is the most accurate source
     // for the detail badge. Caches may contain stale/wrong values from card processing.
+    let isRepostedText = false;
     {
       const allSpans = document.querySelectorAll('span');
       for (const span of allSpans) {
@@ -3469,14 +3539,32 @@ async function addJobAgeToDetailPanel() {
         if (text && /^(Reposted\s+)?\d+\s*(second|minute|hour|day|week|month)s?\s*ago$/i.test(text)) {
           const rect = span.getBoundingClientRect();
           if (rect.width === 0) continue;
-          if (rect.x > 500) {
+          // FIX B7: Use percentage-based check for narrower viewports
+          if (rect.x > (window.innerWidth * 0.35)) {
             const parsed = parseJobAge(text);
             if (parsed !== null) {
               days = parsed;
               ageTextElement = span;
-              log(`Found age text in detail panel: "${text}" = ${days} days`);
+              isRepostedText = /^Reposted\s+/i.test(text);
+              log(`Found age text in detail panel: "${text}" = ${days} days${isRepostedText ? ' (repost)' : ''}`);
               break;
             }
+          }
+        }
+      }
+    }
+
+    // If we found a "Reposted X ago" span, the actual listing may be much older.
+    // Check the job cache for the original listedAt date and prefer it.
+    if (isRepostedText && days !== null && jobId && window.linkedInJobCache?.initialized) {
+      const jobData = window.linkedInJobCache.getJobData(jobId);
+      if (jobData?.listedAt) {
+        const listedDate = new Date(jobData.listedAt);
+        if (!isNaN(listedDate.getTime())) {
+          const originalDays = Math.floor((Date.now() - listedDate) / (1000 * 60 * 60 * 24));
+          if (originalDays > days && originalDays <= 365) {
+            log(`Repost date was ${days} days, but original listing is ${originalDays} days — using original`);
+            days = originalDays;
           }
         }
       }
@@ -3618,29 +3706,33 @@ async function addJobAgeToDetailPanel() {
       log('Could not find insertion point for detail age badge');
     }
 
-    // NEW: Propagate age to job card badge
-    // This ensures card badges appear after viewing detail panel
+    // Propagate age to job card badge — but never overwrite an OLDER (correct) age
+    // with a younger one (e.g., don't replace 200-day original with 1-day repost)
     if (jobId && days !== null) {
-      // Cache the age for future use
-      if (window.badgeStateManager?.initialized) {
-        await window.badgeStateManager.setAgeBadge(jobId, days);
+      const existingCachedAge = window.badgeStateManager?.initialized
+        ? window.badgeStateManager.getBadgeData(jobId)?.age
+        : undefined;
+
+      // Only propagate if no existing age, or new age is older (more days)
+      if (existingCachedAge === undefined || existingCachedAge === null || days >= existingCachedAge) {
+        if (window.badgeStateManager?.initialized) {
+          await window.badgeStateManager.setAgeBadge(jobId, days);
+        }
+        updateJobCardBadge(jobId, days);
+
+        if (window.linkedInJobCache?.initialized) {
+          const existingData = window.linkedInJobCache.getJobData(jobId) || {};
+          const correctedTimestamp = Date.now() - (days * 24 * 60 * 60 * 1000);
+          await window.linkedInJobCache.setJobData(jobId, {
+            ...existingData,
+            listedAt: correctedTimestamp
+          });
+        }
+
+        log(`Propagated age ${days} days from detail panel to card and cache for job ${jobId}`);
+      } else {
+        log(`Skipped propagation: existing age ${existingCachedAge} days is older than detail ${days} days`);
       }
-
-      // Update the corresponding job card badge in the list
-      updateJobCardBadge(jobId, days);
-
-      // Also update the job cache so future Layer 2 lookups get the corrected age
-      // Without this, re-rendered cards would revert to the stale listedAt value
-      if (window.linkedInJobCache?.initialized) {
-        const existingData = window.linkedInJobCache.getJobData(jobId) || {};
-        const correctedTimestamp = Date.now() - (days * 24 * 60 * 60 * 1000);
-        await window.linkedInJobCache.setJobData(jobId, {
-          ...existingData,
-          repostedAt: correctedTimestamp
-        });
-      }
-
-      log(`Propagated age ${days} days from detail panel to card and cache for job ${jobId}`);
     }
   } catch (err) {
     console.error('[JobFiltr] addJobAgeToDetailPanel error:', err);
@@ -3924,11 +4016,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // UX U2: Also return reasons breakdown for filter attribution
   if (message.type === 'GET_PAGE_INFO') {
+    const reasonsBreakdown = {};
+    document.querySelectorAll('[data-jobfiltr-reasons]').forEach(card => {
+      const reasons = card.dataset.jobfiltrReasons.split(', ');
+      reasons.forEach(r => { reasonsBreakdown[r] = (reasonsBreakdown[r] || 0) + 1; });
+    });
     sendResponse({
       page: currentPage,
       hiddenCount: getHiddenJobsCount(),
-      site: 'linkedin'
+      site: 'linkedin',
+      reasonsBreakdown
     });
     return true;
   }
@@ -4329,11 +4428,11 @@ async function init() {
 
   // Badge persistence: periodic check to re-inject detail panel age badge
   // LinkedIn's new reactive UI removes injected elements on re-render.
-  // Self-sufficient: detects age inline without relying on async addJobAgeToDetailPanel()
+  // Cache-based re-injection: restores age badge from cached data when LinkedIn React removes it
   setInterval(() => {
     if (!filterSettings.showJobAge) return;
-    const urlMatch = window.location.href.match(/currentJobId=(\d+)|\/jobs\/view\/(\d+)/);
-    const currentJobId = urlMatch?.[1] || urlMatch?.[2];
+    const urlMatch = window.location.href.match(/currentJobId=(\d+)|\/jobs\/view\/(\d+)|\/jobs\/[^/]+\/(\d+)/);
+    const currentJobId = urlMatch?.[1] || urlMatch?.[2] || urlMatch?.[3];
     if (!currentJobId) return;
 
     // Remove stale badge from a DIFFERENT job (critical for client-side navigation)
@@ -4346,28 +4445,7 @@ async function init() {
 
     let days = null;
 
-    // RIGHT-PANEL DETECTION FIRST: Most accurate source for the detail badge
-    // Caches may have stale/wrong values from card processing
-    {
-      const allSpans = document.querySelectorAll('span');
-      for (const span of allSpans) {
-        const text = span.textContent?.trim();
-        if (!text) continue;
-        if (/^(Reposted\s+)?\d+\s*(second|minute|hour|day|week|month)s?\s*ago$/i.test(text)) {
-          const rect = span.getBoundingClientRect();
-          if (rect.width === 0 || rect.x <= 500) continue;
-          const parsed = parseJobAge(text);
-          if (parsed !== null) { days = parsed; break; }
-        }
-        const lower = text.toLowerCase();
-        if (lower === 'today' || lower === 'just now' || lower === 'just posted') {
-          const rect = span.getBoundingClientRect();
-          if (rect.x > 500) { days = 0; break; }
-        }
-      }
-    }
-
-    // Cache fallback: only if no right-panel span found
+    // Use cached data from System 1 (addJobAgeToDetailPanel) which has repost-override logic
     if (days === null && lastAgeBadgeCache.jobId === currentJobId && lastAgeBadgeCache.days !== null) {
       days = lastAgeBadgeCache.days;
     }

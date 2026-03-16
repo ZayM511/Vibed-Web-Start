@@ -476,7 +476,8 @@ const staffingIndicators = [
   /apex|insight|cybercoders|kforce|modis|judge/i,
   /teksystems|tek\s*systems/i,
   /insight\s*global/i,
-  /aerotek|allegis/i
+  /aerotek|allegis/i,
+  /lensa|quik\s*hire|beeline|yoh|aquent|creative\s*circle/i
 ];
 
 function isStaffingFirm(jobCard) {
@@ -1751,7 +1752,20 @@ function matchesIncludeKeywords(jobCard, keywords) {
 function matchesExcludeKeywords(jobCard, keywords) {
   if (!keywords || keywords.length === 0) return false;
   const text = getJobCardText(jobCard);
-  return keywords.some(keyword => text.includes(keyword.toLowerCase()));
+  // FIX 3: Also check the full job title directly (card text may truncate long titles)
+  const titleEl = jobCard.querySelector('[data-testid="job-title"], .jobTitle, h2, a[data-jk]');
+  const titleText = titleEl ? titleEl.textContent.trim().toLowerCase() : '';
+  // Also check job type metadata (e.g., "Temporary, Contract" in structured data)
+  const metaEl = jobCard.querySelector('.metadata, [class*="job-type"], [class*="salaryOnly"]');
+  const metaText = metaEl ? metaEl.textContent.trim().toLowerCase() : '';
+  let fullText = text + ' ' + titleText + ' ' + metaText;
+  // FIX B1: Also check jobSalaryCache for structured job type metadata
+  // Indeed's mosaic data has jobTypes like ["Contract", "Part-time"] not always in DOM text
+  const jobKey = jobCard.dataset.jk || jobCard.querySelector('[data-jk]')?.dataset?.jk;
+  if (jobKey && jobSalaryCache[jobKey]?.jobTypes) {
+    fullText += ' ' + jobSalaryCache[jobKey].jobTypes.join(' ').toLowerCase();
+  }
+  return keywords.some(keyword => fullText.includes(keyword.toLowerCase()));
 }
 
 // ===== EXCLUDE COMPANIES =====
@@ -2784,7 +2798,8 @@ const VISA_POSITIVE_PATTERNS = [
  * @returns {boolean} - True if job offers sponsorship
  */
 function hasVisaSponsorshipText(text) {
-  if (!text || text.length < 50) return false;
+  // FIX B8: Lowered threshold from 50 to 10 to allow card-level text detection
+  if (!text || text.length < 10) return false;
 
   const normalizedText = text.toLowerCase();
 
@@ -3942,7 +3957,8 @@ function applyFilters(settings) {
       }
 
       // 7b: Filter by salary range (if min or max is set)
-      if (!shouldHide && (settings.minSalary || settings.maxSalary)) {
+      // FIX B6: Removed !shouldHide guard to accumulate all applicable reasons
+      if (settings.minSalary || settings.maxSalary) {
         const salaryData = getJobSalaryData(jobCard);
         if (salaryData) {
           const salaryMatch = checkSalaryMatch(salaryData, settings);
@@ -3989,7 +4005,8 @@ function applyFilters(settings) {
     // ULTRATHINK: Hide jobs that don't explicitly mention visa sponsorship
     // This checks both job card text AND the detail panel if available
     // Jobs without visa sponsorship mentions will be hidden when this filter is active
-    if (settings.visaOnly && !shouldHide) {
+    // FIX B6: Removed !shouldHide guard to accumulate all applicable reasons
+    if (settings.visaOnly) {
       // Check if this job card is the currently selected one (detail panel visible)
       const jobKey = jobCard.getAttribute('data-jk') ||
                      jobCard.querySelector('[data-jk]')?.getAttribute('data-jk') ||
@@ -4019,19 +4036,21 @@ function applyFilters(settings) {
           jobCard.dataset.jobfiltrVisaSponsorship = 'false';
           log(`Selected job has no visa sponsorship: ${jobKey}`);
         } else {
-          // Not the selected job - we can only check card text
-          // Card text rarely has visa info, so check if description is loaded
+          // FIX B8: Not the selected job - check card text for explicit negative signals only
+          // Don't hide cards with unknown status — most cards lack visa info in snippet
           const cardText = getJobCardText(jobCard);
-          if (cardText && cardText.length > 200) {
-            // Has substantial text but no visa mention - likely no sponsorship
+          const normalizedCardText = cardText ? cardText.toLowerCase() : '';
+          // Only hide if card explicitly says NO sponsorship
+          const hasNegativeVisa = VISA_NEGATIVE_PATTERNS.some(p => p.test(normalizedCardText));
+          if (hasNegativeVisa) {
             shouldHide = true;
-            reasons.push('No visa sponsorship mentioned');
-            log(`Job card text has no visa sponsorship: ${jobKey}`);
+            reasons.push('No visa sponsorship (explicit)');
+            jobCard.dataset.jobfiltrVisaSponsorship = 'false';
+            log(`Job card explicitly denies visa sponsorship: ${jobKey}`);
           } else {
-            // Not enough info to determine - hide to be safe (user wants visa ONLY)
-            shouldHide = true;
-            reasons.push('Visa sponsorship status unknown');
-            log(`Insufficient info to verify visa sponsorship: ${jobKey}`);
+            // Unknown status — show card, let user click to check detail panel
+            jobCard.dataset.jobfiltrVisaSponsorship = 'unknown';
+            log(`Visa status unknown for card (showing): ${jobKey}`);
           }
         }
       }
@@ -4058,11 +4077,12 @@ function applyFilters(settings) {
 
     // Apply hiding - ULTRATHINK: Only change display if state actually changes to prevent flashing
     if (shouldHide) {
+      // FIX B6: Always update reasons (even if already hidden) for complete attribution
+      jobCard.dataset.jobfiltrReasons = reasons.join(', ');
       // Only hide if not already hidden to prevent flashing
       if (jobCard.style.display !== 'none') {
         jobCard.style.display = 'none';
         jobCard.dataset.jobfiltrHidden = 'true';
-        jobCard.dataset.jobfiltrReasons = reasons.join(', ');
         log(`Hidden job card: ${reasons.join(', ')}`);
       }
       currentHiddenCount++;
@@ -4072,6 +4092,19 @@ function applyFilters(settings) {
         jobCard.style.display = '';
         delete jobCard.dataset.jobfiltrHidden;
         delete jobCard.dataset.jobfiltrReasons;
+        // FIX B5: Add age badge to newly-visible cards (was skipped when hidden)
+        if (settings.showJobAge) {
+          let jobAge = getJobAge(jobCard);
+          if (jobAge === null && jobCard.dataset.jobfiltrAge) {
+            jobAge = parseInt(jobCard.dataset.jobfiltrAge, 10);
+          }
+          if (jobAge !== null) {
+            jobCard.dataset.jobfiltrAge = jobAge.toString();
+            addJobAgeBadge(jobCard, jobAge);
+          } else {
+            addUnknownAgeBadge(jobCard);
+          }
+        }
       }
     }
 
@@ -4098,12 +4131,52 @@ function applyFilters(settings) {
     log(`Filtered ${hiddenJobsCount} jobs out of ${jobCards.length}`);
   }
 
+  // UX U3: Show empty state banner when all cards are hidden
+  showOrHideEmptyState(jobCards.length, currentHiddenCount);
+
   // Release the filter lock
   isFilteringInProgress = false;
 
   // Start periodic scanning to catch dynamically loaded jobs
   if (typeof startPeriodicScan === 'function') {
     startPeriodicScan();
+  }
+}
+
+// ===== EMPTY STATE BANNER (U3) =====
+function showOrHideEmptyState(totalCards, hiddenCount) {
+  const existingBanner = document.querySelector('.jobfiltr-empty-state');
+  if (hiddenCount > 0 && hiddenCount >= totalCards) {
+    // All cards hidden — show banner
+    if (!existingBanner) {
+      const banner = document.createElement('div');
+      banner.className = 'jobfiltr-empty-state';
+      banner.style.cssText = 'padding: 24px; margin: 16px 0; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid rgba(79, 172, 254, 0.3); border-radius: 12px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;';
+      banner.innerHTML = `
+        <div style="font-size: 28px; margin-bottom: 8px;">🔍</div>
+        <div style="color: #4facfe; font-size: 15px; font-weight: 600; margin-bottom: 6px;">JobFiltr hid all ${totalCards} jobs on this page</div>
+        <div style="color: #a0aec0; font-size: 13px; margin-bottom: 14px;">Try adjusting your filters to see more results</div>
+        <button class="jobfiltr-show-all-btn" style="background: rgba(79, 172, 254, 0.15); border: 1px solid rgba(79, 172, 254, 0.4); color: #4facfe; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s;">Show All Jobs</button>
+      `;
+      // Insert before the results list
+      const resultsList = document.querySelector('.jobsearch-ResultsList, #mosaic-jobResults');
+      if (resultsList) {
+        resultsList.parentNode.insertBefore(banner, resultsList);
+      }
+      // Add click handler for "Show All" button
+      const showAllBtn = banner.querySelector('.jobfiltr-show-all-btn');
+      if (showAllBtn) {
+        showAllBtn.addEventListener('click', () => {
+          resetFilters();
+          banner.remove();
+        });
+        showAllBtn.addEventListener('mouseenter', () => { showAllBtn.style.background = 'rgba(79, 172, 254, 0.3)'; });
+        showAllBtn.addEventListener('mouseleave', () => { showAllBtn.style.background = 'rgba(79, 172, 254, 0.15)'; });
+      }
+    }
+  } else {
+    // Some cards visible — remove banner if present
+    if (existingBanner) existingBanner.remove();
   }
 }
 
@@ -4174,6 +4247,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // FIX 8: PING handler for content script verification
   if (message.type === 'PING') {
     sendResponse({ success: true, platform: 'indeed', timestamp: Date.now() });
+    return true;
+  }
+
+  // FIX 2: GET_PAGE_INFO handler so popup can query real-time hidden count
+  // UX U2: Also return reasons breakdown for filter attribution
+  if (message.type === 'GET_PAGE_INFO') {
+    const reasonsBreakdown = {};
+    document.querySelectorAll('[data-jobfiltr-reasons]').forEach(card => {
+      const reasons = card.dataset.jobfiltrReasons.split(', ');
+      reasons.forEach(r => { reasonsBreakdown[r] = (reasonsBreakdown[r] || 0) + 1; });
+    });
+    sendResponse({
+      page: 1,
+      hiddenCount: hiddenJobsCount,
+      site: 'indeed',
+      reasonsBreakdown
+    });
     return true;
   }
 
@@ -4965,6 +5055,28 @@ loadAndApplyFilters();
 // Start periodic scan if we have active filters
 if (Object.keys(filterSettings).length > 0) {
   startPeriodicScan();
+}
+
+// FIX 6: SPA navigation detection - Indeed may update content without full page reload
+// Monitor URL changes via MutationObserver (catches pushState/replaceState navigations)
+let lastIndeedUrl = window.location.href;
+const indeedUrlObserver = new MutationObserver(() => {
+  if (window.location.href !== lastIndeedUrl) {
+    const oldUrl = lastIndeedUrl;
+    lastIndeedUrl = window.location.href;
+    log('Indeed URL changed from', oldUrl.slice(0, 80), 'to', lastIndeedUrl.slice(0, 80));
+    // Reset hidden count for fresh page
+    hiddenJobsCount = 0;
+    lastSentHiddenCount = -1;
+    // Re-apply filters after a short delay for new DOM to render
+    setTimeout(() => {
+      loadAndApplyFilters();
+      startPeriodicScan();
+    }, 1500);
+  }
+});
+if (document.body) {
+  indeedUrlObserver.observe(document.body, { childList: true, subtree: true });
 }
 
 // ===== JOB CARD CLICK LISTENER FOR BENEFITS, JOB AGE, TRUE REMOTE, AND VISA =====

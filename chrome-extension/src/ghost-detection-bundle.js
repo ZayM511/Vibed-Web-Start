@@ -302,6 +302,7 @@
 
     // L
     { name: 'Leidos', normalized: 'leidos', category: 'ghost' },
+    { name: 'LinkedIn', normalized: 'linkedin', category: 'ghost' },
     { name: 'Lumenalta', normalized: 'lumenalta', category: 'ghost' },
 
     // M
@@ -309,6 +310,8 @@
     { name: 'Mandai', normalized: 'mandai', category: 'ghost' },
     { name: 'Matterport', normalized: 'matterport', category: 'ghost' },
     { name: 'Medix', normalized: 'medix', category: 'ghost' },
+    { name: 'Meta', normalized: 'meta', aliases: ['facebook', 'fb'], category: 'ghost' },
+    { name: 'Microsoft', normalized: 'microsoft', category: 'ghost' },
     { name: 'Molina Health', normalized: 'molina health', aliases: ['molina healthcare'], category: 'ghost' },
     { name: 'Motion Recruitment', normalized: 'motion recruitment', category: 'ghost' },
     { name: 'Mozilla', normalized: 'mozilla', category: 'ghost' },
@@ -321,14 +324,17 @@
     // O
     { name: 'Oneforma', normalized: 'oneforma', category: 'ghost' },
     { name: 'OneTrust', normalized: 'onetrust', category: 'ghost' },
+    { name: 'Oracle', normalized: 'oracle', category: 'ghost' },
     { name: 'Origin', normalized: 'origin', category: 'ghost' },
     { name: 'Oscar Health', normalized: 'oscar health', category: 'ghost' },
 
     // P
     { name: 'Paradox.ai', normalized: 'paradoxai', aliases: ['paradox ai', 'paradoxai'], category: 'ghost' },
+    { name: 'PayPal', normalized: 'paypal', category: 'ghost' },
     { name: 'Polly', normalized: 'polly', category: 'ghost' },
     { name: 'Posit', normalized: 'posit', category: 'ghost' },
     { name: 'Prize Picks', normalized: 'prize picks', aliases: ['prizepicks'], category: 'ghost' },
+    { name: 'Progressive Insurance', normalized: 'progressive insurance', aliases: ['progressive'], category: 'ghost' },
     { name: 'Publicis Health', normalized: 'publicis health', category: 'ghost' },
 
     // R
@@ -337,13 +343,16 @@
     { name: 'Robert Half', normalized: 'robert half', category: 'ghost' },
 
     // S
+    { name: 'Salesforce', normalized: 'salesforce', category: 'ghost' },
     { name: 'Seetec', normalized: 'seetec', category: 'ghost' },
+    { name: 'ServiceNow', normalized: 'servicenow', category: 'ghost' },
     { name: 'Signify Health', normalized: 'signify health', category: 'ghost' },
     { name: 'SmithRX', normalized: 'smithrx', category: 'ghost' },
     { name: 'SoCal Edison', normalized: 'socal edison', aliases: ['southern california edison', 'sce'], category: 'ghost' },
     { name: 'SoCal Gas', normalized: 'socal gas', aliases: ['southern california gas', 'socalgas'], category: 'ghost' },
     { name: 'Softrams', normalized: 'softrams', category: 'ghost' },
     { name: 'Sonder', normalized: 'sonder', category: 'ghost' },
+    { name: 'Spotify', normalized: 'spotify', category: 'ghost' },
     { name: 'Stickermule', normalized: 'stickermule', aliases: ['sticker mule'], category: 'ghost' },
     { name: 'Sundays for Dogs', normalized: 'sundays for dogs', category: 'ghost' },
     { name: 'Sunnova', normalized: 'sunnova', category: 'ghost' },
@@ -355,26 +364,36 @@
     { name: 'Techie Talent', normalized: 'techie talent', category: 'scam' },
     { name: 'TekSystems', normalized: 'teksystems', aliases: ['tek systems'], category: 'ghost' },
     { name: 'Terrabis', normalized: 'terrabis', category: 'ghost' },
+    { name: 'Tesla', normalized: 'tesla', category: 'ghost' },
     { name: 'Thermo Fisher', normalized: 'thermo fisher', aliases: ['thermo fisher scientific', 'thermofisher'], category: 'ghost' },
     { name: 'Tickets.Com', normalized: 'ticketscom', aliases: ['ticketscom', 'tickets com'], category: 'ghost' },
     { name: 'Tixr', normalized: 'tixr', category: 'ghost' },
     { name: 'Toast', normalized: 'toast', category: 'ghost' },
 
     // U
+    { name: 'Uber', normalized: 'uber', category: 'ghost' },
     { name: 'UCLA Health', normalized: 'ucla health', category: 'ghost' },
     { name: 'ULine', normalized: 'uline', aliases: ['uline'], category: 'ghost' },
     { name: 'Underdog', normalized: 'underdog', category: 'ghost' },
     { name: 'Underdog Sports', normalized: 'underdog sports', category: 'ghost' },
+    { name: 'UnitedHealth Group', normalized: 'unitedhealth group', aliases: ['unitedhealth', 'optum'], category: 'ghost' },
     { name: 'Unisys', normalized: 'unisys', category: 'ghost' },
 
     // V
     { name: 'Vertafore', normalized: 'vertafore', category: 'ghost' },
+    { name: 'Visa', normalized: 'visa', category: 'ghost' },
     { name: 'VXI', normalized: 'vxi', category: 'ghost' },
 
-    // W-Y
+    // W-Z
+    { name: 'Walmart', normalized: 'walmart', category: 'ghost' },
     { name: 'Webstaurant', normalized: 'webstaurant', aliases: ['webstaurant store', 'webstaruant'], category: 'ghost' },
+    { name: 'Wells Fargo', normalized: 'wells fargo', category: 'ghost' },
+    { name: 'Workday', normalized: 'workday', category: 'ghost' },
     { name: 'Wrike', normalized: 'wrike', category: 'ghost' },
     { name: 'Yahoo News', normalized: 'yahoo news', aliases: ['yahoo'], category: 'ghost' },
+    { name: 'Zendesk', normalized: 'zendesk', category: 'ghost' },
+    { name: 'Zillow', normalized: 'zillow', category: 'ghost' },
+    { name: 'Zoom', normalized: 'zoom', aliases: ['zoom video', 'zoom communications'], category: 'ghost' },
 
     // Special cases with numbers/symbols
     { name: '1-800-Pack-Rat', normalized: '1800packrat', aliases: ['1 800 pack rat', '1800packrat', '1 800 pack a rat', '1800 pack rat'], category: 'ghost' }
@@ -1933,7 +1952,7 @@
   // ============================================
 
   // Cache version - increment when algorithm changes to invalidate old cached scores
-  const CACHE_VERSION = 19; // v19: Fix LinkedIn race conditions - debounce analysis, scope date extraction, prefix mismatch fix
+  const CACHE_VERSION = 20; // v20: Fix detail page age badge showing repost date instead of original listing date
 
   async function analyzeJob(job) {
     const cached = await getCachedScore(job.id);

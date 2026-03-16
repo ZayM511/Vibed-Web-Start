@@ -286,11 +286,11 @@
           <div class="filter-header">
             <label class="filter-label">
               <input type="checkbox" id="filterTrueRemote" class="filter-checkbox">
-              <span class="filter-title">True Remote Accuracy</span>
+              <span class="filter-title">Remote Job Filter</span>
             </label>
             <span class="filter-badge badge-hot">Top Complaint</span>
           </div>
-          <p class="filter-description">Hide jobs with hidden hybrid/onsite requirements</p>
+          <p class="filter-description">Hides jobs that say "remote" but require office time</p>
           <div class="filter-options remote-options">
             <p class="filter-options-label">Hide jobs mentioning:</p>
             <div class="remote-checkboxes">
@@ -415,7 +415,7 @@
               </label>
               <label class="filter-sub-option">
                 <input type="checkbox" id="normalizePartTime" class="filter-checkbox">
-                <span>Adjust part-time rates (20 hrs/week vs 40)</span>
+                <span>Convert part-time to annual equivalent</span>
               </label>
             </div>
             <p class="salary-conversion-hint">Hourly rates converted using 40 hrs/week × 52 weeks = 2,080 hrs/year</p>
@@ -488,7 +488,7 @@
               </svg>
               <span id="visaSponsorshipInfoText">Visa detection active</span>
             </div>
-            <p class="visa-sponsorship-hint" id="visaSponsorshipHint">Visa sponsorship info is typically found in full job descriptions. Jobs without explicit sponsorship mentions will be hidden when this filter is enabled.</p>
+            <p class="visa-sponsorship-hint" id="visaSponsorshipHint">Hides jobs that explicitly state "no sponsorship." Jobs with unknown visa status are shown — click to check the full description.</p>
           </div>
         </div>
 
@@ -534,6 +534,17 @@
           </div>
         </div>
 
+        <!-- Quick Setup Presets (U1) -->
+        <div class="presets-section" id="presetsSection">
+          <div class="presets-label">Quick Setup:</div>
+          <div class="presets-grid">
+            <button class="preset-btn" data-preset="entry-level" title="Exclude senior/lead roles, salary $40-90K">Entry Level</button>
+            <button class="preset-btn" data-preset="senior-tech" title="Exclude junior/intern, salary $120K+">Senior Tech</button>
+            <button class="preset-btn" data-preset="remote-only" title="Enable all remote sub-filters">Remote Only</button>
+            <button class="preset-btn" data-preset="anti-ghost" title="Ghost analysis + community flagged + 2 week posting age">Anti-Ghost</button>
+          </div>
+        </div>
+
         <!-- Templates List -->
         <div class="templates-list" id="templatesList">
           <div class="templates-empty" id="templatesEmpty">
@@ -567,6 +578,7 @@
           <span class="stat-label">Jobs Hidden:</span>
           <span class="stat-value" id="hiddenJobsCount">0</span>
         </div>
+        <div class="reasons-breakdown hidden" id="reasonsBreakdown" style="width: 100%; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.08);"></div>
       </div>
 
       <!-- LinkedIn Page Indicator -->
@@ -656,14 +668,14 @@
                 <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
                 <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
-              <span>Community Reported Warnings</span>
+              <span>Community Flagged Companies</span>
             </div>
             <label class="ghost-toggle">
               <input type="checkbox" id="showCommunityReportedWarnings" checked>
               <span class="ghost-toggle-slider"></span>
             </label>
           </div>
-          <p class="ghost-settings-description">Show warnings for companies reported for spam/ghost jobs by users</p>
+          <p class="ghost-settings-description">Highlights companies flagged by other users for spam or ghost job postings</p>
         </div>
 
         <!-- Loading State -->
