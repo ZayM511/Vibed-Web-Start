@@ -1,8 +1,8 @@
 {
-  "cacheVersion": "19",
-  "commit": "176204f",
-  "commitFull": "176204f17575ed1e4a82a2ed33eef2b620e8b7a2",
-  "buildTime": "2026-03-05T23:40:41Z",
+  "commitMessage": "fix: Sync community reported lists, fix age badge race condition, enhance popup UI",
+  "buildTime": "2026-03-16T10:21:46Z",
   "manifestVersion": "2.0.0",
-  "commitMessage": "fix: LinkedIn badge race conditions - debounce analysis, scope date extraction, fix prefix mismatch"
+  "cacheVersion": "20",
+  "commitFull": "cdd9cee1374c54823b8c7ebd3844e5522906c5d6",
+  "commit": "cdd9cee"
 }
