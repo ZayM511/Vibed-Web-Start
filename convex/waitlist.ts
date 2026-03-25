@@ -336,3 +336,40 @@ export const internalUpdateWaitlistStatus = internalMutation({
     return { success: true };
   },
 });
+
+/**
+ * Mark a waitlist entry as converted when user creates an account
+ * Called from dashboard when user signs in
+ */
+export const markWaitlistConverted = mutation({
+  args: {
+    email: v.string(),
+    clerkUserId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.email.toLowerCase().trim();
+
+    const entry = await ctx.db
+      .query("waitlist")
+      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+      .first();
+
+    if (!entry) {
+      return { found: false, converted: false };
+    }
+
+    // Already converted
+    if (entry.status === "converted") {
+      return { found: true, converted: false, alreadyConverted: true };
+    }
+
+    // Update to converted and store Clerk user ID
+    await ctx.db.patch(entry._id, {
+      status: "converted",
+      convertedAt: Date.now(),
+      clerkUserId: args.clerkUserId,
+    });
+
+    return { found: true, converted: true };
+  },
+});

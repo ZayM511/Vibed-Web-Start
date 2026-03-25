@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { useUser } from "@clerk/nextjs";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { HeaderNav } from "@/components/HeaderNav";
 import { ProfileSettings } from "@/components/dashboard/ProfileSettings";
@@ -83,11 +84,30 @@ function ElegantShape({
 
 export default function DashboardPage() {
   const { user } = useUser();
+  const hasCheckedWaitlist = useRef(false);
 
   // Get user subscription status (respects founder tier override)
   const subscriptionStatus = useQuery(api.subscriptions.getSubscriptionStatus);
   const isPro = subscriptionStatus?.plan === "pro" && subscriptionStatus?.isActive;
   const isFounder = FOUNDER_EMAILS.includes(user?.primaryEmailAddress?.emailAddress ?? "");
+
+  // Track waitlist conversion when user visits dashboard
+  const markWaitlistConverted = useMutation(api.waitlist.markWaitlistConverted);
+
+  useEffect(() => {
+    if (user && !hasCheckedWaitlist.current) {
+      const email = user.primaryEmailAddress?.emailAddress;
+      if (email) {
+        hasCheckedWaitlist.current = true;
+        markWaitlistConverted({
+          email,
+          clerkUserId: user.id,
+        }).catch(() => {
+          // Silently fail - user may not be on waitlist
+        });
+      }
+    }
+  }, [user, markWaitlistConverted]);
 
   return (
     <>

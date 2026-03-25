@@ -348,6 +348,8 @@ export default defineSchema({
     ),
     emailConfirmed: v.boolean(),
     createdAt: v.number(),
+    convertedAt: v.optional(v.number()), // When user created an account
+    clerkUserId: v.optional(v.string()), // Clerk user ID after account creation
   })
     .index("by_email", ["email"])
     .index("by_status", ["status"])

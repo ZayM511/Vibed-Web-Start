@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/nextjs";
@@ -26,7 +26,20 @@ const AdminIcon = ({ className }: { className?: string }) => (
 
 export function HeaderNav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [hasEarlyAccess, setHasEarlyAccess] = useState(false);
   const { isSignedIn, user } = useUser();
+
+  // Check for early access URL parameter (for waitlist users)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("early") === "1") {
+      setHasEarlyAccess(true);
+      // Store in sessionStorage so it persists during the session
+      sessionStorage.setItem("jobfiltr_early_access", "true");
+    } else if (sessionStorage.getItem("jobfiltr_early_access") === "true") {
+      setHasEarlyAccess(true);
+    }
+  }, []);
 
   // Check if user is a founder/admin
   const userEmail = user?.primaryEmailAddress?.emailAddress;
@@ -52,11 +65,15 @@ export function HeaderNav() {
     },
   ];
 
+  // Filter nav items - show Dashboard for signed-in users even in waitlist mode
   const mainNavItems = allNavItems.filter(
     (item) =>
       (!item.requiresAuth || isSignedIn) &&
-      !(WAITLIST_MODE && item.hideInWaitlist)
+      !(WAITLIST_MODE && item.hideInWaitlist && !isSignedIn)
   );
+
+  // Show auth buttons if: not in waitlist mode, OR user has early access, OR user is signed in
+  const showAuthButtons = !WAITLIST_MODE || hasEarlyAccess || isSignedIn;
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-background/80 backdrop-blur-xl">
@@ -142,8 +159,8 @@ export function HeaderNav() {
               </Link>
             )}
 
-            {/* Auth - hidden in waitlist mode for non-signed-in users */}
-            {(!WAITLIST_MODE || isSignedIn) && (
+            {/* Auth - visible for early access users or signed-in users */}
+            {showAuthButtons && (
               <div className="flex items-center gap-3 ml-4 pl-4 border-l border-white/10">
                 {isSignedIn ? (
                   <UserButton
@@ -311,8 +328,8 @@ export function HeaderNav() {
                   </Link>
                 )}
 
-                {/* Auth - hidden in waitlist mode for non-signed-in users */}
-                {(!WAITLIST_MODE || isSignedIn) && (
+                {/* Auth - visible for early access users or signed-in users */}
+                {showAuthButtons && (
                   <div className="pt-4 border-t border-white/10">
                     {isSignedIn ? (
                       <div className="flex items-center gap-3 p-3">
