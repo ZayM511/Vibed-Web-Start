@@ -15,7 +15,9 @@
   "options_page": "settings.html",
   "host_permissions": [
     "https://*.linkedin.com/*",
-    "https://*.indeed.com/*"
+    "https://*.indeed.com/*",
+    "https://*.jobfiltr.app/*",
+    "http://localhost:3000/*"
   ],
   "action": {
     "default_popup": "popup-v2.html",
@@ -48,6 +50,11 @@
       "js": ["src/storage-utils.js", "src/content-indeed-v3.js", "src/ghost-detection-bundle.js"],
       "css": ["styles/content.css"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.jobfiltr.app/*", "http://localhost:3000/*"],
+      "js": ["src/content-jobfiltr-app.js"],
+      "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [

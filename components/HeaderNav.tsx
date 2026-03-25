@@ -29,12 +29,18 @@ export function HeaderNav() {
   const [hasEarlyAccess, setHasEarlyAccess] = useState(false);
   const { isSignedIn, user } = useUser();
 
-  // Check for early access URL parameter (for waitlist users)
+  // Check for extension installation or early access URL parameter
   useEffect(() => {
+    // Check if JobFiltr extension is installed (extension sets this flag)
+    if (localStorage.getItem("jobfiltr_extension_installed") === "true") {
+      setHasEarlyAccess(true);
+      return;
+    }
+
+    // Fallback: check URL parameter (for direct links)
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get("early") === "1") {
       setHasEarlyAccess(true);
-      // Store in sessionStorage so it persists during the session
       sessionStorage.setItem("jobfiltr_early_access", "true");
     } else if (sessionStorage.getItem("jobfiltr_early_access") === "true") {
       setHasEarlyAccess(true);

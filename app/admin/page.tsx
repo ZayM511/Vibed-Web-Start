@@ -138,8 +138,6 @@ export default function AdminPage() {
 - Community reported companies
 - Keyword filtering for job titles
 
-**Create your account** to track your job search stats and access premium features: **[Sign Up for JobFiltr](https://www.jobfiltr.app?early=1)**
-
 **We'd love your feedback!** As an early access user, your input helps shape JobFiltr. Reach out to us on [jobfiltr.app/contact](https://www.jobfiltr.app/contact) or at [support@jobfiltr.app](mailto:support@jobfiltr.app) with any thoughts, bugs, or feature requests.
 
 Happy job hunting!`);
