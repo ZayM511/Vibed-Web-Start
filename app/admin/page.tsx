@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,7 +22,9 @@ import {
   ShieldX,
   Eye,
   Megaphone,
+  Send,
 } from "lucide-react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { AnimatedStatCard } from "@/components/admin/AnimatedStatCard";
@@ -98,6 +100,10 @@ export default function AdminPage() {
   const addEntry = useMutation(api.waitlist.adminAddEntry);
   const removeEntry = useMutation(api.waitlist.adminRemoveEntry);
 
+  // Waitlist actions
+  const sendEarlyAccessEmails = useAction(api.waitlistEmail.sendEarlyAccessEmails);
+  const eligibleForEarlyAccess = useQuery(api.waitlist.getEligibleForEarlyAccess);
+
   // Add entry form state
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addForm, setAddForm] = useState({
@@ -113,6 +119,10 @@ export default function AdminPage() {
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<{ id: Id<"waitlist">; email: string } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Send early access email state
+  const [sendEmailDialogOpen, setSendEmailDialogOpen] = useState(false);
+  const [sendEmailLoading, setSendEmailLoading] = useState(false);
 
   // Report removal
   const removeReport = useMutation(api.feedback.adminRemoveEntry);
@@ -702,6 +712,86 @@ export default function AdminPage() {
                           <Download className="mr-2 h-4 w-4" />
                           Export CSV
                         </Button>
+                        <Dialog open={sendEmailDialogOpen} onOpenChange={setSendEmailDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button
+                              disabled={!eligibleForEarlyAccess || eligibleForEarlyAccess.length === 0}
+                              className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white"
+                            >
+                              <Send className="mr-2 h-4 w-4" />
+                              Send Early Access Email
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="bg-gray-900 border-white/10">
+                            <DialogHeader>
+                              <DialogTitle className="text-white">Send Early Access Email</DialogTitle>
+                              <DialogDescription className="text-white/60">
+                                Send the JobFiltr early access email to all eligible waitlist members.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4">
+                              <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-lg p-4 mb-4">
+                                <p className="text-white text-sm">
+                                  <strong className="text-indigo-400">{eligibleForEarlyAccess?.length || 0}</strong> people will receive this email
+                                </p>
+                                <p className="text-white/60 text-xs mt-1">
+                                  (Waitlist entries with &quot;pending&quot; or &quot;confirmed&quot; status)
+                                </p>
+                              </div>
+                              <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                                <p className="text-white/80 text-sm mb-2"><strong>Email includes:</strong></p>
+                                <ul className="text-white/60 text-xs space-y-1">
+                                  <li>• Personalized greeting</li>
+                                  <li>• Install link to Chrome Web Store</li>
+                                  <li>• Feature highlights</li>
+                                  <li>• Feedback request</li>
+                                </ul>
+                              </div>
+                            </div>
+                            <DialogFooter>
+                              <Button
+                                variant="ghost"
+                                onClick={() => setSendEmailDialogOpen(false)}
+                                className="text-white/60 hover:text-white hover:bg-white/10"
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                onClick={async () => {
+                                  setSendEmailLoading(true);
+                                  try {
+                                    const result = await sendEarlyAccessEmails({});
+                                    setSendEmailDialogOpen(false);
+                                    toast.success(
+                                      `Early access emails sent! ${result.sent} sent, ${result.failed} failed.`
+                                    );
+                                  } catch (error) {
+                                    console.error("Failed to send emails:", error);
+                                    toast.error(
+                                      error instanceof Error ? error.message : "Failed to send emails"
+                                    );
+                                  } finally {
+                                    setSendEmailLoading(false);
+                                  }
+                                }}
+                                disabled={sendEmailLoading || !eligibleForEarlyAccess?.length}
+                                className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white"
+                              >
+                                {sendEmailLoading ? (
+                                  <>
+                                    <div className="h-4 w-4 mr-2 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                    Sending...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Send className="mr-2 h-4 w-4" />
+                                    Send to {eligibleForEarlyAccess?.length || 0} People
+                                  </>
+                                )}
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
                       </div>
                     </CardHeader>
                     <CardContent>

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query, action } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 
 /**
  * Check if an email is already on the waitlist
@@ -259,6 +259,70 @@ export const adminRemoveEntry = mutation({
   },
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id);
+    return { success: true };
+  },
+});
+
+/**
+ * Update waitlist entry status (internal use)
+ */
+export const updateWaitlistStatus = mutation({
+  args: {
+    id: v.id("waitlist"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("confirmed"),
+      v.literal("invited"),
+      v.literal("converted")
+    ),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, { status: args.status });
+    return { success: true };
+  },
+});
+
+/**
+ * Get waitlist entries eligible for early access email (pending or confirmed status)
+ */
+export const getEligibleForEarlyAccess = query({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("waitlist").collect();
+    return all.filter(
+      (entry) => entry.status === "pending" || entry.status === "confirmed"
+    );
+  },
+});
+
+/**
+ * Internal: Get waitlist entries eligible for early access email
+ */
+export const internalGetEligibleForEarlyAccess = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("waitlist").collect();
+    return all.filter(
+      (entry) => entry.status === "pending" || entry.status === "confirmed"
+    );
+  },
+});
+
+/**
+ * Internal: Update waitlist entry status
+ */
+export const internalUpdateWaitlistStatus = internalMutation({
+  args: {
+    id: v.id("waitlist"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("confirmed"),
+      v.literal("invited"),
+      v.literal("converted")
+    ),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, { status: args.status });
     return { success: true };
   },
 });
