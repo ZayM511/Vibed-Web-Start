@@ -14,12 +14,29 @@ const FOUNDER_EMAILS = [
 ];
 
 /**
+ * Lifetime Pro accounts - get Pro access without admin privileges
+ */
+const LIFETIME_PRO_EMAILS = [
+  "malonep246@aol.com",
+  "peteywb123@gmail.com",
+];
+
+/**
  * Check if a user identity email matches a founder email
  */
 function isFounderEmail(identity: { email?: string; tokenIdentifier?: string }): boolean {
   const email = identity.email?.toLowerCase();
   if (!email) return false;
   return FOUNDER_EMAILS.includes(email);
+}
+
+/**
+ * Check if a user has lifetime Pro access (no admin privileges)
+ */
+function isLifetimeProEmail(identity: { email?: string; tokenIdentifier?: string }): boolean {
+  const email = identity.email?.toLowerCase();
+  if (!email) return false;
+  return LIFETIME_PRO_EMAILS.includes(email);
 }
 
 /**
@@ -120,6 +137,19 @@ export const getSubscriptionStatus = query({
         cancelAtPeriodEnd: false,
         isAdmin: true,
         isFounder: true,
+      };
+    }
+
+    // Lifetime Pro users — get Pro without admin access
+    if (isLifetimeProEmail(identity)) {
+      return {
+        isActive: true,
+        plan: "pro" as const,
+        currentPeriodEnd: null, // Lifetime - no expiration
+        status: "active" as const,
+        cancelAtPeriodEnd: false,
+        isAdmin: false,
+        isFounder: false,
       };
     }
 
@@ -459,6 +489,17 @@ export const getScanUsage = query({
       };
     }
 
+    // Lifetime Pro users — unlimited scans, no admin
+    if (isLifetimeProEmail(identity)) {
+      return {
+        totalScans,
+        scansRemaining: -1,
+        isLimitReached: false,
+        isPro: true,
+        isAdmin: false,
+      };
+    }
+
     // Check subscription status
     const subscription = await ctx.db
       .query("subscriptions")
@@ -619,6 +660,16 @@ export const getSubscriptionStatusByEmail = internalQuery({
         plan: "pro" as const,
         status: "active",
         isFounder: true,
+      };
+    }
+
+    // Check if lifetime Pro user
+    if (LIFETIME_PRO_EMAILS.includes(email)) {
+      return {
+        isActive: true,
+        plan: "pro" as const,
+        status: "active",
+        isFounder: false,
       };
     }
 
