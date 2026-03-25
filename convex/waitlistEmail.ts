@@ -271,7 +271,7 @@ export const getEarlyAccessEmailTemplate = action({
       subject: "You're In! JobFiltr Early Access is Here",
       body: `Thank you for being one of our earliest supporters! As promised, you're getting exclusive early access to the JobFiltr Chrome extension before everyone else.
 
-**Install JobFiltr here:** https://chromewebstore.google.com/detail/jobfiltr-job-search-power/jddcgobdokioeapnopadlgfhcancmjfl
+**[Install JobFiltr Here](https://chromewebstore.google.com/detail/jobfiltr-job-search-power/jddcgobdokioeapnopadlgfhcancmjfl?utm_source=item-share-cb)**
 
 **What you get with early access:**
 - Filter out staffing agencies & recruiters
@@ -279,7 +279,7 @@ export const getEarlyAccessEmailTemplate = action({
 - Community reported companies
 - Keyword filtering for job titles
 
-**We'd love your feedback!** As an early access user, your input helps shape JobFiltr. Reply to this email or reach out to us at support@jobfiltr.app with any thoughts, bugs, or feature requests.
+**We'd love your feedback!** As an early access user, your input helps shape JobFiltr. Reach out to us on [jobfiltr.app/contact](https://www.jobfiltr.app/contact) or at [support@jobfiltr.app](mailto:support@jobfiltr.app) with any thoughts, bugs, or feature requests.
 
 Happy job hunting!`,
     };
@@ -332,6 +332,9 @@ export const sendEarlyAccessEmails = action({
       // Convert markdown-style body to HTML paragraphs
       const bodyContent = args.customBody
         ? args.customBody
+            // Convert markdown links [text](url) to HTML links
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #10b981; text-decoration: underline;">$1</a>')
+            // Convert **bold** to <strong>
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .split('\n\n')
             .map(p => p.startsWith('- ')
@@ -409,7 +412,11 @@ export const sendEarlyAccessEmails = action({
 
       // Plain text version
       const plainBody = args.customBody
-        ? args.customBody.replace(/\*\*(.*?)\*\*/g, '$1')
+        ? args.customBody
+            // Convert markdown links to plain text: [text](url) -> text (url)
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+            // Remove bold markers
+            .replace(/\*\*(.*?)\*\*/g, '$1')
         : `Thank you for being one of our earliest supporters! As promised, you're getting exclusive early access to the JobFiltr Chrome extension before everyone else.
 
 What you get with early access:
@@ -532,6 +539,9 @@ export const sendCustomEmail = action({
 
       // Convert markdown-style body to HTML
       const bodyHtml = args.body
+        // Convert markdown links [text](url) to HTML links
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #10b981; text-decoration: underline;">$1</a>')
+        // Convert **bold** to <strong>
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .split('\n\n')
         .map(p => {
@@ -595,7 +605,11 @@ export const sendCustomEmail = action({
         </html>
       `;
 
-      const plainBody = args.body.replace(/\*\*(.*?)\*\*/g, '$1');
+      const plainBody = args.body
+        // Convert markdown links to plain text: [text](url) -> text (url)
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+        // Remove bold markers
+        .replace(/\*\*(.*?)\*\*/g, '$1');
       const emailText = `
 Hey ${displayName}!
 

@@ -129,7 +129,7 @@ export default function AdminPage() {
   const [emailSubject, setEmailSubject] = useState("You're In! JobFiltr Early Access is Here");
   const [emailBody, setEmailBody] = useState(`Thank you for being one of our earliest supporters! As promised, you're getting exclusive early access to the JobFiltr Chrome extension before everyone else.
 
-**Install JobFiltr here:** https://chromewebstore.google.com/detail/jobfiltr-job-search-power/jddcgobdokioeapnopadlgfhcancmjfl
+**[Install JobFiltr Here](https://chromewebstore.google.com/detail/jobfiltr-job-search-power/jddcgobdokioeapnopadlgfhcancmjfl?utm_source=item-share-cb)**
 
 **What you get with early access:**
 - Filter out staffing agencies & recruiters
@@ -137,7 +137,7 @@ export default function AdminPage() {
 - Community reported companies
 - Keyword filtering for job titles
 
-**We'd love your feedback!** As an early access user, your input helps shape JobFiltr. Reply to this email or reach out to us at support@jobfiltr.app with any thoughts, bugs, or feature requests.
+**We'd love your feedback!** As an early access user, your input helps shape JobFiltr. Reach out to us on [jobfiltr.app/contact](https://www.jobfiltr.app/contact) or at [support@jobfiltr.app](mailto:support@jobfiltr.app) with any thoughts, bugs, or feature requests.
 
 Happy job hunting!`);
   const [showPreview, setShowPreview] = useState(false);
