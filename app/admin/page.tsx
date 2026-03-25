@@ -23,7 +23,14 @@ import {
   Eye,
   Megaphone,
   Send,
+  Star,
 } from "lucide-react";
+
+// Lifetime Pro accounts (for display indicator in waitlist)
+const LIFETIME_PRO_EMAILS = [
+  "malonep246@aol.com",
+  "peteywb123@gmail.com",
+];
 import { toast } from "sonner";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -1123,12 +1130,17 @@ Happy job hunting!`);
                                     {waitlistEntries.length - index}
                                   </td>
                                   <td className="py-3 px-4">
-                                    <a
-                                      href={`mailto:${entry.email}`}
-                                      className="text-green-400 hover:text-green-300 transition-colors text-sm"
-                                    >
-                                      {entry.email}
-                                    </a>
+                                    <div className="flex items-center gap-1.5">
+                                      <a
+                                        href={`mailto:${entry.email}`}
+                                        className="text-green-400 hover:text-green-300 transition-colors text-sm"
+                                      >
+                                        {entry.email}
+                                      </a>
+                                      {LIFETIME_PRO_EMAILS.includes(entry.email.toLowerCase()) && (
+                                        <Star className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" title="Lifetime Pro" />
+                                      )}
+                                    </div>
                                   </td>
                                   <td className="py-3 px-4 text-white text-sm">
                                     {entry.name || <span className="text-white/40">—</span>}
