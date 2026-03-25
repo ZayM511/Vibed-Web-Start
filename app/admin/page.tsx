@@ -35,6 +35,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -102,6 +104,7 @@ export default function AdminPage() {
 
   // Waitlist actions
   const sendEarlyAccessEmails = useAction(api.waitlistEmail.sendEarlyAccessEmails);
+  const sendCustomEmail = useAction(api.waitlistEmail.sendCustomEmail);
   const eligibleForEarlyAccess = useQuery(api.waitlist.getEligibleForEarlyAccess);
 
   // Add entry form state
@@ -123,6 +126,28 @@ export default function AdminPage() {
   // Send early access email state
   const [sendEmailDialogOpen, setSendEmailDialogOpen] = useState(false);
   const [sendEmailLoading, setSendEmailLoading] = useState(false);
+  const [emailSubject, setEmailSubject] = useState("You're In! JobFiltr Early Access is Here");
+  const [emailBody, setEmailBody] = useState(`Thank you for being one of our earliest supporters! As promised, you're getting exclusive early access to the JobFiltr Chrome extension before everyone else.
+
+**What you get with early access:**
+- Filter out staffing agencies & recruiters
+- Ghost job detection & analysis
+- Community reported companies
+- Keyword filtering for job titles
+- Works on Indeed (LinkedIn coming soon)
+
+**We'd love your feedback!** As an early access user, your input helps shape JobFiltr. Reply to this email or reach out to us at support@jobfiltr.app with any thoughts, bugs, or feature requests.
+
+Happy job hunting!`);
+  const [showPreview, setShowPreview] = useState(false);
+
+  // Custom email state
+  const [customEmailDialogOpen, setCustomEmailDialogOpen] = useState(false);
+  const [customEmailLoading, setCustomEmailLoading] = useState(false);
+  const [customEmailSubject, setCustomEmailSubject] = useState("");
+  const [customEmailBody, setCustomEmailBody] = useState("");
+  const [customEmailIncludeButton, setCustomEmailIncludeButton] = useState(true);
+  const [customEmailShowPreview, setCustomEmailShowPreview] = useState(false);
 
   // Report removal
   const removeReport = useMutation(api.feedback.adminRemoveEntry);
@@ -719,34 +744,72 @@ export default function AdminPage() {
                               className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white"
                             >
                               <Send className="mr-2 h-4 w-4" />
-                              Send Early Access Email
+                              Early Access Email
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="bg-gray-900 border-white/10">
+                          <DialogContent className="bg-gray-900 border-white/10 max-w-2xl max-h-[90vh] overflow-y-auto">
                             <DialogHeader>
                               <DialogTitle className="text-white">Send Early Access Email</DialogTitle>
                               <DialogDescription className="text-white/60">
-                                Send the JobFiltr early access email to all eligible waitlist members.
+                                Edit and preview the email before sending to {eligibleForEarlyAccess?.length || 0} eligible waitlist members.
                               </DialogDescription>
                             </DialogHeader>
-                            <div className="py-4">
-                              <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-lg p-4 mb-4">
+                            <div className="py-4 space-y-4">
+                              <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-lg p-3">
                                 <p className="text-white text-sm">
-                                  <strong className="text-indigo-400">{eligibleForEarlyAccess?.length || 0}</strong> people will receive this email
-                                </p>
-                                <p className="text-white/60 text-xs mt-1">
-                                  (Waitlist entries with &quot;pending&quot; or &quot;confirmed&quot; status)
+                                  <strong className="text-indigo-400">{eligibleForEarlyAccess?.length || 0}</strong> people will receive this email (pending/confirmed status)
                                 </p>
                               </div>
-                              <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-                                <p className="text-white/80 text-sm mb-2"><strong>Email includes:</strong></p>
-                                <ul className="text-white/60 text-xs space-y-1">
-                                  <li>• Personalized greeting</li>
-                                  <li>• Install link to Chrome Web Store</li>
-                                  <li>• Feature highlights</li>
-                                  <li>• Feedback request</li>
-                                </ul>
+
+                              <div className="flex items-center justify-between">
+                                <Label className="text-white">Email Content</Label>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setShowPreview(!showPreview)}
+                                  className="text-white/60 hover:text-white"
+                                >
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  {showPreview ? "Edit" : "Preview"}
+                                </Button>
                               </div>
+
+                              {showPreview ? (
+                                <div className="bg-white rounded-lg p-4 max-h-80 overflow-y-auto">
+                                  <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white p-4 rounded-t-lg text-center -mx-4 -mt-4 mb-4">
+                                    <h2 className="text-xl font-bold">{emailSubject}</h2>
+                                    <p className="text-sm opacity-90">JobFiltr Chrome Extension</p>
+                                  </div>
+                                  <p className="text-gray-700 mb-4">Hey [Name]!</p>
+                                  <div className="text-gray-700 whitespace-pre-wrap text-sm">{emailBody}</div>
+                                  <div className="text-center my-4">
+                                    <span className="inline-block bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-2 rounded-lg font-semibold">
+                                      Install JobFiltr Now
+                                    </span>
+                                  </div>
+                                  <p className="text-gray-500 text-xs text-center mt-4">Best regards, The JobFiltr Team</p>
+                                </div>
+                              ) : (
+                                <div className="space-y-4">
+                                  <div>
+                                    <Label className="text-white/80 text-sm">Subject Line</Label>
+                                    <Input
+                                      value={emailSubject}
+                                      onChange={(e) => setEmailSubject(e.target.value)}
+                                      className="bg-white/5 border-white/10 text-white mt-1"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-white/80 text-sm">Email Body</Label>
+                                    <p className="text-white/40 text-xs mb-1">Use **text** for bold. Separate paragraphs with blank lines. Use - for bullet points.</p>
+                                    <Textarea
+                                      value={emailBody}
+                                      onChange={(e) => setEmailBody(e.target.value)}
+                                      className="bg-white/5 border-white/10 text-white mt-1 min-h-[200px] font-mono text-sm"
+                                    />
+                                  </div>
+                                </div>
+                              )}
                             </div>
                             <DialogFooter>
                               <Button
@@ -760,7 +823,10 @@ export default function AdminPage() {
                                 onClick={async () => {
                                   setSendEmailLoading(true);
                                   try {
-                                    const result = await sendEarlyAccessEmails({});
+                                    const result = await sendEarlyAccessEmails({
+                                      customSubject: emailSubject,
+                                      customBody: emailBody,
+                                    });
                                     setSendEmailDialogOpen(false);
                                     toast.success(
                                       `Early access emails sent! ${result.sent} sent, ${result.failed} failed.`
@@ -786,6 +852,150 @@ export default function AdminPage() {
                                   <>
                                     <Send className="mr-2 h-4 w-4" />
                                     Send to {eligibleForEarlyAccess?.length || 0} People
+                                  </>
+                                )}
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+
+                        {/* Custom Email Dialog */}
+                        <Dialog open={customEmailDialogOpen} onOpenChange={setCustomEmailDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button
+                              disabled={!waitlistEntries || waitlistEntries.length === 0}
+                              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+                            >
+                              <Mail className="mr-2 h-4 w-4" />
+                              Custom Email
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="bg-gray-900 border-white/10 max-w-2xl max-h-[90vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle className="text-white">Send Custom Email</DialogTitle>
+                              <DialogDescription className="text-white/60">
+                                Compose and send a custom email to waitlist members.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4 space-y-4">
+                              <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
+                                <p className="text-white text-sm">
+                                  <strong className="text-purple-400">{waitlistEntries?.length || 0}</strong> total waitlist members
+                                </p>
+                              </div>
+
+                              <div className="flex items-center justify-between">
+                                <Label className="text-white">Email Content</Label>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setCustomEmailShowPreview(!customEmailShowPreview)}
+                                  className="text-white/60 hover:text-white"
+                                >
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  {customEmailShowPreview ? "Edit" : "Preview"}
+                                </Button>
+                              </div>
+
+                              {customEmailShowPreview ? (
+                                <div className="bg-white rounded-lg p-4 max-h-80 overflow-y-auto">
+                                  <div className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white p-4 rounded-t-lg text-center -mx-4 -mt-4 mb-4">
+                                    <h2 className="text-xl font-bold">{customEmailSubject || "(No subject)"}</h2>
+                                    <p className="text-sm opacity-90">From the JobFiltr Team</p>
+                                  </div>
+                                  <p className="text-gray-700 mb-4">Hey [Name]!</p>
+                                  <div className="text-gray-700 whitespace-pre-wrap text-sm">{customEmailBody || "(No content)"}</div>
+                                  {customEmailIncludeButton && (
+                                    <div className="text-center my-4">
+                                      <span className="inline-block bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-2 rounded-lg font-semibold">
+                                        Install JobFiltr Now
+                                      </span>
+                                    </div>
+                                  )}
+                                  <p className="text-gray-500 text-xs text-center mt-4">Best regards, The JobFiltr Team</p>
+                                </div>
+                              ) : (
+                                <div className="space-y-4">
+                                  <div>
+                                    <Label className="text-white/80 text-sm">Subject Line</Label>
+                                    <Input
+                                      value={customEmailSubject}
+                                      onChange={(e) => setCustomEmailSubject(e.target.value)}
+                                      placeholder="Enter email subject..."
+                                      className="bg-white/5 border-white/10 text-white mt-1"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-white/80 text-sm">Email Body</Label>
+                                    <p className="text-white/40 text-xs mb-1">Use **text** for bold. Separate paragraphs with blank lines. Use - for bullet points.</p>
+                                    <Textarea
+                                      value={customEmailBody}
+                                      onChange={(e) => setCustomEmailBody(e.target.value)}
+                                      placeholder="Write your email content..."
+                                      className="bg-white/5 border-white/10 text-white mt-1 min-h-[200px] font-mono text-sm"
+                                    />
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id="includeButton"
+                                      checked={customEmailIncludeButton}
+                                      onCheckedChange={(checked) => setCustomEmailIncludeButton(checked === true)}
+                                    />
+                                    <Label htmlFor="includeButton" className="text-white/80 text-sm cursor-pointer">
+                                      Include &quot;Install JobFiltr Now&quot; button
+                                    </Label>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <DialogFooter>
+                              <Button
+                                variant="ghost"
+                                onClick={() => setCustomEmailDialogOpen(false)}
+                                className="text-white/60 hover:text-white hover:bg-white/10"
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                onClick={async () => {
+                                  if (!customEmailSubject.trim() || !customEmailBody.trim()) {
+                                    toast.error("Please enter both subject and body");
+                                    return;
+                                  }
+                                  setCustomEmailLoading(true);
+                                  try {
+                                    const result = await sendCustomEmail({
+                                      subject: customEmailSubject,
+                                      body: customEmailBody,
+                                      includeInstallButton: customEmailIncludeButton,
+                                    });
+                                    setCustomEmailDialogOpen(false);
+                                    setCustomEmailSubject("");
+                                    setCustomEmailBody("");
+                                    toast.success(
+                                      `Custom emails sent! ${result.sent} sent, ${result.failed} failed.`
+                                    );
+                                  } catch (error) {
+                                    console.error("Failed to send emails:", error);
+                                    toast.error(
+                                      error instanceof Error ? error.message : "Failed to send emails"
+                                    );
+                                  } finally {
+                                    setCustomEmailLoading(false);
+                                  }
+                                }}
+                                disabled={customEmailLoading || !waitlistEntries?.length}
+                                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+                              >
+                                {customEmailLoading ? (
+                                  <>
+                                    <div className="h-4 w-4 mr-2 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                    Sending...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Send className="mr-2 h-4 w-4" />
+                                    Send Email
                                   </>
                                 )}
                               </Button>

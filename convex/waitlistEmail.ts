@@ -259,12 +259,42 @@ This is an automated notification from JobFiltr.
 });
 
 /**
+ * Get the default early access email template
+ */
+export const getEarlyAccessEmailTemplate = action({
+  args: {},
+  handler: async (): Promise<{
+    subject: string;
+    body: string;
+  }> => {
+    return {
+      subject: "You're In! JobFiltr Early Access is Here",
+      body: `Thank you for being one of our earliest supporters! As promised, you're getting exclusive early access to the JobFiltr Chrome extension before everyone else.
+
+**What you get with early access:**
+- Filter out staffing agencies & recruiters
+- Ghost job detection & analysis
+- Community reported companies
+- Keyword filtering for job titles
+- Works on Indeed (LinkedIn coming soon)
+
+**We'd love your feedback!** As an early access user, your input helps shape JobFiltr. Reply to this email or reach out to us at support@jobfiltr.app with any thoughts, bugs, or feature requests.
+
+Happy job hunting!`,
+    };
+  },
+});
+
+/**
  * Send early access email to all eligible waitlist members
  * Sends to entries with "pending" or "confirmed" status
  */
 export const sendEarlyAccessEmails = action({
-  args: {},
-  handler: async (ctx: ActionCtx): Promise<{
+  args: {
+    customSubject: v.optional(v.string()),
+    customBody: v.optional(v.string()),
+  },
+  handler: async (ctx: ActionCtx, args: { customSubject?: string; customBody?: string }): Promise<{
     success: boolean;
     sent: number;
     failed: number;
@@ -292,8 +322,40 @@ export const sendEarlyAccessEmails = action({
     let failed = 0;
     const errors: string[] = [];
 
+    // Use custom content or defaults
+    const emailSubject = args.customSubject || "You're In! JobFiltr Early Access is Here";
+
     for (const entry of entries) {
       const displayName = entry.name || "there";
+
+      // Convert markdown-style body to HTML paragraphs
+      const bodyContent = args.customBody
+        ? args.customBody
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .split('\n\n')
+            .map(p => p.startsWith('- ')
+              ? `<ul style="margin: 0 0 16px 0; padding-left: 20px; color: #374151; font-size: 16px; line-height: 1.8;">${p.split('\n').filter(l => l.startsWith('- ')).map(l => `<li>${l.slice(2)}</li>`).join('')}</ul>`
+              : `<p style="margin: 0 0 16px 0; color: #374151; font-size: 16px; line-height: 1.6;">${p.replace(/\n/g, '<br>')}</p>`)
+            .join('')
+        : `<p style="margin: 0 0 24px 0; color: #374151; font-size: 16px; line-height: 1.6;">
+            Thank you for being one of our earliest supporters! As promised, you're getting exclusive early access to the JobFiltr Chrome extension before everyone else.
+          </p>
+          <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <h3 style="margin: 0 0 12px 0; color: #166534; font-size: 16px; font-weight: 600;">What you get with early access:</h3>
+            <ul style="margin: 0; padding-left: 20px; color: #166534; font-size: 14px; line-height: 1.8;">
+              <li>Filter out staffing agencies & recruiters</li>
+              <li>Ghost job detection & analysis</li>
+              <li>Community reported companies</li>
+              <li>Keyword filtering for job titles</li>
+              <li>Works on Indeed (LinkedIn coming soon)</li>
+            </ul>
+          </div>
+          <p style="margin: 0 0 16px 0; color: #374151; font-size: 16px; line-height: 1.6;">
+            <strong>We'd love your feedback!</strong> As an early access user, your input helps shape JobFiltr. Reply to this email or reach out to us at <a href="mailto:support@jobfiltr.app" style="color: #10b981;">support@jobfiltr.app</a> with any thoughts, bugs, or feature requests.
+          </p>
+          <p style="margin: 0; color: #374151; font-size: 16px; line-height: 1.6;">
+            Happy job hunting!
+          </p>`;
 
       const emailHtml = `
         <!DOCTYPE html>
@@ -301,15 +363,15 @@ export const sendEarlyAccessEmails = action({
           <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>JobFiltr Early Access is Here!</title>
+            <title>${emailSubject}</title>
           </head>
           <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
             <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
               <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
                 <!-- Header -->
                 <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 32px; text-align: center;">
-                  <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">You're In! Early Access is Here</h1>
-                  <p style="margin: 12px 0 0 0; color: rgba(255, 255, 255, 0.9); font-size: 16px;">JobFiltr Chrome Extension is ready for you</p>
+                  <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">${emailSubject}</h1>
+                  <p style="margin: 12px 0 0 0; color: rgba(255, 255, 255, 0.9); font-size: 16px;">JobFiltr Chrome Extension</p>
                 </div>
 
                 <!-- Content -->
@@ -318,9 +380,7 @@ export const sendEarlyAccessEmails = action({
                     Hey ${displayName}!
                   </p>
 
-                  <p style="margin: 0 0 24px 0; color: #374151; font-size: 16px; line-height: 1.6;">
-                    Thank you for being one of our earliest supporters! As promised, you're getting exclusive early access to the JobFiltr Chrome extension before everyone else.
-                  </p>
+                  ${bodyContent}
 
                   <!-- Install Button -->
                   <div style="text-align: center; margin: 32px 0;">
@@ -328,26 +388,6 @@ export const sendEarlyAccessEmails = action({
                       Install JobFiltr Now
                     </a>
                   </div>
-
-                  <!-- What's Included -->
-                  <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-                    <h3 style="margin: 0 0 12px 0; color: #166534; font-size: 16px; font-weight: 600;">What you get with early access:</h3>
-                    <ul style="margin: 0; padding-left: 20px; color: #166534; font-size: 14px; line-height: 1.8;">
-                      <li>Filter out staffing agencies & recruiters</li>
-                      <li>Ghost job detection & analysis</li>
-                      <li>Community reported companies</li>
-                      <li>Keyword filtering for job titles</li>
-                      <li>Works on Indeed (LinkedIn coming soon)</li>
-                    </ul>
-                  </div>
-
-                  <p style="margin: 0 0 16px 0; color: #374151; font-size: 16px; line-height: 1.6;">
-                    <strong>We'd love your feedback!</strong> As an early access user, your input helps shape JobFiltr. Reply to this email or reach out to us at <a href="mailto:support@jobfiltr.app" style="color: #10b981;">support@jobfiltr.app</a> with any thoughts, bugs, or feature requests.
-                  </p>
-
-                  <p style="margin: 0; color: #374151; font-size: 16px; line-height: 1.6;">
-                    Happy job hunting!
-                  </p>
                 </div>
 
                 <!-- Footer -->
@@ -366,12 +406,10 @@ export const sendEarlyAccessEmails = action({
         </html>
       `;
 
-      const emailText = `
-Hey ${displayName}!
-
-Thank you for being one of our earliest supporters! As promised, you're getting exclusive early access to the JobFiltr Chrome extension before everyone else.
-
-Install JobFiltr Now: ${EXTENSION_URL}
+      // Plain text version
+      const plainBody = args.customBody
+        ? args.customBody.replace(/\*\*(.*?)\*\*/g, '$1')
+        : `Thank you for being one of our earliest supporters! As promised, you're getting exclusive early access to the JobFiltr Chrome extension before everyone else.
 
 What you get with early access:
 - Filter out staffing agencies & recruiters
@@ -382,7 +420,14 @@ What you get with early access:
 
 We'd love your feedback! As an early access user, your input helps shape JobFiltr. Reply to this email or reach out to us at support@jobfiltr.app with any thoughts, bugs, or feature requests.
 
-Happy job hunting!
+Happy job hunting!`;
+
+      const emailText = `
+Hey ${displayName}!
+
+${plainBody}
+
+Install JobFiltr Now: ${EXTENSION_URL}
 
 Best regards,
 The JobFiltr Team
@@ -392,7 +437,7 @@ The JobFiltr Team
         const { error } = await resend.emails.send({
           from: "JobFiltr <hello@jobfiltr.app>",
           to: entry.email,
-          subject: "You're In! JobFiltr Early Access is Here",
+          subject: emailSubject,
           html: emailHtml,
           text: emailText,
         });
@@ -420,6 +465,173 @@ The JobFiltr Team
     }
 
     console.log(`Early access emails sent: ${sent} success, ${failed} failed`);
+    return {
+      success: true,
+      sent,
+      failed,
+      total: entries.length,
+      errors: errors.length > 0 ? errors : undefined,
+    };
+  },
+});
+
+/**
+ * Send a custom email to all waitlist members (or filtered by status)
+ */
+export const sendCustomEmail = action({
+  args: {
+    subject: v.string(),
+    body: v.string(),
+    includeInstallButton: v.optional(v.boolean()),
+    targetStatus: v.optional(v.array(v.union(
+      v.literal("pending"),
+      v.literal("confirmed"),
+      v.literal("invited"),
+      v.literal("converted")
+    ))),
+  },
+  handler: async (ctx: ActionCtx, args: {
+    subject: string;
+    body: string;
+    includeInstallButton?: boolean;
+    targetStatus?: ("pending" | "confirmed" | "invited" | "converted")[];
+  }): Promise<{
+    success: boolean;
+    sent: number;
+    failed: number;
+    total?: number;
+    errors?: string[];
+  }> => {
+    const apiKey = process.env.RESEND_API_KEY;
+
+    if (!apiKey) {
+      console.error("RESEND_API_KEY is not configured");
+      throw new Error("Email service is not configured");
+    }
+
+    const resend = new Resend(apiKey);
+
+    // Get all waitlist entries
+    const allEntries: Doc<"waitlist">[] = await ctx.runQuery(internal.waitlist.internalGetAllWaitlistEntries, {});
+
+    // Filter based on targetStatus if provided
+    const targetStatuses = args.targetStatus || ["pending", "confirmed", "invited"];
+    const entries = allEntries.filter(e => targetStatuses.includes(e.status as any));
+
+    if (entries.length === 0) {
+      return { success: true, sent: 0, failed: 0, total: 0 };
+    }
+
+    let sent = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (const entry of entries) {
+      const displayName = entry.name || "there";
+
+      // Convert markdown-style body to HTML
+      const bodyHtml = args.body
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .split('\n\n')
+        .map(p => {
+          if (p.startsWith('- ')) {
+            const items = p.split('\n').filter(l => l.startsWith('- ')).map(l => `<li>${l.slice(2)}</li>`).join('');
+            return `<ul style="margin: 0 0 16px 0; padding-left: 20px; color: #374151; font-size: 16px; line-height: 1.8;">${items}</ul>`;
+          }
+          return `<p style="margin: 0 0 16px 0; color: #374151; font-size: 16px; line-height: 1.6;">${p.replace(/\n/g, '<br>')}</p>`;
+        })
+        .join('');
+
+      const installButton = args.includeInstallButton ? `
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${EXTENSION_URL}" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-weight: 700; font-size: 16px;">
+            Install JobFiltr Now
+          </a>
+        </div>
+      ` : '';
+
+      const emailHtml = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${args.subject}</title>
+          </head>
+          <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+              <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
+                <!-- Header -->
+                <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 32px; text-align: center;">
+                  <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">${args.subject}</h1>
+                  <p style="margin: 12px 0 0 0; color: rgba(255, 255, 255, 0.9); font-size: 16px;">From the JobFiltr Team</p>
+                </div>
+
+                <!-- Content -->
+                <div style="padding: 32px;">
+                  <p style="margin: 0 0 24px 0; color: #374151; font-size: 16px; line-height: 1.6;">
+                    Hey ${displayName}!
+                  </p>
+
+                  ${bodyHtml}
+
+                  ${installButton}
+                </div>
+
+                <!-- Footer -->
+                <div style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                  <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
+                    Best regards,<br>
+                    <strong style="color: #374151;">The JobFiltr Team</strong>
+                  </p>
+                  <p style="margin: 16px 0 0 0; color: #9ca3af; font-size: 12px;">
+                    You're receiving this because you signed up for the JobFiltr waitlist.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const plainBody = args.body.replace(/\*\*(.*?)\*\*/g, '$1');
+      const emailText = `
+Hey ${displayName}!
+
+${plainBody}
+${args.includeInstallButton ? `\nInstall JobFiltr: ${EXTENSION_URL}` : ''}
+
+Best regards,
+The JobFiltr Team
+      `.trim();
+
+      try {
+        const { error } = await resend.emails.send({
+          from: "JobFiltr <hello@jobfiltr.app>",
+          to: entry.email,
+          subject: args.subject,
+          html: emailHtml,
+          text: emailText,
+        });
+
+        if (error) {
+          console.error(`Failed to send to ${entry.email}:`, error);
+          errors.push(`${entry.email}: ${error.message}`);
+          failed++;
+        } else {
+          sent++;
+        }
+      } catch (error) {
+        console.error(`Error sending to ${entry.email}:`, error);
+        errors.push(`${entry.email}: ${error instanceof Error ? error.message : "Unknown error"}`);
+        failed++;
+      }
+
+      // Small delay to avoid rate limiting
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    console.log(`Custom emails sent: ${sent} success, ${failed} failed`);
     return {
       success: true,
       sent,

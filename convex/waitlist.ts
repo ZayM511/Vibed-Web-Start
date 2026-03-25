@@ -309,6 +309,16 @@ export const internalGetEligibleForEarlyAccess = internalQuery({
 });
 
 /**
+ * Internal: Get all waitlist entries
+ */
+export const internalGetAllWaitlistEntries = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("waitlist").collect();
+  },
+});
+
+/**
  * Internal: Update waitlist entry status
  */
 export const internalUpdateWaitlistStatus = internalMutation({
