@@ -105,6 +105,7 @@ export default function AdminPage() {
   // Waitlist actions
   const sendEarlyAccessEmails = useAction(api.waitlistEmail.sendEarlyAccessEmails);
   const sendCustomEmail = useAction(api.waitlistEmail.sendCustomEmail);
+  const sendTestEmail = useAction(api.waitlistEmail.sendTestEmail);
   const eligibleForEarlyAccess = useQuery(api.waitlist.getEligibleForEarlyAccess);
 
   // Add entry form state
@@ -142,9 +143,13 @@ export default function AdminPage() {
 Happy job hunting!`);
   const [showPreview, setShowPreview] = useState(false);
 
+  // Test email state
+  const [testEmailLoading, setTestEmailLoading] = useState(false);
+
   // Custom email state
   const [customEmailDialogOpen, setCustomEmailDialogOpen] = useState(false);
   const [customEmailLoading, setCustomEmailLoading] = useState(false);
+  const [customTestEmailLoading, setCustomTestEmailLoading] = useState(false);
   const [customEmailSubject, setCustomEmailSubject] = useState("");
   const [customEmailBody, setCustomEmailBody] = useState("");
   const [customEmailIncludeButton, setCustomEmailIncludeButton] = useState(true);
@@ -812,13 +817,50 @@ Happy job hunting!`);
                                 </div>
                               )}
                             </div>
-                            <DialogFooter>
+                            <DialogFooter className="flex-col sm:flex-row gap-2">
                               <Button
                                 variant="ghost"
                                 onClick={() => setSendEmailDialogOpen(false)}
                                 className="text-white/60 hover:text-white hover:bg-white/10"
                               >
                                 Cancel
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={async () => {
+                                  setTestEmailLoading(true);
+                                  try {
+                                    const result = await sendTestEmail({
+                                      toEmail: "support@jobfiltr.app",
+                                      subject: emailSubject,
+                                      body: emailBody,
+                                      recipientName: "JobFiltr Team",
+                                    });
+                                    if (result.success) {
+                                      toast.success("Test email sent to support@jobfiltr.app!");
+                                    } else {
+                                      toast.error(result.error || "Failed to send test email");
+                                    }
+                                  } catch (error) {
+                                    toast.error(error instanceof Error ? error.message : "Failed to send test email");
+                                  } finally {
+                                    setTestEmailLoading(false);
+                                  }
+                                }}
+                                disabled={testEmailLoading || sendEmailLoading}
+                                className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10"
+                              >
+                                {testEmailLoading ? (
+                                  <>
+                                    <div className="h-4 w-4 mr-2 border-2 border-amber-400/20 border-t-amber-400 rounded-full animate-spin" />
+                                    Sending Test...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Mail className="mr-2 h-4 w-4" />
+                                    Send Test to Me
+                                  </>
+                                )}
                               </Button>
                               <Button
                                 onClick={async () => {
@@ -841,7 +883,7 @@ Happy job hunting!`);
                                     setSendEmailLoading(false);
                                   }
                                 }}
-                                disabled={sendEmailLoading || !eligibleForEarlyAccess?.length}
+                                disabled={sendEmailLoading || testEmailLoading || !eligibleForEarlyAccess?.length}
                                 className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white"
                               >
                                 {sendEmailLoading ? (
@@ -949,13 +991,54 @@ Happy job hunting!`);
                                 </div>
                               )}
                             </div>
-                            <DialogFooter>
+                            <DialogFooter className="flex-col sm:flex-row gap-2">
                               <Button
                                 variant="ghost"
                                 onClick={() => setCustomEmailDialogOpen(false)}
                                 className="text-white/60 hover:text-white hover:bg-white/10"
                               >
                                 Cancel
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={async () => {
+                                  if (!customEmailSubject.trim() || !customEmailBody.trim()) {
+                                    toast.error("Please enter both subject and body");
+                                    return;
+                                  }
+                                  setCustomTestEmailLoading(true);
+                                  try {
+                                    const result = await sendTestEmail({
+                                      toEmail: "support@jobfiltr.app",
+                                      subject: customEmailSubject,
+                                      body: customEmailBody,
+                                      recipientName: "JobFiltr Team",
+                                    });
+                                    if (result.success) {
+                                      toast.success("Test email sent to support@jobfiltr.app!");
+                                    } else {
+                                      toast.error(result.error || "Failed to send test email");
+                                    }
+                                  } catch (error) {
+                                    toast.error(error instanceof Error ? error.message : "Failed to send test email");
+                                  } finally {
+                                    setCustomTestEmailLoading(false);
+                                  }
+                                }}
+                                disabled={customTestEmailLoading || customEmailLoading}
+                                className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10"
+                              >
+                                {customTestEmailLoading ? (
+                                  <>
+                                    <div className="h-4 w-4 mr-2 border-2 border-amber-400/20 border-t-amber-400 rounded-full animate-spin" />
+                                    Sending Test...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Mail className="mr-2 h-4 w-4" />
+                                    Send Test to Me
+                                  </>
+                                )}
                               </Button>
                               <Button
                                 onClick={async () => {
@@ -985,7 +1068,7 @@ Happy job hunting!`);
                                     setCustomEmailLoading(false);
                                   }
                                 }}
-                                disabled={customEmailLoading || !waitlistEntries?.length}
+                                disabled={customEmailLoading || customTestEmailLoading || !waitlistEntries?.length}
                                 className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
                               >
                                 {customEmailLoading ? (

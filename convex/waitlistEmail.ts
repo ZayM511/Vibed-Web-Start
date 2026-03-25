@@ -287,6 +287,137 @@ Happy job hunting!`,
 });
 
 /**
+ * Send a test email to a specific address (for previewing before bulk send)
+ */
+export const sendTestEmail = action({
+  args: {
+    toEmail: v.string(),
+    subject: v.string(),
+    body: v.string(),
+    recipientName: v.optional(v.string()),
+  },
+  handler: async (_ctx: ActionCtx, args: {
+    toEmail: string;
+    subject: string;
+    body: string;
+    recipientName?: string;
+  }): Promise<{ success: boolean; error?: string }> => {
+    const apiKey = process.env.RESEND_API_KEY;
+
+    if (!apiKey) {
+      return { success: false, error: "Email service is not configured" };
+    }
+
+    const resend = new Resend(apiKey);
+    const displayName = args.recipientName || "there";
+
+    // Convert markdown-style body to HTML
+    const bodyHtml = args.body
+      // Convert markdown links [text](url) to HTML links
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #10b981; text-decoration: underline;">$1</a>')
+      // Convert **bold** to <strong>
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .split('\n\n')
+      .map(p => {
+        if (p.startsWith('- ')) {
+          const items = p.split('\n').filter(l => l.startsWith('- ')).map(l => `<li>${l.slice(2)}</li>`).join('');
+          return `<ul style="margin: 0 0 16px 0; padding-left: 20px; color: #374151; font-size: 16px; line-height: 1.8;">${items}</ul>`;
+        }
+        return `<p style="margin: 0 0 16px 0; color: #374151; font-size: 16px; line-height: 1.6;">${p.replace(/\n/g, '<br>')}</p>`;
+      })
+      .join('');
+
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${args.subject}</title>
+        </head>
+        <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+          <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+            <div style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
+              <!-- Test Banner -->
+              <div style="background-color: #fef3c7; padding: 12px; text-align: center; border-bottom: 1px solid #fcd34d;">
+                <p style="margin: 0; color: #92400e; font-size: 14px; font-weight: 600;">🧪 TEST EMAIL - This is a preview</p>
+              </div>
+              <!-- Header -->
+              <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 32px; text-align: center;">
+                <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">${args.subject}</h1>
+                <p style="margin: 12px 0 0 0; color: rgba(255, 255, 255, 0.9); font-size: 16px;">JobFiltr Chrome Extension</p>
+              </div>
+
+              <!-- Content -->
+              <div style="padding: 32px;">
+                <p style="margin: 0 0 24px 0; color: #374151; font-size: 16px; line-height: 1.6;">
+                  Hey ${displayName}!
+                </p>
+
+                ${bodyHtml}
+
+                <!-- Install Button -->
+                <div style="text-align: center; margin: 32px 0;">
+                  <a href="${EXTENSION_URL}" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-weight: 700; font-size: 16px;">
+                    Install JobFiltr Now
+                  </a>
+                </div>
+              </div>
+
+              <!-- Footer -->
+              <div style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
+                  Best regards,<br>
+                  <strong style="color: #374151;">The JobFiltr Team</strong>
+                </p>
+                <p style="margin: 16px 0 0 0; color: #9ca3af; font-size: 12px;">
+                  You're receiving this because you signed up for the JobFiltr waitlist.
+                </p>
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const plainBody = args.body
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+      .replace(/\*\*(.*?)\*\*/g, '$1');
+
+    const emailText = `
+[TEST EMAIL - This is a preview]
+
+Hey ${displayName}!
+
+${plainBody}
+
+Install JobFiltr Now: ${EXTENSION_URL}
+
+Best regards,
+The JobFiltr Team
+    `.trim();
+
+    try {
+      const { error } = await resend.emails.send({
+        from: "JobFiltr <hello@jobfiltr.app>",
+        to: args.toEmail,
+        subject: `[TEST] ${args.subject}`,
+        html: emailHtml,
+        text: emailText,
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+    }
+  },
+});
+
+/**
  * Send early access email to all eligible waitlist members
  * Sends to entries with "pending" or "confirmed" status
  */
