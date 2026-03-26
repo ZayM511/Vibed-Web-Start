@@ -373,3 +373,40 @@ export const markWaitlistConverted = mutation({
     return { found: true, converted: true };
   },
 });
+
+/**
+ * Internal: Mark a waitlist entry as converted
+ * Called from HTTP endpoints (extension auth) where regular mutations can't be used
+ */
+export const internalMarkWaitlistConverted = internalMutation({
+  args: {
+    email: v.string(),
+    clerkUserId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.email.toLowerCase().trim();
+
+    const entry = await ctx.db
+      .query("waitlist")
+      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+      .first();
+
+    if (!entry) {
+      return { found: false, converted: false };
+    }
+
+    // Already converted
+    if (entry.status === "converted") {
+      return { found: true, converted: false, alreadyConverted: true };
+    }
+
+    // Update to converted and store Clerk user ID
+    await ctx.db.patch(entry._id, {
+      status: "converted",
+      convertedAt: Date.now(),
+      clerkUserId: args.clerkUserId,
+    });
+
+    return { found: true, converted: true };
+  },
+});

@@ -33,24 +33,19 @@ export const getFounderDashboard = query({
     const users = await ctx.db.query("users").collect();
 
     // ===== USER METRICS =====
-    const uniqueUserIds = new Set([
+    // Count actual registered users (from users table), not just scan activity
+    const totalUsers = users.length;
+
+    // Keep track of active scanners for activity metrics
+    const uniqueScannerIds = new Set([
       ...manualScans.map(s => s.userId),
       ...urlScans.map(s => s.userId),
     ]);
-    const totalUsers = uniqueUserIds.size;
 
-    // New users (based on first scan timestamp)
-    const userFirstScan: Record<string, number> = {};
-    allScans.forEach((scan: any) => {
-      const ts = scan.timestamp;
-      if (!userFirstScan[scan.userId] || ts < userFirstScan[scan.userId]) {
-        userFirstScan[scan.userId] = ts;
-      }
-    });
-
-    const newUsers24h = Object.values(userFirstScan).filter(ts => ts > oneDayAgo).length;
-    const newUsers7d = Object.values(userFirstScan).filter(ts => ts > sevenDaysAgo).length;
-    const newUsers30d = Object.values(userFirstScan).filter(ts => ts > thirtyDaysAgo).length;
+    // New users (based on user account creation time)
+    const newUsers24h = users.filter((u: any) => (u._creationTime || u.createdAt || 0) > oneDayAgo).length;
+    const newUsers7d = users.filter((u: any) => (u._creationTime || u.createdAt || 0) > sevenDaysAgo).length;
+    const newUsers30d = users.filter((u: any) => (u._creationTime || u.createdAt || 0) > thirtyDaysAgo).length;
 
     // Active users
     const activeUsers24h = new Set(

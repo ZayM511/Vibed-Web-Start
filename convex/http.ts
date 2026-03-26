@@ -561,6 +561,17 @@ http.route({
         );
       }
 
+      // Mark waitlist entry as converted (if user was on waitlist)
+      try {
+        await ctx.runMutation(internal.waitlist.internalMarkWaitlistConverted, {
+          email,
+          clerkUserId,
+        });
+      } catch (e) {
+        // Silently fail - user may not be on waitlist
+        console.log("Waitlist conversion check:", e);
+      }
+
       return new Response(
         JSON.stringify({
           token: result.token,
