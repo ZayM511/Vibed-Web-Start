@@ -1138,7 +1138,7 @@ Happy job hunting!`);
                                         {entry.email}
                                       </a>
                                       {LIFETIME_PRO_EMAILS.includes(entry.email.toLowerCase()) && (
-                                        <Star className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" title="Lifetime Pro" />
+                                        <span title="Lifetime Pro"><Star className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" /></span>
                                       )}
                                     </div>
                                   </td>
