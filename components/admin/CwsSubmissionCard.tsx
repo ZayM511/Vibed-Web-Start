@@ -1041,6 +1041,42 @@ export function CwsSubmissionCard() {
                 </button>
               </div>
 
+              {/* Small Promo Tile 720x405 16:9 (static file) */}
+              <div className="rounded-lg bg-white/5 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white text-sm font-medium">Small Promo Tile — 16:9 (720x405)</p>
+                    <p className="text-white/40 text-xs">720 x 405 pixels · 16:9 aspect ratio</p>
+                  </div>
+                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/20">
+                    Ready
+                  </Badge>
+                </div>
+                <button
+                  onClick={() => setLightboxImage(`/store-assets/promo/small-tile-720x405-16x9.png?t=${refreshKey}`)}
+                  className="w-full rounded-lg overflow-hidden border border-white/10 hover:border-white/20 transition-all cursor-zoom-in"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`/store-assets/promo/small-tile-720x405-16x9.png?t=${refreshKey}`}
+                    alt="Small promo tile 16:9"
+                    className="w-full"
+                  />
+                </button>
+                <button
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = "/store-assets/promo/small-tile-720x405-16x9.png";
+                    a.download = "small-tile-720x405-16x9.png";
+                    a.click();
+                  }}
+                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-all"
+                >
+                  <Download className="h-3 w-3 inline mr-1" />
+                  Download
+                </button>
+              </div>
+
               {/* Small Promo Tile 640x400 - No Slogan (static file) */}
               <div className="rounded-lg bg-white/5 p-4 space-y-3">
                 <div className="flex items-center justify-between">
