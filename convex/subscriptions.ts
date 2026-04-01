@@ -425,6 +425,27 @@ export const getUserSubscription = query({
 });
 
 /**
+ * Internal query for subscription lookup (used by Stripe actions)
+ */
+export const getUserSubscriptionInternal = internalQuery({
+  args: { userId: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    let userId = args.userId;
+    if (!userId) {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) return null;
+      userId = identity.subject;
+    }
+
+    return await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc")
+      .first();
+  },
+});
+
+/**
  * Get scan usage statistics for the current user
  * Free users are limited to 3 scans
  * Founders respect their tier override

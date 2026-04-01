@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
+import { internal } from "./_generated/api";
 import Stripe from "stripe";
 
 // Initialize Stripe - will only work when STRIPE_SECRET_KEY is set in Convex environment
@@ -24,7 +25,7 @@ export const createCheckoutSession = action({
     cancelUrl: v.string(),
     trialPeriodDays: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ sessionId: string; url: string | null }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Not authenticated");
@@ -35,8 +36,9 @@ export const createCheckoutSession = action({
     const userEmail = identity.email || undefined;
 
     // Check if user already has a Stripe customer ID
-    const existingSubscription = await ctx.runQuery(
-      "subscriptions:getUserSubscription" as any
+    const existingSubscription: { stripeCustomerId?: string } | null = await ctx.runQuery(
+      internal.subscriptions.getUserSubscriptionInternal,
+      {}
     );
 
     let customerId: string | undefined;
@@ -101,8 +103,8 @@ export const createPortalSession = action({
     const userId = identity.subject;
 
     // Get user's subscription to find Stripe customer ID
-    const subscription = await ctx.runQuery(
-      "subscriptions:getUserSubscription" as any,
+    const subscription: { stripeCustomerId?: string } | null = await ctx.runQuery(
+      internal.subscriptions.getUserSubscriptionInternal,
       { userId }
     );
 
