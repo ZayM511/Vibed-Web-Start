@@ -20,6 +20,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { UtmLinksCard } from "@/components/admin/UtmLinksCard";
 import { CwsSubmissionCard } from "@/components/admin/CwsSubmissionCard";
+import { AppSumoCampaignCard } from "@/components/admin/AppSumoCampaignCard";
+import { ProductHuntCampaignCard } from "@/components/admin/ProductHuntCampaignCard";
 import { useCopyFeedback } from "@/hooks/useCopyFeedback";
 
 const containerVariants = {
@@ -536,6 +538,12 @@ export function MarketingPromoTab() {
 
       {/* Section 6: Chrome Web Store Submission */}
       <CwsSubmissionCard />
+
+      {/* Section 7: AppSumo Campaign */}
+      <AppSumoCampaignCard />
+
+      {/* Section 8: Product Hunt Campaign */}
+      <ProductHuntCampaignCard />
     </motion.div>
   );
 }
