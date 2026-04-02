@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, ShieldCheck, Gift, ArrowRight, Loader2 } from "lucide-react";
+import { CheckCircle2, Gift, ArrowRight, Loader2, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 export default function RedeemPage() {
@@ -12,6 +12,7 @@ export default function RedeemPage() {
   const [step, setStep] = useState<"form" | "success">("form");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const formatCode = (raw: string) => {
     const clean = raw.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 16);
@@ -55,9 +56,12 @@ export default function RedeemPage() {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             {/* JobFiltr Logo */}
-            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
-              <ShieldCheck className="h-7 w-7 text-white" />
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/icons/icon128.png"
+              alt="JobFiltr"
+              className="h-12 w-12 rounded-xl shadow-lg shadow-cyan-500/30"
+            />
             <span className="text-2xl font-bold text-white tracking-tight">
               JobFiltr
             </span>
@@ -131,14 +135,24 @@ export default function RedeemPage() {
               <label className="block text-sm font-medium text-white/80 mb-1.5">
                 Create Password
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 8 characters"
-                className="w-full rounded-lg bg-white/10 border border-white/20 px-4 py-3 text-white placeholder:text-white/30 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 transition-all"
-                minLength={8}
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  className="w-full rounded-lg bg-white/10 border border-white/20 px-4 py-3 pr-12 text-white placeholder:text-white/30 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 transition-all"
+                  minLength={8}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-white/40 hover:text-white/70 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
             </div>
 
             {/* Error */}
