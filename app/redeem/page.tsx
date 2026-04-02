@@ -24,6 +24,8 @@ export default function RedeemPage() {
     setCode(formatCode(e.target.value));
   };
 
+  const LICENSE_STORAGE_KEY = "jobfiltr-appsumo-license-codes";
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -42,11 +44,46 @@ export default function RedeemPage() {
       return;
     }
 
-    setLoading(true);
-    // Simulate redemption — in production, this would call an API
-    await new Promise((r) => setTimeout(r, 1500));
-    setLoading(false);
-    setStep("success");
+    // Validate against License Code Manager storage
+    try {
+      const raw = localStorage.getItem(LICENSE_STORAGE_KEY);
+      if (!raw) {
+        setError("Invalid license code. Please check your code and try again.");
+        return;
+      }
+      const codes = JSON.parse(raw) as { code: string; status: string; redeemedBy?: string; redeemedAt?: number; createdAt: number }[];
+      const match = codes.find((c) => c.code === code);
+
+      if (!match) {
+        setError("Invalid license code. Please check your code and try again.");
+        return;
+      }
+      if (match.status === "redeemed") {
+        setError("This code has already been redeemed.");
+        return;
+      }
+      if (match.status === "revoked") {
+        setError("This code has been revoked and is no longer valid.");
+        return;
+      }
+
+      setLoading(true);
+      // Simulate account creation delay
+      await new Promise((r) => setTimeout(r, 1500));
+
+      // Mark code as redeemed in localStorage
+      const updated = codes.map((c) =>
+        c.code === code
+          ? { ...c, status: "redeemed", redeemedBy: email, redeemedAt: Date.now() }
+          : c
+      );
+      localStorage.setItem(LICENSE_STORAGE_KEY, JSON.stringify(updated));
+
+      setLoading(false);
+      setStep("success");
+    } catch {
+      setError("Something went wrong. Please try again.");
+    }
   };
 
   return (
