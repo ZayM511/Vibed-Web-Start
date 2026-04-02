@@ -17,6 +17,10 @@ import {
   ArrowRight,
   Globe,
   Scale,
+  Copy,
+  Check,
+  Info,
+  Ghost,
 } from "lucide-react";
 import {
   Card,
@@ -26,6 +30,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useCopyFeedback } from "@/hooks/useCopyFeedback";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -285,6 +290,351 @@ const QUESTION_POOL: QuizQuestion[] = [
   { id: "u4", question: "How quickly does JobFiltr typically fix LinkedIn DOM changes?", options: ["Within a week", "Within 24-48 hours", "Monthly updates", "We don't — users must wait"], correctIndex: 1, explanation: "We typically ship fixes within 24-48 hours of a breaking LinkedIn change, using fallback detection strategies to minimize disruption.", category: "User FAQ" },
 ];
 
+// ─── Ghost Detection Signals Data ───
+
+interface GhostSignal {
+  name: string;
+  weight: number;
+  description: string;
+  info?: string; // extended explanation shown on info icon click
+}
+
+interface GhostCategory {
+  id: string;
+  name: string;
+  categoryWeight: number;
+  description: string;
+  signals: GhostSignal[];
+}
+
+const GHOST_CATEGORIES: GhostCategory[] = [
+  {
+    id: "temporal",
+    name: "Temporal Signals",
+    categoryWeight: 35,
+    description: "Time-based indicators analyzing how long a job has been posted and seasonal patterns.",
+    signals: [
+      { name: "Posting Age", weight: 45, description: "Days since the job was originally posted.", info: "Risk scales from 0% (≤3 days) through 5% (≤7d), 15% (≤14d), 25% (≤21d), 40% (≤30d), 60% (≤45d), 75% (≤60d), 90% (≤90d) to 100% (90+ days). Unknown age = 30% default risk. This is the single highest-weighted signal in the temporal category." },
+      { name: "Seasonal Risk", weight: 10, description: "Detects off-peak hiring months (Jan, Feb, Nov, Dec).", info: "During Q1/Q4 months, companies are more likely to have placeholder listings from budget cycles. Risk value: 0.3 during off-peak, 0 during peak hiring seasons." },
+    ],
+  },
+  {
+    id: "content",
+    name: "Content Signals",
+    categoryWeight: 20,
+    description: "Analyzes the job description text quality, language patterns, and salary transparency.",
+    signals: [
+      { name: "Description Vagueness", weight: 25, description: "Detects generic, buzzword-heavy, or evasive language in the description.", info: "Scans for 23 language indicators across 3 severity tiers. High-weight (0.25 pts each): 'always looking for talented', 'perfect candidate', 'unlimited earning potential', 'immediate need', 'work hard play hard'. Medium-weight (0.12 pts): 'rock star/ninja/guru', 'growing team', 'wear many hats', 'other duties as assigned', 'competitive salary', 'exciting opportunity'. Low-weight (0.05 pts): 'fast-paced', 'self-starter', 'team player', 'dynamic', 'passionate'." },
+      { name: "Salary Transparency", weight: 20, description: "Whether a specific salary or range is disclosed.", info: "Scoring: 0.6 risk if no salary info at all, 0.4 if vague ('DOE', 'competitive', 'commensurate'), 0 if a specific dollar amount or range is provided. Confidence: 0.7." },
+      { name: "Buzzword Density", weight: 15, description: "Concentration of generic corporate buzzwords relative to substantive content.", info: "Combined with the vagueness signal. Measures the ratio of detected buzzword phrases to total description length. Higher density = higher ghost probability." },
+    ],
+  },
+  {
+    id: "company",
+    name: "Company Signals",
+    categoryWeight: 15,
+    description: "Evaluates the posting company against known databases and staffing agency detection.",
+    signals: [
+      { name: "Blacklist Match", weight: 40, description: "Company appears on known problematic employers list.", info: "Cross-references the company name (after normalization — stripping Inc/LLC/Ltd suffixes, special characters) against an external blacklist. Confidence: 0.9 for exact match, variable for partial." },
+      { name: "Staffing Agency Detection", weight: 20, description: "Identifies recruiting firms and staffing agencies posting on behalf of clients.", info: "Two-stage detection: (1) Exact match against 50+ known agencies (Robert Half, Randstad, Kelly Services, Adecco, Aerotek, Insight Global, TekSystems, CyberCoders, Jobot, etc.) = 0.95 risk. (2) Keyword detection in company name — strong indicators ('staffing', 'recruiting', 'recruiters') = 0.4 risk, weak indicators ('talent', 'solutions', 'consulting', 'workforce') = 0.15 risk." },
+      { name: "Industry Risk", weight: 20, description: "Risk assessment based on the company's industry category.", info: "Certain industries have historically higher rates of ghost postings. Weighted within company signals as an additional risk factor." },
+    ],
+  },
+  {
+    id: "behavioral",
+    name: "Behavioral Signals",
+    categoryWeight: 15,
+    description: "Application mechanics and engagement patterns that indicate listing legitimacy.",
+    signals: [
+      { name: "Application Method", weight: 30, description: "Whether the job uses Easy Apply or redirects to an external site.", info: "External application redirects (0.2 risk) are a mild indicator — ghost jobs sometimes redirect to collect data on external forms. Easy Apply (0 risk) suggests more legitimate LinkedIn-integrated hiring. Confidence: 0.6." },
+      { name: "Sponsored Post", weight: 20, description: "Whether the listing is a paid/promoted placement.", info: "Sponsored listings (0.2 risk) are a mild signal — companies paying to promote may be genuine, but sponsored ghost posts exist for employer branding. Organic posts score 0. Confidence: 0.9." },
+      { name: "Applicant Volume", weight: 30, description: "Number of applications already submitted.", info: "High applicant counts suggest old or over-saturated listings. 500+ applicants = 0.5 risk, 200-500 = 0.3 risk, under 200 = 0 risk. Combined with posting age, 500+ applicants on a 30+ day old post triggers a floor score of 55." },
+    ],
+  },
+  {
+    id: "community",
+    name: "Community Signals",
+    categoryWeight: 15,
+    description: "Crowdsourced intelligence from job seeker reports about problematic companies.",
+    signals: [
+      { name: "Community Reported", weight: 100, description: "Company flagged by the JobFiltr community across 3 risk tiers.", info: "137+ companies in the database across 3 categories: Scams (risk 1.0) — companies confirmed as fraudulent. Spam Aggregators (risk 0.9) — sites that repost jobs without employer knowledge. Ghost Posting Companies (risk 0.8) — companies with patterns of posting jobs they don't intend to fill (includes major companies like Accenture, Bank of America, JP Morgan Chase, Salesforce, and 100+ others). Confidence: 0.85-1.0." },
+    ],
+  },
+];
+
+interface ScoreThreshold {
+  range: string;
+  label: string;
+  level: string;
+  color: string;
+}
+
+const SCORE_THRESHOLDS: ScoreThreshold[] = [
+  { range: "0-20", label: "Safe", level: "Low Risk", color: "text-green-400" },
+  { range: "21-40", label: "Low Risk", level: "Low Risk", color: "text-green-400" },
+  { range: "41-60", label: "Medium Risk", level: "Medium Risk", color: "text-amber-400" },
+  { range: "61-80", label: "High Risk", level: "High Risk", color: "text-red-400" },
+  { range: "81-100", label: "Likely Ghost", level: "High Risk", color: "text-red-400" },
+];
+
+interface FloorScore {
+  condition: string;
+  minScore: number;
+  category: string;
+}
+
+const FLOOR_SCORES: FloorScore[] = [
+  { condition: "Job 90+ days old", minScore: 65, category: "High Risk" },
+  { condition: "Job 60-89 days old", minScore: 50, category: "Medium Risk" },
+  { condition: "Job 45-59 days old", minScore: 35, category: "Low-Medium" },
+  { condition: "Job 30-44 days old", minScore: 25, category: "Low Risk" },
+  { condition: "Staffing agency detected", minScore: 40, category: "Medium Risk" },
+  { condition: "500+ applicants", minScore: 45, category: "Medium Risk" },
+  { condition: "500+ applicants + 30+ days old", minScore: 55, category: "Medium-High" },
+  { condition: "Job marked 'reposted'", minScore: 50, category: "Medium Risk" },
+  { condition: "Community-reported scam", minScore: 80, category: "High Risk" },
+  { condition: "Community-reported spam", minScore: 65, category: "High Risk" },
+  { condition: "Community-reported ghost company", minScore: 50, category: "Medium Risk" },
+];
+
+function buildCopyableSignalText(): string {
+  const lines: string[] = [];
+  lines.push("JOBFILTR GHOST JOB DETECTION — 50+ SIGNALS & SCORING ALGORITHM");
+  lines.push("=" .repeat(60));
+  lines.push("");
+  lines.push("SCORING FORMULA:");
+  lines.push("Overall Score = (Temporal × 0.35) + (Content × 0.20) + (Company × 0.15) + (Behavioral × 0.15) + (Community × 0.15)");
+  lines.push("Each category score = weighted average of its signals × confidence, normalized to 0-100.");
+  lines.push("");
+
+  for (const cat of GHOST_CATEGORIES) {
+    lines.push(`── ${cat.name.toUpperCase()} (Category Weight: ${cat.categoryWeight}%) ──`);
+    lines.push(cat.description);
+    lines.push("");
+    for (const sig of cat.signals) {
+      lines.push(`  [Weight ${sig.weight}] ${sig.name}`);
+      lines.push(`    ${sig.description}`);
+      if (sig.info) lines.push(`    Detail: ${sig.info}`);
+      lines.push("");
+    }
+  }
+
+  lines.push("── SCORE THRESHOLDS ──");
+  for (const t of SCORE_THRESHOLDS) {
+    lines.push(`  ${t.range}: ${t.label} (${t.level})`);
+  }
+  lines.push("");
+
+  lines.push("── FLOOR SCORES (Minimum Overrides) ──");
+  for (const f of FLOOR_SCORES) {
+    lines.push(`  ${f.condition} → min score ${f.minScore} (${f.category})`);
+  }
+  lines.push("");
+
+  lines.push("── CONFIDENCE CALCULATION ──");
+  lines.push("Confidence = 0.5 + ((Completeness × 0.4 + Consistency × 0.3 + Evidence × 0.3) × 0.45)");
+  lines.push("Range: 50%-95%. Never 0% or 100%.");
+  lines.push("  Completeness (40%): ratio of known vs unknown signal data");
+  lines.push("  Consistency (30%): lower variance in risk values = higher confidence");
+  lines.push("  Evidence (30%): distance from neutral (50%) × signal importance");
+
+  return lines.join("\n");
+}
+
+function GhostSignalsSection() {
+  const { copiedKey, copyText } = useCopyFeedback();
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [openInfoId, setOpenInfoId] = useState<string | null>(null);
+
+  const toggleCategory = (id: string) => {
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleInfo = (signalKey: string) => {
+    setOpenInfoId((prev) => (prev === signalKey ? null : signalKey));
+  };
+
+  const totalSignals = GHOST_CATEGORIES.reduce((a, c) => a + c.signals.length, 0);
+
+  return (
+    <motion.div variants={itemVariants}>
+      <Card className="bg-white/5 backdrop-blur-xl border border-violet-500/20 shadow-lg">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-white flex items-center gap-2 text-base">
+                <Ghost className="h-5 w-5 text-violet-400" />
+                Ghost Detection: 50+ Signals &amp; Scoring Algorithm
+              </CardTitle>
+              <CardDescription className="text-white/50">
+                {totalSignals} signals across {GHOST_CATEGORIES.length} categories, weighted scoring, floor scores, and confidence calculation.
+              </CardDescription>
+            </div>
+            <button
+              onClick={() => copyText("ghost-signals-all", buildCopyableSignalText())}
+              className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                copiedKey === "ghost-signals-all"
+                  ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                  : "bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20"
+              }`}
+            >
+              {copiedKey === "ghost-signals-all" ? (
+                <><Check className="h-4 w-4" /> Copied!</>
+              ) : (
+                <><Copy className="h-4 w-4" /> Copy All</>
+              )}
+            </button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Scoring Formula */}
+          <div className="rounded-lg bg-violet-500/5 border border-violet-500/15 p-4">
+            <h4 className="text-violet-400 text-xs font-semibold uppercase tracking-wide mb-2">Scoring Formula</h4>
+            <code className="text-white/80 text-sm font-mono block leading-relaxed">
+              Overall Score = (Temporal &times; 0.35) + (Content &times; 0.20) + (Company &times; 0.15) + (Behavioral &times; 0.15) + (Community &times; 0.15)
+            </code>
+            <p className="text-white/40 text-xs mt-2">
+              Each category score = weighted average of its signals &times; confidence, normalized to 0-100. Final score capped at 0-100.
+            </p>
+          </div>
+
+          {/* Signal Categories */}
+          {GHOST_CATEGORIES.map((cat) => {
+            const isOpen = expanded[cat.id] !== false; // default open
+            return (
+              <div key={cat.id} className="rounded-lg border border-white/10 overflow-hidden">
+                <button
+                  onClick={() => toggleCategory(cat.id)}
+                  className="flex items-center justify-between w-full px-4 py-3 bg-white/[0.03] hover:bg-white/[0.06] transition-colors text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-violet-400 text-xs font-bold font-mono bg-violet-500/10 px-2 py-0.5 rounded">
+                      {cat.categoryWeight}%
+                    </span>
+                    <span className="text-white font-medium text-sm">{cat.name}</span>
+                    <span className="text-white/30 text-xs">{cat.signals.length} signal{cat.signals.length !== 1 ? "s" : ""}</span>
+                  </div>
+                  {isOpen ? (
+                    <ChevronUp className="h-4 w-4 text-white/30" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-white/30" />
+                  )}
+                </button>
+                {isOpen && (
+                  <div className="px-4 pb-3 pt-1 space-y-2">
+                    <p className="text-white/40 text-xs mb-2">{cat.description}</p>
+                    {cat.signals.map((sig) => {
+                      const sigKey = `${cat.id}-${sig.name}`;
+                      const infoOpen = openInfoId === sigKey;
+                      return (
+                        <div key={sig.name} className="rounded-md bg-white/[0.03] border border-white/5 p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start gap-2 flex-1 min-w-0">
+                              <span className="shrink-0 text-xs font-mono font-bold text-white/50 bg-white/5 px-1.5 py-0.5 rounded mt-0.5">
+                                W:{sig.weight}
+                              </span>
+                              <div>
+                                <span className="text-white/90 text-sm font-medium">{sig.name}</span>
+                                <p className="text-white/50 text-xs mt-0.5">{sig.description}</p>
+                              </div>
+                            </div>
+                            {sig.info && (
+                              <button
+                                onClick={() => toggleInfo(sigKey)}
+                                className={`shrink-0 p-1 rounded-md transition-all ${
+                                  infoOpen
+                                    ? "bg-violet-500/20 text-violet-400"
+                                    : "text-white/30 hover:text-violet-400 hover:bg-violet-500/10"
+                                }`}
+                                title="More details"
+                              >
+                                <Info className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                          {sig.info && infoOpen && (
+                            <div className="mt-2 pl-9 text-xs text-violet-300/70 leading-relaxed bg-violet-500/5 rounded-md p-2.5 border border-violet-500/10">
+                              {sig.info}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Score Thresholds */}
+          <div className="rounded-lg border border-white/10 overflow-hidden">
+            <div className="px-4 py-3 bg-white/[0.03]">
+              <h4 className="text-white font-medium text-sm">Score Thresholds</h4>
+            </div>
+            <div className="px-4 pb-3 pt-2">
+              <div className="grid grid-cols-5 gap-2">
+                {SCORE_THRESHOLDS.map((t) => (
+                  <div key={t.range} className="text-center rounded-md bg-white/[0.03] border border-white/5 p-2.5">
+                    <div className={`text-lg font-bold font-mono ${t.color}`}>{t.range}</div>
+                    <div className="text-white/70 text-xs font-medium mt-0.5">{t.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Floor Scores */}
+          <div className="rounded-lg border border-white/10 overflow-hidden">
+            <div className="px-4 py-3 bg-white/[0.03] flex items-center gap-2">
+              <h4 className="text-white font-medium text-sm">Floor Scores</h4>
+              <span className="text-white/30 text-xs">(minimum score overrides)</span>
+            </div>
+            <div className="px-4 pb-3 pt-2 space-y-1">
+              {FLOOR_SCORES.map((f) => (
+                <div key={f.condition} className="flex items-center justify-between rounded-md bg-white/[0.02] px-3 py-1.5 text-sm">
+                  <span className="text-white/60">{f.condition}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-white/80">&ge;{f.minScore}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${
+                      f.category.includes("High") ? "bg-red-500/10 text-red-400" :
+                      f.category.includes("Medium") ? "bg-amber-500/10 text-amber-400" :
+                      "bg-green-500/10 text-green-400"
+                    }`}>
+                      {f.category}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Confidence Calculation */}
+          <div className="rounded-lg bg-white/[0.03] border border-white/10 p-4">
+            <h4 className="text-white font-medium text-sm mb-2">Confidence Calculation</h4>
+            <code className="text-white/70 text-xs font-mono block leading-relaxed">
+              Confidence = 0.5 + ((Completeness &times; 0.4 + Consistency &times; 0.3 + Evidence &times; 0.3) &times; 0.45)
+            </code>
+            <p className="text-white/40 text-xs mt-2">Range: 50%-95%. Never returns 0% or 100%.</p>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {[
+                { name: "Completeness", weight: "40%", desc: "Ratio of known vs unknown signal data" },
+                { name: "Consistency", weight: "30%", desc: "Lower variance in risk values = higher confidence" },
+                { name: "Evidence", weight: "30%", desc: "Distance from neutral (50%) × signal importance" },
+              ].map((c) => (
+                <div key={c.name} className="rounded-md bg-white/[0.03] border border-white/5 p-2 text-center">
+                  <div className="text-white/70 text-xs font-medium">{c.name}</div>
+                  <div className="text-violet-400 text-xs font-mono">{c.weight}</div>
+                  <div className="text-white/30 text-[10px] mt-0.5">{c.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
 function shuffleArray<T>(arr: T[]): T[] {
   const shuffled = [...arr];
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -442,6 +792,9 @@ export function CampaignBriefTab() {
       {KB_SECTIONS.map((section, idx) => (
         <CollapsibleSection key={section.id} section={section} defaultOpen={idx === 0} />
       ))}
+
+      {/* Ghost Detection Signals & Scoring */}
+      <GhostSignalsSection />
 
       {/* Quiz Section */}
       <motion.div variants={itemVariants}>
