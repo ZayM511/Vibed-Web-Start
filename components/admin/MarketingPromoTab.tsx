@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { UtmLinksCard } from "@/components/admin/UtmLinksCard";
 import { CwsSubmissionCard } from "@/components/admin/CwsSubmissionCard";
 import { AppSumoCampaignCard } from "@/components/admin/AppSumoCampaignCard";
+import { LicenseCodeManager } from "@/components/admin/LicenseCodeManager";
 import { ProductHuntCampaignCard } from "@/components/admin/ProductHuntCampaignCard";
 import { useCopyFeedback } from "@/hooks/useCopyFeedback";
 
@@ -542,7 +543,10 @@ export function MarketingPromoTab() {
       {/* Section 7: AppSumo Campaign */}
       <AppSumoCampaignCard />
 
-      {/* Section 8: Product Hunt Campaign */}
+      {/* Section 8: License Code Manager (AppSumo) */}
+      <LicenseCodeManager />
+
+      {/* Section 9: Product Hunt Campaign */}
       <ProductHuntCampaignCard />
     </motion.div>
   );

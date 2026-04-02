@@ -24,6 +24,7 @@ import {
   Megaphone,
   Send,
   Star,
+  BookOpen,
 } from "lucide-react";
 
 // Lifetime Pro accounts (for display indicator in waitlist)
@@ -37,6 +38,7 @@ import { motion } from "framer-motion";
 import { AnimatedStatCard } from "@/components/admin/AnimatedStatCard";
 import { UserInsightsTab } from "@/components/admin/UserInsightsTab";
 import { MarketingPromoTab } from "@/components/admin/MarketingPromoTab";
+import { CampaignBriefTab } from "@/components/admin/CampaignBriefTab";
 import { FounderTierToggle } from "@/components/dashboard/FounderTierToggle";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -363,6 +365,13 @@ Happy job hunting!`);
               >
                 <Megaphone className="mr-2 h-4 w-4" />
                 Marketing / Promo
+              </TabsTrigger>
+              <TabsTrigger
+                value="campaign-brief"
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-teal-500/50 transition-all duration-300"
+              >
+                <BookOpen className="mr-2 h-4 w-4" />
+                Campaign Brief
               </TabsTrigger>
             </TabsList>
 
@@ -1236,6 +1245,11 @@ Happy job hunting!`);
             {/* Marketing / Promo Tab */}
             <TabsContent value="marketing">
               <MarketingPromoTab />
+            </TabsContent>
+
+            {/* Campaign Brief Tab */}
+            <TabsContent value="campaign-brief">
+              <CampaignBriefTab />
             </TabsContent>
 
           </Tabs>
