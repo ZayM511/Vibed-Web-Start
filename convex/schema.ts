@@ -447,4 +447,24 @@ export default defineSchema({
   })
     .index("by_clerk_user", ["clerkUserId"])
     .index("by_email", ["email"]),
+
+  // AppSumo Redemption Codes
+  redeemCodes: defineTable({
+    code: v.string(),
+    status: v.string(), // "available" | "redeemed" | "revoked"
+    createdAt: v.number(),
+    redeemedBy: v.optional(v.string()),
+    redeemedAt: v.optional(v.number()),
+  })
+    .index("by_code", ["code"])
+    .index("by_status", ["status"]),
+
+  // Lifetime Pro Licenses (granted via AppSumo code redemption)
+  lifetimeLicenses: defineTable({
+    email: v.string(),
+    code: v.string(),
+    tier: v.number(), // 1, 2, 3
+    grantedAt: v.number(),
+  })
+    .index("by_email", ["email"]),
 });

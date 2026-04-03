@@ -257,6 +257,81 @@ http.route({
   }),
 });
 
+// ===== AppSumo Code Redemption Endpoint =====
+
+http.route({
+  path: "/redeem-code",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    };
+    try {
+      const { code, email, name } = await request.json();
+      if (!code || !email || !name) {
+        return new Response(
+          JSON.stringify({ success: false, error: "All fields are required." }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      const result = await ctx.runMutation(internal.redeemCodes.redeemCode, {
+        code,
+        email,
+        name,
+      });
+
+      if (!result.success) {
+        return new Response(
+          JSON.stringify(result),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      // Send confirmation email (fire and forget — don't block the response)
+      try {
+        await ctx.runAction(internal.redemptionEmail.sendRedemptionConfirmation, {
+          email: result.email!,
+          name: result.name!,
+          code,
+          tier: result.tier!,
+        });
+      } catch (emailError) {
+        console.error("Failed to send redemption email:", emailError);
+        // Don't fail the redemption if email fails
+      }
+
+      return new Response(
+        JSON.stringify(result),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    } catch (error) {
+      console.error("Redemption error:", error);
+      return new Response(
+        JSON.stringify({ success: false, error: "Something went wrong. Please try again." }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+  }),
+});
+
+http.route({
+  path: "/redeem-code",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+    });
+  }),
+});
+
 // ===== Extension Auth Routes =====
 
 const CORS_HEADERS = {

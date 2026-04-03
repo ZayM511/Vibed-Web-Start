@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   KeyRound,
@@ -14,6 +14,7 @@ import {
   ChevronUp,
   Search,
   RotateCcw,
+  Loader2,
 } from "lucide-react";
 import {
   Card,
@@ -24,65 +25,40 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCopyFeedback } from "@/hooks/useCopyFeedback";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 const itemVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 };
 
-const STORAGE_KEY = "jobfiltr-appsumo-license-codes";
 const REDEMPTION_URL = "https://jobfiltr.app/redeem";
-
-interface LicenseCode {
-  code: string;
-  status: "available" | "redeemed" | "revoked";
-  createdAt: number;
-  redeemedBy?: string;
-  redeemedAt?: number;
-}
-
-function generateCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1 for clarity
-  const seg = () =>
-    Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-  return `${seg()}-${seg()}-${seg()}-${seg()}`;
-}
-
-function loadCodes(): LicenseCode[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as LicenseCode[];
-  } catch {
-    return [];
-  }
-}
-
-function saveCodes(codes: LicenseCode[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(codes));
-}
 
 type FilterType = "all" | "available" | "redeemed" | "revoked";
 
 export function LicenseCodeManager() {
   const { copiedKey, copyText } = useCopyFeedback();
-  const [codes, setCodes] = useState<LicenseCode[]>([]);
   const [genCount, setGenCount] = useState(100);
   const [filter, setFilter] = useState<FilterType>("all");
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
-  useEffect(() => {
-    setCodes(loadCodes());
-  }, []);
+  // Convex queries
+  const codes = useQuery(api.redeemCodes.getCodes) ?? [];
+  const stats = useQuery(api.redeemCodes.getCodeStats) ?? {
+    total: 0,
+    available: 0,
+    redeemed: 0,
+    revoked: 0,
+  };
 
-  const stats = useMemo(() => {
-    const total = codes.length;
-    const available = codes.filter((c) => c.status === "available").length;
-    const redeemed = codes.filter((c) => c.status === "redeemed").length;
-    const revoked = codes.filter((c) => c.status === "revoked").length;
-    return { total, available, redeemed, revoked };
-  }, [codes]);
+  // Convex mutations
+  const generateCodesMut = useMutation(api.redeemCodes.generateCodes);
+  const revokeCodeMut = useMutation(api.redeemCodes.revokeCode);
+  const restoreCodeMut = useMutation(api.redeemCodes.restoreCode);
+  const deleteCodeMut = useMutation(api.redeemCodes.deleteCode);
 
   const filteredCodes = useMemo(() => {
     let result = codes;
@@ -100,62 +76,26 @@ export function LicenseCodeManager() {
     return result;
   }, [codes, filter, search]);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     const count = Math.min(Math.max(1, genCount), 10000);
-    const existing = new Set(codes.map((c) => c.code));
-    const newCodes: LicenseCode[] = [];
-    let attempts = 0;
-    while (newCodes.length < count && attempts < count * 3) {
-      const code = generateCode();
-      if (!existing.has(code)) {
-        existing.add(code);
-        newCodes.push({
-          code,
-          status: "available",
-          createdAt: Date.now(),
-        });
-      }
-      attempts++;
+    setGenerating(true);
+    try {
+      await generateCodesMut({ count });
+    } finally {
+      setGenerating(false);
     }
-    const updated = [...codes, ...newCodes];
-    setCodes(updated);
-    saveCodes(updated);
-  };
-
-  const handleRevoke = (code: string) => {
-    setCodes((prev) => {
-      const updated = prev.map((c) =>
-        c.code === code ? { ...c, status: "revoked" as const } : c
-      );
-      saveCodes(updated);
-      return updated;
-    });
-  };
-
-  const handleRestore = (code: string) => {
-    setCodes((prev) => {
-      const updated = prev.map((c) =>
-        c.code === code && c.status === "revoked"
-          ? { ...c, status: "available" as const }
-          : c
-      );
-      saveCodes(updated);
-      return updated;
-    });
-  };
-
-  const handleDelete = (code: string) => {
-    setCodes((prev) => {
-      const updated = prev.filter((c) => c.code !== code);
-      saveCodes(updated);
-      return updated;
-    });
   };
 
   const handleExportCSV = () => {
     const available = codes.filter((c) => c.status === "available");
-    const csv = "code,status,createdAt\n" +
-      available.map((c) => `${c.code},${c.status},${new Date(c.createdAt).toISOString()}`).join("\n");
+    const csv =
+      "code,status,createdAt\n" +
+      available
+        .map(
+          (c) =>
+            `${c.code},${c.status},${new Date(c.createdAt).toISOString()}`
+        )
+        .join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -166,7 +106,9 @@ export function LicenseCodeManager() {
   };
 
   const handleCopyAllAvailable = () => {
-    const available = codes.filter((c) => c.status === "available").map((c) => c.code);
+    const available = codes
+      .filter((c) => c.status === "available")
+      .map((c) => c.code);
     copyText("all-available", available.join("\n"));
   };
 
@@ -225,23 +167,32 @@ export function LicenseCodeManager() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Generate Codes */}
               <div className="rounded-lg bg-white/5 border border-white/10 p-4 space-y-3">
-                <h4 className="text-white font-semibold text-sm">Generate Codes</h4>
+                <h4 className="text-white font-semibold text-sm">
+                  Generate Codes
+                </h4>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
                     value={genCount}
-                    onChange={(e) => setGenCount(Math.max(1, parseInt(e.target.value) || 1))}
+                    onChange={(e) =>
+                      setGenCount(Math.max(1, parseInt(e.target.value) || 1))
+                    }
                     min={1}
                     max={10000}
                     className="w-24 rounded-md bg-white/10 border border-white/20 px-3 py-2 text-white text-sm font-mono focus:border-amber-500 focus:outline-none"
                   />
                   <Button
                     onClick={handleGenerate}
+                    disabled={generating}
                     size="sm"
                     className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-black font-semibold"
                   >
-                    <Plus className="mr-1 h-4 w-4" />
-                    Generate
+                    {generating ? (
+                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="mr-1 h-4 w-4" />
+                    )}
+                    {generating ? "Generating..." : "Generate"}
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -263,7 +214,9 @@ export function LicenseCodeManager() {
 
               {/* Export & Links */}
               <div className="rounded-lg bg-white/5 border border-white/10 p-4 space-y-3">
-                <h4 className="text-white font-semibold text-sm">Export & Links</h4>
+                <h4 className="text-white font-semibold text-sm">
+                  Export & Links
+                </h4>
                 <button
                   onClick={handleCopyAllAvailable}
                   className={`w-full rounded-md px-4 py-2.5 text-sm font-medium transition-all border ${
@@ -310,7 +263,6 @@ export function LicenseCodeManager() {
                   All Codes ({filteredCodes.length})
                 </h4>
                 <div className="flex items-center gap-2">
-                  {/* Search */}
                   <div className="relative">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40" />
                     <input
@@ -321,9 +273,10 @@ export function LicenseCodeManager() {
                       className="w-40 pl-8 pr-3 py-1.5 rounded-md bg-white/5 border border-white/10 text-white text-xs font-mono focus:border-amber-500 focus:outline-none placeholder:text-white/30"
                     />
                   </div>
-                  {/* Filter */}
                   <div className="flex rounded-md overflow-hidden border border-white/10">
-                    {(["all", "available", "redeemed", "revoked"] as FilterType[]).map((f) => (
+                    {(
+                      ["all", "available", "redeemed", "revoked"] as FilterType[]
+                    ).map((f) => (
                       <button
                         key={f}
                         onClick={() => setFilter(f)}
@@ -340,8 +293,7 @@ export function LicenseCodeManager() {
                 </div>
               </div>
 
-              {/* Code List */}
-              <div className="max-h-80 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+              <div className="max-h-80 overflow-y-auto space-y-1 pr-1">
                 {filteredCodes.length === 0 ? (
                   <div className="text-center text-white/30 py-8 text-sm">
                     {codes.length === 0
@@ -397,7 +349,7 @@ export function LicenseCodeManager() {
                         </span>
                         {c.status === "available" && (
                           <button
-                            onClick={() => handleRevoke(c.code)}
+                            onClick={() => revokeCodeMut({ code: c.code })}
                             className="opacity-0 group-hover:opacity-100 p-1 rounded text-white/30 hover:text-red-400 transition-all"
                             title="Revoke code"
                           >
@@ -407,14 +359,18 @@ export function LicenseCodeManager() {
                         {c.status === "revoked" && (
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => handleRestore(c.code)}
+                              onClick={() =>
+                                restoreCodeMut({ code: c.code })
+                              }
                               className="opacity-0 group-hover:opacity-100 p-1 rounded text-white/30 hover:text-green-400 transition-all"
                               title="Restore code"
                             >
                               <RotateCcw className="h-3.5 w-3.5" />
                             </button>
                             <button
-                              onClick={() => handleDelete(c.code)}
+                              onClick={() =>
+                                deleteCodeMut({ code: c.code })
+                              }
                               className="opacity-0 group-hover:opacity-100 p-1 rounded text-white/30 hover:text-red-400 transition-all"
                               title="Delete permanently"
                             >

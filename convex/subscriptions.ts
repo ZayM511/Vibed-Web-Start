@@ -153,6 +153,26 @@ export const getSubscriptionStatus = query({
       };
     }
 
+    // Check if user has a lifetime license from AppSumo code redemption
+    const userEmail = identity.email?.toLowerCase().trim();
+    if (userEmail) {
+      const lifetimeLicense = await ctx.db
+        .query("lifetimeLicenses")
+        .withIndex("by_email", (q) => q.eq("email", userEmail))
+        .first();
+      if (lifetimeLicense) {
+        return {
+          isActive: true,
+          plan: "pro" as const,
+          currentPeriodEnd: null, // Lifetime - no expiration
+          status: "active" as const,
+          cancelAtPeriodEnd: false,
+          isAdmin: false,
+          isFounder: false,
+        };
+      }
+    }
+
     // Regular user — check actual subscription
     const subscription = await ctx.db
       .query("subscriptions")
@@ -684,7 +704,7 @@ export const getSubscriptionStatusByEmail = internalQuery({
       };
     }
 
-    // Check if lifetime Pro user
+    // Check if lifetime Pro user (hardcoded list)
     if (LIFETIME_PRO_EMAILS.includes(email)) {
       return {
         isActive: true,
@@ -694,12 +714,22 @@ export const getSubscriptionStatusByEmail = internalQuery({
       };
     }
 
+    // Check if user has a lifetime license from AppSumo code redemption
+    const lifetimeLicense = await ctx.db
+      .query("lifetimeLicenses")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .first();
+    if (lifetimeLicense) {
+      return {
+        isActive: true,
+        plan: "pro" as const,
+        status: "active",
+        isFounder: false,
+      };
+    }
+
     // Non-founder: try to find subscription via users table
-    // The users table has clerkUserId, and subscriptions are keyed by userId (clerkUserId)
-    // We need to find a user with this email — but users table doesn't store email.
-    // Check if there's an extensionUser with this email that has a linked clerkUserId
     // For now, non-founder users without a direct Stripe subscription default to free.
-    // TODO: Add email→clerkUserId mapping when users link their accounts
 
     return {
       isActive: false,

@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Gift, ArrowRight, Loader2, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Gift, ArrowRight, Loader2, Eye, EyeOff, ShieldCheck, Mail } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
+
+const CONVEX_SITE_URL =
+  process.env.NEXT_PUBLIC_CONVEX_URL?.replace(".cloud", ".site") || "";
 
 export default function RedeemPage() {
   const [code, setCode] = useState("");
@@ -13,6 +17,7 @@ export default function RedeemPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [redeemedTier, setRedeemedTier] = useState(1);
 
   const formatCode = (raw: string) => {
     const clean = raw.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 16);
@@ -23,8 +28,6 @@ export default function RedeemPage() {
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCode(formatCode(e.target.value));
   };
-
-  const LICENSE_STORAGE_KEY = "jobfiltr-appsumo-license-codes";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,46 +47,38 @@ export default function RedeemPage() {
       return;
     }
 
-    // Validate against License Code Manager storage
+    setLoading(true);
     try {
-      const raw = localStorage.getItem(LICENSE_STORAGE_KEY);
-      if (!raw) {
-        setError("Invalid license code. Please check your code and try again.");
-        return;
-      }
-      const codes = JSON.parse(raw) as { code: string; status: string; redeemedBy?: string; redeemedAt?: number; createdAt: number }[];
-      const match = codes.find((c) => c.code === code);
+      const res = await fetch(`${CONVEX_SITE_URL}/redeem-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, email, name }),
+      });
 
-      if (!match) {
-        setError("Invalid license code. Please check your code and try again.");
-        return;
-      }
-      if (match.status === "redeemed") {
-        setError("This code has already been redeemed.");
-        return;
-      }
-      if (match.status === "revoked") {
-        setError("This code has been revoked and is no longer valid.");
+      const data = await res.json();
+
+      if (!data.success) {
+        setError(data.error || "Failed to redeem code. Please try again.");
+        setLoading(false);
         return;
       }
 
-      setLoading(true);
-      // Simulate account creation delay
-      await new Promise((r) => setTimeout(r, 1500));
-
-      // Mark code as redeemed in localStorage
-      const updated = codes.map((c) =>
-        c.code === code
-          ? { ...c, status: "redeemed", redeemedBy: email, redeemedAt: Date.now() }
-          : c
-      );
-      localStorage.setItem(LICENSE_STORAGE_KEY, JSON.stringify(updated));
-
+      setRedeemedTier(data.tier || 1);
       setLoading(false);
       setStep("success");
+      toast.success("Welcome to JobFiltr Pro! Check your email for confirmation.", {
+        duration: 6000,
+      });
     } catch {
       setError("Something went wrong. Please try again.");
+      setLoading(false);
     }
+  };
+
+  const tierDescriptions: Record<number, string> = {
+    1: "Lifetime Pro for 1 user",
+    2: "Lifetime Pro + 1 gift license",
+    3: "Lifetime Pro + 2 gift licenses + all future features",
   };
 
   return (
@@ -92,7 +87,6 @@ export default function RedeemPage() {
         {/* Logo & Branding */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
-            {/* JobFiltr Logo */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/icons/icon128.png"
@@ -103,7 +97,6 @@ export default function RedeemPage() {
               JobFiltr
             </span>
             <span className="text-white/30 mx-2">x</span>
-            {/* AppSumo Logo */}
             <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/30">
               <Gift className="h-6 w-6 text-white" />
             </div>
@@ -237,11 +230,21 @@ export default function RedeemPage() {
               <CheckCircle2 className="h-9 w-9 text-green-400" />
             </div>
             <h2 className="text-xl font-bold text-white mb-2">
-              You&apos;re All Set!
+              Welcome to JobFiltr Pro!
             </h2>
-            <p className="text-white/60 text-sm mb-6">
-              Your JobFiltr Pro license has been activated. Install the Chrome extension to get started.
+            <p className="text-white/60 text-sm mb-2">
+              Your Tier {redeemedTier} lifetime license is now active.
             </p>
+            <p className="text-amber-400 text-sm font-medium mb-4">
+              {tierDescriptions[redeemedTier]}
+            </p>
+
+            {/* Email confirmation notice */}
+            <div className="rounded-lg bg-cyan-500/10 border border-cyan-500/20 px-4 py-3 mb-6 flex items-center gap-2 justify-center">
+              <Mail className="h-4 w-4 text-cyan-400" />
+              <span className="text-cyan-300 text-sm">Confirmation email sent to {email}</span>
+            </div>
+
             <div className="space-y-3">
               <a
                 href="https://chromewebstore.google.com/detail/jobfiltr-job-search-power/jddcgobdokioeapnopadlgfhcancmjfl"
@@ -259,7 +262,6 @@ export default function RedeemPage() {
               </Link>
             </div>
 
-            {/* Tier info */}
             <div className="mt-6 pt-6 border-t border-white/10">
               <p className="text-white/40 text-xs">
                 Have multiple codes? Redeem them all to unlock higher tiers.
