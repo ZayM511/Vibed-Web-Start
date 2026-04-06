@@ -34,6 +34,8 @@ import type * as mlPipeline from "../mlPipeline.js";
 import type * as myFunctions from "../myFunctions.js";
 import type * as pageViews from "../pageViews.js";
 import type * as rateLimiter from "../rateLimiter.js";
+import type * as redeemCodes from "../redeemCodes.js";
+import type * as redemptionEmail from "../redemptionEmail.js";
 import type * as reviewHistory from "../reviewHistory.js";
 import type * as scans_actions from "../scans/actions.js";
 import type * as scans_mutations from "../scans/mutations.js";
@@ -79,6 +81,8 @@ declare const fullApi: ApiFromModules<{
   myFunctions: typeof myFunctions;
   pageViews: typeof pageViews;
   rateLimiter: typeof rateLimiter;
+  redeemCodes: typeof redeemCodes;
+  redemptionEmail: typeof redemptionEmail;
   reviewHistory: typeof reviewHistory;
   "scans/actions": typeof scans_actions;
   "scans/mutations": typeof scans_mutations;
