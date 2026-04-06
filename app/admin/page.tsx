@@ -25,6 +25,7 @@ import {
   Send,
   Star,
   BookOpen,
+  Radio,
 } from "lucide-react";
 
 // Lifetime Pro accounts (for display indicator in waitlist)
@@ -39,6 +40,7 @@ import { AnimatedStatCard } from "@/components/admin/AnimatedStatCard";
 import { UserInsightsTab } from "@/components/admin/UserInsightsTab";
 import { MarketingPromoTab } from "@/components/admin/MarketingPromoTab";
 import { CampaignBriefTab } from "@/components/admin/CampaignBriefTab";
+import { OutreachTab } from "@/components/admin/OutreachTab";
 import { FounderTierToggle } from "@/components/dashboard/FounderTierToggle";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -372,6 +374,13 @@ Happy job hunting!`);
               >
                 <BookOpen className="mr-2 h-4 w-4" />
                 Campaign Brief
+              </TabsTrigger>
+              <TabsTrigger
+                value="outreach"
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-violet-500/50 transition-all duration-300"
+              >
+                <Radio className="mr-2 h-4 w-4" />
+                Outreach
               </TabsTrigger>
             </TabsList>
 
@@ -1250,6 +1259,11 @@ Happy job hunting!`);
             {/* Campaign Brief Tab */}
             <TabsContent value="campaign-brief">
               <CampaignBriefTab />
+            </TabsContent>
+
+            {/* Outreach Tab */}
+            <TabsContent value="outreach">
+              <OutreachTab />
             </TabsContent>
 
           </Tabs>
