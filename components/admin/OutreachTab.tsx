@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { BudgetAnalyzer } from "@/components/admin/BudgetAnalyzer";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1269,6 +1270,9 @@ export function OutreachTab() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Budget Analyzer */}
+      <BudgetAnalyzer influencers={influencers} />
 
       {/* Filters */}
       <motion.div variants={itemVariants}>
