@@ -7,7 +7,7 @@
  *
  * To re-enable public auth after launch, set WAITLIST_MODE to false.
  */
-export const WAITLIST_MODE = true;
+export const WAITLIST_MODE = false;
 
 /** Founder email addresses that can access /admin during waitlist mode */
 export const FOUNDER_EMAILS = [

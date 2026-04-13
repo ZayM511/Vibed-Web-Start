@@ -1,13 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Chrome } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 export function ChromeExtensionSection({ id }: { id?: string }) {
-  const router = useRouter();
 
   return (
     <div id={id} className="relative pt-8 pb-24 overflow-hidden scroll-mt-20">
@@ -46,22 +44,28 @@ export function ChromeExtensionSection({ id }: { id?: string }) {
                   <Chrome className="h-10 w-10 text-white" />
                 </div>
                 <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">
-                  Coming Soon - Join The Waitlist!
+                  Available Now on Chrome
                 </h3>
                 <p className="text-white/60 max-w-xl mx-auto text-center">
-                  Be the first to know when JobFiltr launches
+                  Install JobFiltr and upgrade your job search today
                 </p>
               </div>
 
               {/* Action Button */}
               <div className="flex justify-center">
-                <Button
-                  size="lg"
-                  onClick={() => router.push("/waitlist")}
-                  className="px-8 py-6 text-lg font-semibold shadow-lg bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white"
+                <a
+                  href="https://chromewebstore.google.com/detail/jobfiltr-job-search-power/jddcgobdokioeapnopadlgfhcancmjfl"
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
-                  Join The Waitlist
-                </Button>
+                  <Button
+                    size="lg"
+                    className="px-8 py-6 text-lg font-semibold shadow-lg bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white"
+                  >
+                    <Chrome className="mr-2 h-5 w-5" />
+                    Add to Chrome - It&apos;s Free
+                  </Button>
+                </a>
               </div>
             </CardContent>
           </Card>

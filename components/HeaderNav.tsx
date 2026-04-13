@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/nextjs";
@@ -26,26 +26,7 @@ const AdminIcon = ({ className }: { className?: string }) => (
 
 export function HeaderNav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [hasEarlyAccess, setHasEarlyAccess] = useState(false);
   const { isSignedIn, user } = useUser();
-
-  // Check for extension installation or early access URL parameter
-  useEffect(() => {
-    // Check if JobFiltr extension is installed (extension sets this flag)
-    if (localStorage.getItem("jobfiltr_extension_installed") === "true") {
-      setHasEarlyAccess(true);
-      return;
-    }
-
-    // Fallback: check URL parameter (for direct links)
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get("early") === "1") {
-      setHasEarlyAccess(true);
-      sessionStorage.setItem("jobfiltr_early_access", "true");
-    } else if (sessionStorage.getItem("jobfiltr_early_access") === "true") {
-      setHasEarlyAccess(true);
-    }
-  }, []);
 
   // Check if user is a founder/admin
   const userEmail = user?.primaryEmailAddress?.emailAddress;
@@ -78,8 +59,7 @@ export function HeaderNav() {
       !(WAITLIST_MODE && item.hideInWaitlist && !isSignedIn)
   );
 
-  // Show auth buttons if: not in waitlist mode, OR user has early access, OR user is signed in
-  const showAuthButtons = !WAITLIST_MODE || hasEarlyAccess || isSignedIn;
+  const showAuthButtons = true;
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-background/80 backdrop-blur-xl">
