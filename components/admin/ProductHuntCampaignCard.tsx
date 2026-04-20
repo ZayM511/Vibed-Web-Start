@@ -57,15 +57,17 @@ const SUBMISSION_FIELD_DEFS: FormFieldDef[] = [
   { key: "pricing", label: "Pricing", defaultValue: "Free (or 'Paid with free plan' if pricing exists by launch)", copyable: false, multiline: false },
 ];
 
-const DEFAULT_MAKER_COMMENT = `Hey Product Hunt! I'm [Name], the maker behind JobFiltr.
+const DEFAULT_MAKER_COMMENT = `Hey PH! I'm Isaiah, the maker of JobFiltr.
 
-I built JobFiltr because I was spending hours every day scrolling through job listings that turned out to be ghost jobs, staffing agency reposts, or outright scams. I kept thinking — why isn't there a tool that filters this stuff out before I waste my time?
+So this started when a few friends were venting to me about their job searches. Same story every time — they'd apply to 50+ jobs, hear nothing back, then find out half those listings had been up for months or were never real to begin with. Ghost jobs, recruiter spam, the same role reposted by 12 different staffing agencies.
 
-JobFiltr is a Chrome extension that works right inside LinkedIn and Indeed. It uses AI to analyze 50+ signals per listing to detect ghost jobs, flags suspicious postings, hides staffing agencies, shows you how old each listing is, and lets you filter by keywords. It also has community-reported warnings from other job seekers.
+I'm a developer, so naturally I thought "I could probably build something to fix this." Turned into a bit of an obsession tbh.
 
-The thing I'm most proud of is the privacy-first approach — zero tracking, zero data selling. We analyze the job postings, not you.
+JobFiltr is a Chrome extension that sits right on LinkedIn and Indeed. It analyzes listings in real-time — detecting ghost jobs (we check 50+ signals), flagging suspicious posts, auto-hiding staffing agencies, showing how old each listing actually is. There's also community-reported warnings so job seekers can look out for each other.
 
-I'd love to hear your feedback — what features would make your job search better? What's the most frustrating thing about job boards right now?`;
+The part I'm proudest of: we don't track you. At all. No data collection, no selling your info. We analyze the job postings, not the people using our tool.
+
+Would love to hear what you think — what's the most frustrating thing about job hunting right now? What would actually help?`;
 
 interface ChecklistSection {
   id: string;
