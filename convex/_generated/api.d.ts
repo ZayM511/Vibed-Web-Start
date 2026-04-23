@@ -33,6 +33,7 @@ import type * as jobsMutationsAndQueries from "../jobsMutationsAndQueries.js";
 import type * as mlPipeline from "../mlPipeline.js";
 import type * as myFunctions from "../myFunctions.js";
 import type * as pageViews from "../pageViews.js";
+import type * as productHunt from "../productHunt.js";
 import type * as rateLimiter from "../rateLimiter.js";
 import type * as redeemCodes from "../redeemCodes.js";
 import type * as redemptionEmail from "../redemptionEmail.js";
@@ -80,6 +81,7 @@ declare const fullApi: ApiFromModules<{
   mlPipeline: typeof mlPipeline;
   myFunctions: typeof myFunctions;
   pageViews: typeof pageViews;
+  productHunt: typeof productHunt;
   rateLimiter: typeof rateLimiter;
   redeemCodes: typeof redeemCodes;
   redemptionEmail: typeof redemptionEmail;

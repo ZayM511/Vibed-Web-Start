@@ -150,6 +150,76 @@ export const getStripeSubscription = action({
 });
 
 /**
+ * Create a Stripe Checkout session for lifetime purchase (Product Hunt)
+ */
+export const createLifetimeCheckoutSession = action({
+  args: {
+    email: v.string(),
+    successUrl: v.string(),
+    cancelUrl: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ sessionId: string; url: string | null; error?: string }> => {
+    const stripe = getStripe();
+    const email = args.email.toLowerCase().trim();
+
+    // Check redemption limit (200 users)
+    const purchaseCount: number = await ctx.runQuery(
+      internal.productHunt.getPurchaseCount,
+      {}
+    );
+
+    if (purchaseCount >= 200) {
+      return { sessionId: "", url: null, error: "Sorry, the Product Hunt deal has sold out!" };
+    }
+
+    // Check if email already purchased
+    const existingPurchase = await ctx.runQuery(
+      internal.productHunt.getPurchaseByEmail,
+      { email }
+    );
+
+    if (existingPurchase) {
+      return { sessionId: "", url: null, error: "You've already purchased the Product Hunt deal!" };
+    }
+
+    const lifetimePriceId = process.env.STRIPE_LIFETIME_PRICE_ID;
+    if (!lifetimePriceId) {
+      throw new Error("STRIPE_LIFETIME_PRICE_ID not configured in Convex environment");
+    }
+
+    // Create Checkout session for one-time payment
+    const session = await stripe.checkout.sessions.create({
+      customer_email: email,
+      line_items: [
+        {
+          price: lifetimePriceId,
+          quantity: 1,
+        },
+      ],
+      mode: "payment",
+      success_url: args.successUrl,
+      cancel_url: args.cancelUrl,
+      metadata: {
+        source: "producthunt",
+        promoCode: "JOBHUNT",
+        email,
+      },
+      payment_intent_data: {
+        metadata: {
+          source: "producthunt",
+          email,
+        },
+      },
+    });
+
+    return {
+      sessionId: session.id,
+      url: session.url,
+    };
+  },
+});
+
+/**
  * Cancel a subscription
  */
 export const cancelStripeSubscription = action({

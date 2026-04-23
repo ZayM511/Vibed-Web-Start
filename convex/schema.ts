@@ -465,6 +465,19 @@ export default defineSchema({
     code: v.string(),
     tier: v.number(), // 1, 2, 3
     grantedAt: v.number(),
+    source: v.optional(v.string()), // "appsumo", "producthunt", "stripe"
   })
-    .index("by_email", ["email"]),
+    .index("by_email", ["email"])
+    .index("by_source", ["source"]),
+
+  // Product Hunt Campaign Tracking
+  productHuntPurchases: defineTable({
+    email: v.string(),
+    stripeSessionId: v.string(),
+    stripeCustomerId: v.optional(v.string()),
+    amount: v.number(), // cents
+    purchasedAt: v.number(),
+  })
+    .index("by_email", ["email"])
+    .index("by_session", ["stripeSessionId"]),
 });

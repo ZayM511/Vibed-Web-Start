@@ -52,6 +52,35 @@ http.route({
         case "checkout.session.completed": {
           const session = event.data.object as Stripe.Checkout.Session;
 
+          // Handle one-time payment (Product Hunt lifetime deal)
+          if (session.mode === "payment" && session.metadata?.source === "producthunt") {
+            const email = session.metadata.email || session.customer_email;
+            if (!email) {
+              console.error("No email in Product Hunt session");
+              break;
+            }
+
+            await ctx.runMutation(internal.productHunt.createPurchase, {
+              email,
+              stripeSessionId: session.id,
+              stripeCustomerId: session.customer as string | undefined,
+              amount: session.amount_total || 4900,
+            });
+
+            // Send confirmation email
+            try {
+              await ctx.runAction(internal.redemptionEmail.sendProductHuntEmail, {
+                email,
+                name: email.split("@")[0],
+              });
+            } catch (emailErr) {
+              console.error("Failed to send PH confirmation email:", emailErr);
+            }
+
+            break;
+          }
+
+          // Handle subscription checkout
           if (session.mode === "subscription" && session.subscription) {
             const subscription = await stripe.subscriptions.retrieve(
               session.subscription as string

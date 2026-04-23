@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { motion } from "framer-motion";
@@ -19,6 +19,11 @@ import {
   Target,
   Eye,
   Globe,
+  Rocket,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  Shield,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -86,6 +91,14 @@ export function UserInsightsTab() {
 
   // Page view traffic data
   const pageViewStats = useQuery(api.pageViews.getDailyPageViewStats, { userEmail });
+
+  // Product Hunt data
+  const phStats = useQuery(api.productHunt.getStats);
+  const phPurchases = useQuery(api.productHunt.getAllPurchases);
+  const grantLifetimePro = useMutation(api.productHunt.grantLifetimePro);
+  const refreshLicense = useMutation(api.productHunt.refreshLicense);
+  const revokeLicense = useMutation(api.productHunt.revokeLicense);
+  const [phActionLoading, setPhActionLoading] = useState<string | null>(null);
 
   // Clerk users fetched from API route
   const [clerkUsers, setClerkUsers] = useState<ClerkUser[]>([]);
@@ -1086,6 +1099,223 @@ export function UserInsightsTab() {
               <div className="text-center py-12">
                 <MapPin className="h-12 w-12 text-white/20 mx-auto mb-4" />
                 <p className="text-white/60">No location data yet</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* PRODUCT HUNT CAMPAIGN SECTION */}
+      {/* ═══════════════════════════════════════════════════════ */}
+
+      {/* Divider */}
+      <motion.div variants={itemVariants} className="relative py-4">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-white/10" />
+        </div>
+        <div className="relative flex justify-center">
+          <span className="bg-background px-4 text-white/40 text-sm font-medium uppercase tracking-widest">
+            Product Hunt Campaign
+          </span>
+        </div>
+      </motion.div>
+
+      {/* PH Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <AnimatedStatCard
+          title="Total Purchases"
+          value={phStats?.totalPurchases ?? 0}
+          subtitle="Lifetime Pro sold"
+          icon={Rocket}
+          gradient="bg-gradient-to-br from-[#ff6154]/20 to-[#da552f]/20"
+          delay={0}
+        />
+        <AnimatedStatCard
+          title="Remaining"
+          value={phStats?.remaining ?? 200}
+          subtitle="of 200 spots"
+          icon={Target}
+          gradient="bg-gradient-to-br from-amber-500/20 to-yellow-500/20"
+          delay={0.05}
+        />
+        <AnimatedStatCard
+          title="Revenue"
+          value={phStats?.totalRevenue ?? 0}
+          subtitle="Total $ from PH"
+          icon={DollarSign}
+          gradient="bg-gradient-to-br from-emerald-500/20 to-green-500/20"
+          delay={0.1}
+        />
+        <AnimatedStatCard
+          title="Sold"
+          value={phStats?.totalPurchases ?? 0}
+          subtitle={phStats?.soldOut ? "SOLD OUT!" : "of 200 limit"}
+          icon={Shield}
+          gradient={phStats?.soldOut ? "bg-gradient-to-br from-red-500/20 to-pink-500/20" : "bg-gradient-to-br from-cyan-500/20 to-blue-500/20"}
+          delay={0.15}
+        />
+      </div>
+
+      {/* PH Purchases Table */}
+      <motion.div variants={itemVariants}>
+        <Card className="bg-white/5 backdrop-blur-xl border border-[#ff6154]/30 shadow-lg shadow-[#ff6154]/10">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Rocket className="h-5 w-5 text-[#ff6154]" />
+              Product Hunt Purchases
+            </CardTitle>
+            <CardDescription className="text-white/60">
+              All lifetime Pro purchases from Product Hunt ({phPurchases?.length ?? 0} total)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {phPurchases === undefined ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="h-8 w-8 border-2 border-[#ff6154]/30 border-t-[#ff6154] rounded-full animate-spin" />
+              </div>
+            ) : phPurchases.length === 0 ? (
+              <div className="text-center py-12">
+                <Rocket className="h-12 w-12 text-white/20 mx-auto mb-4" />
+                <p className="text-white/60">No purchases yet</p>
+                <p className="text-white/40 text-sm mt-1">Share jobfiltr.app/producthunt with the code JOBHUNT</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/10">
+                      <th className="text-left py-3 px-4 text-white/60 font-medium text-sm">#</th>
+                      <th className="text-left py-3 px-4 text-white/60 font-medium text-sm">Email</th>
+                      <th className="text-left py-3 px-4 text-white/60 font-medium text-sm">Amount</th>
+                      <th className="text-left py-3 px-4 text-white/60 font-medium text-sm">Purchased</th>
+                      <th className="text-left py-3 px-4 text-white/60 font-medium text-sm">Pro Status</th>
+                      <th className="text-left py-3 px-4 text-white/60 font-medium text-sm">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {phPurchases.map((purchase, index) => (
+                      <tr
+                        key={purchase._id}
+                        className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                      >
+                        <td className="py-3 px-4 text-white/40 text-sm">{index + 1}</td>
+                        <td className="py-3 px-4">
+                          <a
+                            href={`mailto:${purchase.email}`}
+                            className="text-[#ff6154] hover:text-[#ff6154]/80 transition-colors text-sm"
+                          >
+                            {purchase.email}
+                          </a>
+                        </td>
+                        <td className="py-3 px-4 text-white/80 text-sm font-mono">
+                          ${(purchase.amount / 100).toFixed(2)}
+                        </td>
+                        <td className="py-3 px-4 text-white/60 text-sm">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3 text-white/40" />
+                            {new Date(purchase.purchasedAt).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          {purchase.hasLifetimeLicense ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Pro Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-400">
+                              <XCircle className="h-3 w-3" />
+                              Missing License
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            {!purchase.hasLifetimeLicense && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs border-green-500/30 text-green-400 hover:bg-green-500/10"
+                                disabled={phActionLoading === purchase.email}
+                                onClick={async () => {
+                                  setPhActionLoading(purchase.email);
+                                  try {
+                                    await grantLifetimePro({ email: purchase.email });
+                                  } finally {
+                                    setPhActionLoading(null);
+                                  }
+                                }}
+                              >
+                                {phActionLoading === purchase.email ? (
+                                  <RefreshCw className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <>
+                                    <Crown className="h-3 w-3 mr-1" />
+                                    Grant Pro
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10"
+                              disabled={phActionLoading === `refresh-${purchase.email}`}
+                              onClick={async () => {
+                                setPhActionLoading(`refresh-${purchase.email}`);
+                                try {
+                                  await refreshLicense({ email: purchase.email });
+                                } finally {
+                                  setPhActionLoading(null);
+                                }
+                              }}
+                            >
+                              {phActionLoading === `refresh-${purchase.email}` ? (
+                                <RefreshCw className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <>
+                                  <RefreshCw className="h-3 w-3 mr-1" />
+                                  Refresh
+                                </>
+                              )}
+                            </Button>
+                            {purchase.hasLifetimeLicense && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10"
+                                disabled={phActionLoading === `revoke-${purchase.email}`}
+                                onClick={async () => {
+                                  if (!confirm(`Revoke Pro access for ${purchase.email}?`)) return;
+                                  setPhActionLoading(`revoke-${purchase.email}`);
+                                  try {
+                                    await revokeLicense({ email: purchase.email });
+                                  } finally {
+                                    setPhActionLoading(null);
+                                  }
+                                }}
+                              >
+                                {phActionLoading === `revoke-${purchase.email}` ? (
+                                  <RefreshCw className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <>
+                                    <XCircle className="h-3 w-3 mr-1" />
+                                    Revoke
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </CardContent>
