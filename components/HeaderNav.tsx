@@ -65,13 +65,57 @@ export function HeaderNav() {
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-background/80 backdrop-blur-xl">
       <nav className="container mx-auto px-4 md:px-6">
         <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-1 group">
-            <img src="/jobfiltr-logo.png" alt="JobFiltr" className="h-8 w-8 object-contain transition-transform group-hover:scale-110" />
-            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white from-40% to-[#93c5fd]">
-              JobFiltr
-            </span>
-          </Link>
+          {/* Logo + Product Hunt Badge */}
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-1 group">
+              <img src="/jobfiltr-logo.png" alt="JobFiltr" className="h-8 w-8 object-contain transition-transform group-hover:scale-110" />
+              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white from-40% to-[#93c5fd]">
+                JobFiltr
+              </span>
+            </Link>
+
+            {/* Product Hunt Badge */}
+            <Link
+              href="/producthunt"
+              className="hidden sm:flex items-center gap-1.5 group relative"
+            >
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-[#ff6154] to-[#da552f] text-white text-xs font-semibold shadow-lg shadow-[#ff6154]/30 hover:shadow-[#ff6154]/50 transition-all hover:scale-105"
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M22.667 20H17.333V13.333H22.667C24.508 13.333 26 14.825 26 16.667C26 18.508 24.508 20 22.667 20Z" fill="white"/>
+                  <path fillRule="evenodd" clipRule="evenodd" d="M20 40C31.046 40 40 31.046 40 20C40 8.954 31.046 0 20 0C8.954 0 0 8.954 0 20C0 31.046 8.954 40 20 40ZM22.667 10H14V30H17.333V23.333H22.667C26.348 23.333 29.333 20.348 29.333 16.667C29.333 12.985 26.348 10 22.667 10Z" fill="white"/>
+                </svg>
+                <span className="hidden md:inline">Product Hunt</span>
+              </motion.div>
+
+              {/* Animated arrow + promo text */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="hidden lg:flex items-center gap-1 text-[10px] text-[#ff6154] font-medium"
+              >
+                <motion.span
+                  animate={{ x: [0, 3, 0] }}
+                  transition={{ repeat: Infinity, duration: 1, ease: "easeInOut" }}
+                >
+                  →
+                </motion.span>
+                <span className="whitespace-nowrap">$49 lifetime deal</span>
+              </motion.div>
+
+              {/* Pulse ring animation */}
+              <motion.div
+                className="absolute inset-0 rounded-full bg-[#ff6154]/20 -z-10"
+                animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0, 0.5] }}
+                transition={{ repeat: Infinity, duration: 2, ease: "easeOut" }}
+                style={{ left: 0, right: "auto", width: "fit-content" }}
+              />
+            </Link>
+          </div>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
