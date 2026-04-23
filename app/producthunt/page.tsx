@@ -249,7 +249,7 @@ export default function ProductHuntPage() {
                 autoFocus
               />
               <p className="text-white/40 text-xs mt-1.5">
-                Use the same email you'll sign in with
+                Use the same email you will sign in with
               </p>
             </div>
 
@@ -305,7 +305,7 @@ export default function ProductHuntPage() {
             className="mt-8 rounded-xl bg-white/[0.03] border border-white/10 p-5"
           >
             <h3 className="text-white/80 font-semibold text-sm mb-3 text-center">
-              What's included in Lifetime Pro
+              Included in Lifetime Pro
             </h3>
             <div className="grid grid-cols-2 gap-2.5 text-sm">
               {[
