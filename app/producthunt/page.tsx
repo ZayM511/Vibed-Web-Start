@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { motion } from "framer-motion";
-import { Loader2, CheckCircle2, Rocket, Crown, Shield, Zap, ArrowRight } from "lucide-react";
+import { Loader2, CheckCircle2, Crown, Shield, Zap, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -96,7 +96,10 @@ export default function ProductHuntPage() {
             </span>
             <span className="text-white/30 mx-2">x</span>
             <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-[#ff6154] to-[#da552f] flex items-center justify-center shadow-lg shadow-orange-500/30">
-              <Rocket className="h-6 w-6 text-white" />
+              <svg className="h-6 w-6" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M22.667 20H17.333V13.333H22.667C24.508 13.333 26 14.825 26 16.667C26 18.508 24.508 20 22.667 20Z" fill="white"/>
+                <path fillRule="evenodd" clipRule="evenodd" d="M20 40C31.046 40 40 31.046 40 20C40 8.954 31.046 0 20 0C8.954 0 0 8.954 0 20C0 31.046 8.954 40 20 40ZM22.667 10H14V30H17.333V23.333H22.667C26.348 23.333 29.333 20.348 29.333 16.667C29.333 12.985 26.348 10 22.667 10Z" fill="white"/>
+              </svg>
             </div>
             <span className="text-xl font-bold text-[#ff6154] tracking-tight">
               Product Hunt

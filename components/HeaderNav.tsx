@@ -77,7 +77,7 @@ export function HeaderNav() {
             {/* Product Hunt Badge */}
             <Link
               href="/producthunt"
-              className="hidden sm:flex items-center gap-1.5 group relative"
+              className="hidden sm:flex items-center gap-1.5 group relative ml-4"
             >
               <motion.div
                 initial={{ opacity: 0, x: -10 }}
