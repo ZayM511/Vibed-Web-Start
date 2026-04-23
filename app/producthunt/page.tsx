@@ -73,7 +73,6 @@ export default function ProductHuntPage() {
   }
 
   const soldOut = stats?.soldOut ?? false;
-  const remaining = stats?.remaining ?? 200;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 via-orange-950/20 to-gray-950 flex items-center justify-center px-4 py-12">
