@@ -110,7 +110,7 @@ export default function ProductHuntPage() {
           </p>
         </motion.div>
 
-        {/* Sold out or remaining counter */}
+        {/* Sold out or limited spots banner */}
         {!success && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -124,15 +124,11 @@ export default function ProductHuntPage() {
               </div>
             ) : (
               <div className="bg-[#ff6154]/10 border border-[#ff6154]/30 rounded-xl p-4 text-center">
-                <p className="text-[#ff6154] font-semibold text-lg">
-                  {remaining} of 200 spots remaining
+                <p className="text-[#ff6154] font-semibold text-lg flex items-center justify-center gap-2">
+                  <span className="inline-block w-2 h-2 bg-[#ff6154] rounded-full animate-pulse" />
+                  Limited spots available
                 </p>
-                <div className="mt-2 h-2 bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-[#ff6154] to-[#da552f] transition-all duration-500"
-                    style={{ width: `${((200 - remaining) / 200) * 100}%` }}
-                  />
-                </div>
+                <p className="text-white/50 text-sm mt-1">Product Hunt exclusive offer</p>
               </div>
             )}
           </motion.div>
@@ -205,7 +201,7 @@ export default function ProductHuntPage() {
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
-                placeholder="JOBHUNT"
+                placeholder="ENTER CODE"
                 className="w-full rounded-lg bg-white/10 border border-white/20 px-4 py-3 text-white font-mono text-center text-xl tracking-widest placeholder:text-white/20 focus:border-[#ff6154] focus:outline-none focus:ring-1 focus:ring-[#ff6154]/50 transition-all"
                 autoFocus
               />
