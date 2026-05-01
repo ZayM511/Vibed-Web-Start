@@ -638,6 +638,120 @@ export const getModelPerformance = query({
   },
 });
 
+// Get extension user statistics (separate from Clerk-managed users)
+export const getExtensionUserStats = query({
+  args: { userEmail: v.string() },
+  handler: async (ctx, args) => {
+    // Verify founder access
+    if (!FOUNDER_EMAILS.includes(args.userEmail.toLowerCase())) {
+      return null;
+    }
+
+    const now = Date.now();
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+
+    // Get extension-specific users (signed up via extension, not Clerk)
+    const extensionUsers = await ctx.db.query("extensionUsers").collect();
+
+    // Get all scans to identify Chrome extension activity
+    const manualScans = await ctx.db.query("scans").collect();
+
+    // Filter Chrome extension scans
+    const chromeExtScans = manualScans.filter(s =>
+      s.context?.toLowerCase().includes("chrome") ||
+      s.context?.toLowerCase().includes("extension")
+    );
+
+    // Unique Chrome extension users (by userId from scans)
+    const chromeExtUserIds = new Set(chromeExtScans.map(s => s.userId));
+
+    // Get extension activity over time
+    const extensionUsersToday = extensionUsers.filter(u => u.createdAt > oneDayAgo).length;
+    const extensionUsersWeek = extensionUsers.filter(u => u.createdAt > sevenDaysAgo).length;
+    const extensionUsersMonth = extensionUsers.filter(u => u.createdAt > thirtyDaysAgo).length;
+
+    // Chrome extension active users
+    const chromeActiveToday = new Set(
+      chromeExtScans.filter(s => s.timestamp > oneDayAgo).map(s => s.userId)
+    ).size;
+    const chromeActiveWeek = new Set(
+      chromeExtScans.filter(s => s.timestamp > sevenDaysAgo).map(s => s.userId)
+    ).size;
+    const chromeActiveMonth = new Set(
+      chromeExtScans.filter(s => s.timestamp > thirtyDaysAgo).map(s => s.userId)
+    ).size;
+
+    // Daily signups for chart (last 30 days)
+    const dailySignups: { date: string; count: number; extensionUsers: number }[] = [];
+    for (let i = 29; i >= 0; i--) {
+      const dayStart = new Date(now - i * 24 * 60 * 60 * 1000);
+      dayStart.setUTCHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setUTCHours(23, 59, 59, 999);
+
+      const dateKey = dayStart.toISOString().split("T")[0];
+
+      // Extension users signed up this day
+      const extUsersDay = extensionUsers.filter(u =>
+        u.createdAt >= dayStart.getTime() && u.createdAt <= dayEnd.getTime()
+      ).length;
+
+      // Unique Chrome extension users active this day
+      const chromeUsersDay = new Set(
+        chromeExtScans.filter(s =>
+          s.timestamp >= dayStart.getTime() && s.timestamp <= dayEnd.getTime()
+        ).map(s => s.userId)
+      ).size;
+
+      dailySignups.push({
+        date: dateKey,
+        count: chromeUsersDay,
+        extensionUsers: extUsersDay,
+      });
+    }
+
+    // Format extension user data for display
+    const extensionUserList = extensionUsers
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map(u => ({
+        email: u.email,
+        name: u.name || null,
+        createdAt: u.createdAt,
+        hasToken: !!u.token,
+      }));
+
+    return {
+      // Totals
+      totalExtensionUsers: extensionUsers.length,
+      totalChromeExtUsers: chromeExtUserIds.size,
+
+      // New signups
+      extensionUsersToday,
+      extensionUsersWeek,
+      extensionUsersMonth,
+
+      // Chrome activity
+      chromeActiveToday,
+      chromeActiveWeek,
+      chromeActiveMonth,
+
+      // Total Chrome extension scans
+      totalChromeScans: chromeExtScans.length,
+
+      // Chart data
+      dailySignups,
+
+      // User list
+      extensionUserList,
+
+      // Last updated
+      lastUpdated: now,
+    };
+  },
+});
+
 // Get active user locations for the globe visualization
 export const getActiveUserLocations = query({
   args: {},

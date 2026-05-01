@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
@@ -24,6 +24,8 @@ import {
   CheckCircle2,
   XCircle,
   Shield,
+  Chrome,
+  Mail,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -86,6 +88,9 @@ export function UserInsightsTab() {
   // Founder dashboard data from Convex
   const founderData = useQuery(api.analytics.getFounderDashboard, { userEmail });
 
+  // Extension user stats from Convex
+  const extensionStats = useQuery(api.analytics.getExtensionUserStats, { userEmail });
+
   // Waitlist analytics data
   const waitlistAnalytics = useQuery(api.waitlist.getWaitlistAnalytics);
 
@@ -103,23 +108,29 @@ export function UserInsightsTab() {
   // Clerk users fetched from API route
   const [clerkUsers, setClerkUsers] = useState<ClerkUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
+  const [usersLastUpdated, setUsersLastUpdated] = useState<number | null>(null);
+  const [refreshingUsers, setRefreshingUsers] = useState(false);
+
+  const fetchUsers = useCallback(async () => {
+    setRefreshingUsers(true);
+    try {
+      const res = await fetch("/api/admin/users");
+      if (res.ok) {
+        const data = await res.json();
+        setClerkUsers(data.users || []);
+        setUsersLastUpdated(Date.now());
+      }
+    } catch (err) {
+      console.error("Failed to fetch users:", err);
+    } finally {
+      setUsersLoading(false);
+      setRefreshingUsers(false);
+    }
+  }, []);
 
   useEffect(() => {
-    async function fetchUsers() {
-      try {
-        const res = await fetch("/api/admin/users");
-        if (res.ok) {
-          const data = await res.json();
-          setClerkUsers(data.users || []);
-        }
-      } catch (err) {
-        console.error("Failed to fetch users:", err);
-      } finally {
-        setUsersLoading(false);
-      }
-    }
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   // Subscription data from founder dashboard
   const proUsers = founderData?.proUsers ?? 0;
@@ -590,20 +601,36 @@ export function UserInsightsTab() {
             <div>
               <CardTitle className="text-white flex items-center gap-2">
                 <Users className="h-5 w-5 text-blue-400" />
-                Registered Users
+                Registered Users (Website)
               </CardTitle>
               <CardDescription className="text-white/60">
-                All users with accounts ({clerkUsers.length} total)
+                All users with Clerk accounts ({clerkUsers.length} total)
+                {usersLastUpdated && (
+                  <span className="ml-2 text-white/40">
+                    · Updated {new Date(usersLastUpdated).toLocaleTimeString()}
+                  </span>
+                )}
               </CardDescription>
             </div>
-            <Button
-              onClick={exportUsersToCSV}
-              disabled={clerkUsers.length === 0}
-              className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={fetchUsers}
+                disabled={refreshingUsers}
+                variant="outline"
+                className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${refreshingUsers ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+              <Button
+                onClick={exportUsersToCSV}
+                disabled={clerkUsers.length === 0}
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {usersLoading ? (
@@ -710,6 +737,225 @@ export function UserInsightsTab() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* CHROME EXTENSION USERS SECTION */}
+      {/* ═══════════════════════════════════════════════════════ */}
+
+      {/* Divider */}
+      <motion.div variants={itemVariants} className="relative py-4">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-white/10" />
+        </div>
+        <div className="relative flex justify-center">
+          <span className="bg-background px-4 text-white/40 text-sm font-medium uppercase tracking-widest">
+            Chrome Extension Users
+          </span>
+        </div>
+      </motion.div>
+
+      {/* Extension Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <AnimatedStatCard
+          title="Extension Users"
+          value={extensionStats?.totalExtensionUsers ?? 0}
+          subtitle="Signed up via extension"
+          icon={Chrome}
+          gradient="bg-gradient-to-br from-[#4285F4]/20 to-[#34A853]/20"
+          delay={0}
+        />
+        <AnimatedStatCard
+          title="Active Today"
+          value={extensionStats?.chromeActiveToday ?? 0}
+          subtitle="Used extension today"
+          icon={Zap}
+          gradient="bg-gradient-to-br from-green-500/20 to-emerald-500/20"
+          delay={0.05}
+        />
+        <AnimatedStatCard
+          title="Active This Week"
+          value={extensionStats?.chromeActiveWeek ?? 0}
+          subtitle="Last 7 days"
+          icon={TrendingUp}
+          gradient="bg-gradient-to-br from-cyan-500/20 to-blue-500/20"
+          delay={0.1}
+        />
+        <AnimatedStatCard
+          title="Total Scans"
+          value={extensionStats?.totalChromeScans ?? 0}
+          subtitle="Via Chrome extension"
+          icon={Target}
+          gradient="bg-gradient-to-br from-purple-500/20 to-pink-500/20"
+          delay={0.15}
+        />
+      </div>
+
+      {/* Extension Activity Chart */}
+      <motion.div variants={itemVariants}>
+        <Card className="bg-white/5 backdrop-blur-xl border border-[#4285F4]/30 shadow-lg shadow-[#4285F4]/10">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Chrome className="h-5 w-5 text-[#4285F4]" />
+              Extension Activity (Last 30 Days)
+            </CardTitle>
+            <CardDescription className="text-white/60">
+              Daily active extension users
+              {extensionStats?.lastUpdated && (
+                <span className="ml-2 text-white/40">
+                  · Updated {new Date(extensionStats.lastUpdated).toLocaleTimeString()}
+                </span>
+              )}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {extensionStats?.dailySignups ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={extensionStats.dailySignups}>
+                  <defs>
+                    <linearGradient id="extUsersGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#4285F4" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#4285F4" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="extSignupsGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#34A853" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#34A853" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                  <XAxis
+                    dataKey="date"
+                    stroke="rgba(255,255,255,0.5)"
+                    fontSize={10}
+                    tickFormatter={(v) => {
+                      const d = new Date(v);
+                      return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+                    }}
+                  />
+                  <YAxis stroke="rgba(255,255,255,0.5)" fontSize={12} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "rgba(15,15,30,0.95)",
+                      border: "1px solid rgba(66,133,244,0.3)",
+                      borderRadius: "8px",
+                      color: "#fff",
+                    }}
+                    labelFormatter={(label) => {
+                      const d = new Date(label);
+                      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+                    }}
+                  />
+                  <Legend />
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    stroke="#4285F4"
+                    fill="url(#extUsersGradient)"
+                    strokeWidth={2}
+                    name="Active Users"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="extensionUsers"
+                    stroke="#34A853"
+                    fill="url(#extSignupsGradient)"
+                    strokeWidth={2}
+                    name="New Signups"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[280px]">
+                <div className="h-8 w-8 border-2 border-[#4285F4]/30 border-t-[#4285F4] rounded-full animate-spin" />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Extension Users Table */}
+      <motion.div variants={itemVariants}>
+        <Card className="bg-white/5 backdrop-blur-xl border border-[#34A853]/30 shadow-lg shadow-[#34A853]/10">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Mail className="h-5 w-5 text-[#34A853]" />
+              Extension User Accounts
+            </CardTitle>
+            <CardDescription className="text-white/60">
+              Users who signed up via the Chrome extension ({extensionStats?.totalExtensionUsers ?? 0} total)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {extensionStats === undefined ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="h-8 w-8 border-2 border-[#34A853]/30 border-t-[#34A853] rounded-full animate-spin" />
+              </div>
+            ) : !extensionStats?.extensionUserList || extensionStats.extensionUserList.length === 0 ? (
+              <div className="text-center py-12">
+                <Chrome className="h-12 w-12 text-white/20 mx-auto mb-4" />
+                <p className="text-white/60">No extension user accounts yet</p>
+                <p className="text-white/40 text-sm mt-1">Users who sign up via the extension will appear here</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/10">
+                      <th className="text-left py-3 px-4 text-white/60 font-medium text-sm">#</th>
+                      <th className="text-left py-3 px-4 text-white/60 font-medium text-sm">Email</th>
+                      <th className="text-left py-3 px-4 text-white/60 font-medium text-sm">Name</th>
+                      <th className="text-left py-3 px-4 text-white/60 font-medium text-sm">Signed Up</th>
+                      <th className="text-left py-3 px-4 text-white/60 font-medium text-sm">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {extensionStats.extensionUserList.map((u, index) => (
+                      <tr
+                        key={u.email}
+                        className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                      >
+                        <td className="py-3 px-4 text-white/40 text-sm">{index + 1}</td>
+                        <td className="py-3 px-4">
+                          <a
+                            href={`mailto:${u.email}`}
+                            className="text-[#34A853] hover:text-[#34A853]/80 transition-colors text-sm"
+                          >
+                            {u.email}
+                          </a>
+                        </td>
+                        <td className="py-3 px-4 text-white text-sm">
+                          {u.name || <span className="text-white/40">—</span>}
+                        </td>
+                        <td className="py-3 px-4 text-white/60 text-sm">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3 text-white/40" />
+                            {new Date(u.createdAt).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              u.hasToken
+                                ? "bg-green-500/20 text-green-400"
+                                : "bg-gray-500/20 text-gray-400"
+                            }`}
+                          >
+                            {u.hasToken ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* ═══════════════════════════════════════════════════════ */}
       {/* WAITLIST ANALYTICS SECTION */}
       {/* ═══════════════════════════════════════════════════════ */}
