@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { BudgetAnalyzer } from "@/components/admin/BudgetAnalyzer";
+import { OutreachEmailSection } from "@/components/admin/OutreachEmailSection";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1079,6 +1080,12 @@ function InfluencerCard({
                       </p>
                     </div>
                   )}
+
+                  {/* Outreach Email: generated, humanized, scored 9.5+/10, editable */}
+                  <OutreachEmailSection
+                    influencerId={influencer.id}
+                    influencerName={influencer.name}
+                  />
                 </div>
               </motion.div>
             )}
