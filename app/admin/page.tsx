@@ -32,6 +32,7 @@ import {
 const LIFETIME_PRO_EMAILS = [
   "malonep246@aol.com",
   "peteywb123@gmail.com",
+  "niacgilbert@gmail.com",
 ];
 import { toast } from "sonner";
 import Link from "next/link";
