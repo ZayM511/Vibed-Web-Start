@@ -19,6 +19,7 @@ const FOUNDER_EMAILS = [
 const LIFETIME_PRO_EMAILS = [
   "malonep246@aol.com",
   "peteywb123@gmail.com",
+  "niacgilbert@gmail.com",
 ];
 
 /**
